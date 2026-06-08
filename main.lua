@@ -27,4 +27,14 @@ end
 
 --- Love2D-like dispatcher for frontend → Lua events.
 function coconut.events(name, payload, ctx)
+  if name == "navigate" then
+    ctx:show(payload.view)
+  end
+end
+
+--- Register commands (called from ctx:bind).
+function coconut.commands(ctx)
+  ctx:bind("ping", function(params, ctx)
+    return "pong"
+  end)
 end

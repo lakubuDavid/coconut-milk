@@ -303,6 +303,24 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
     }
   }
 
+  // ── coconut.commands(ctx) ──────────────────────────────────────────
+  // Registers command handlers via ctx:bind().  Called after views so
+  // the bridge is fully wired and ctx is available.
+  std::cerr << "[debug]   checking coconut.commands()...\n";
+  sol::object cmds_fn = lua["coconut"]["commands"];
+  if (cmds_fn.is<sol::function>()) {
+    std::cerr << "[debug]   calling coconut.commands(ctx)...\n";
+    sol::object ctx_obj = lua["ctx"];
+    auto cmds_result = cmds_fn.as<sol::function>()(ctx_obj);
+    if (!cmds_result.valid()) {
+      sol::error err = cmds_result;
+      std::cerr << "[warn]    coconut.commands(ctx) failed: " << err.what()
+                << "\n";
+    } else {
+      std::cerr << "[debug]   coconut.commands(ctx) applied\n";
+    }
+  }
+
   std::cerr << "[debug] loadEntryPoint done\n";
   return true;
 }

@@ -44,7 +44,9 @@ namespace coconut {
   }
 
   void CoconutContext::show(const std::string& name) {
-    (void)name;
+    if (window != nullptr) {
+      window::showView(window, name);
+    }
   }
 
   void CoconutContext::reload() {}

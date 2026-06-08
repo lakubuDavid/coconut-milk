@@ -119,6 +119,9 @@ void WebviewTransport::static_on_rpc(const char* id, const char* req,
 }
 
 void WebviewTransport::handleCall(const char* id, const rpc::Message& msg) {
+  std::cerr << "[webview] handleCall: name='" << msg.name
+            << "' payload=" << msg.payload.dump() << "\n";
+
   // Build the full envelope so webview's onReply parses it back to an object.
   // The JS shim for __coconut_call re-stringifies it for coconut.call().
   auto respond = [this, id](nlohmann::json envelope) {
@@ -183,6 +186,9 @@ void WebviewTransport::handleCall(const char* id, const rpc::Message& msg) {
 }
 
 void WebviewTransport::handleEvent(const char* id, const rpc::Message& msg) {
+  std::cerr << "[webview] handleEvent: name='" << msg.name
+            << "' payload=" << msg.payload.dump() << "\n";
+
   // Dispatch to Lua's coconut.events(name, payload, ctx).
   if (m_app && m_app->lua_state && m_app->lua_state->lua_state &&
       m_app->lua_state->context) {
