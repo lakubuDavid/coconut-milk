@@ -14,23 +14,25 @@ end
 --- overrides on top of the defaults from coconut.config.lua.
 function coconut.config(ctx)
   ctx
-    :setBrowser("auto")
-    :setWindowSize({ w = 1280, h = 640 })
-    :setInitialView("home")
+      :setBrowser("auto")
+      :setWindowSize({ w = 1280, h = 640 })
+      :setInitialView("home")
 
   return ctx
 end
 
 --- Called when the window is resized.
-function coconut.on_resize(ctx, w, h)
+function coconut.onResize(ctx, w, h)
   -- coconut.emit("on_resize", { w = w, h = h })
-  print(w,h)
+  print(w, h)
 end
 
 --- Love2D-like dispatcher for frontend → Lua events.
 function coconut.events(name, payload, ctx)
   if name == "navigate" then
     ctx:show(payload.view)
+  elseif name == "resize" then
+    print(payload.w, payload.h)
   end
 end
 
