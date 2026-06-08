@@ -102,11 +102,11 @@ A Love2D-like main dispatcher callback for **frontend → Lua events**.
 
 View controller callbacks are attached via methods on the view descriptor, for example:
 
-- `view:defineProps(default_props)` — declares view props defaults
-- `view:on_load(fn)` — once when the view is first loaded/created
-- `view:on_mount(fn)` — when the view becomes the active/visible view
-- `view:on_unmount(fn)` — when switching away from the view
-- `view:on_frontend_event(name, fn)` — when a frontend event is emitted while the view is active
+- `view:defineProps(default_props)` - declares view props defaults
+- `view:on_load(fn)` - once when the view is first loaded/created
+- `view:on_mount(fn)` - when the view becomes the active/visible view
+- `view:on_unmount(fn)` - when switching away from the view
+- `view:on_frontend_event(name, fn)` - when a frontend event is emitted while the view is active
 
 In addition, Coconut may also call `coconut.events(name, payload, ctx)` as a global dispatcher for frontend → Lua events.
 
@@ -519,85 +519,183 @@ The following parts are not specified yet and will be discussed next:
 
 ## 11. Bridge design v0
 
-Coconut uses a **hybrid bridge**:
+Coconut uses a **layered bridge**:
 
-- WebUI provides the underlying transport and callback primitives.
-- Coconut defines a small normalized message contract on top of it.
-- The Lua API stays stable even if the WebUI backend changes later.
+1. **RPC envelope** — a canonical message shape that all bridge traffic uses
+2. **Transport abstraction** — a pluggable interface for sending/receiving envelopes
+3. **Platform transport** — a concrete implementation (WebUI today, webview target)
 
-### 11.1 Transport layer
+The Lua API stays stable regardless of which transport is active.
 
-The transport layer is based on WebUI's native capabilities:
+### 11.1 RPC envelope
 
-- native -> frontend uses WebUI script execution
-- frontend -> native uses WebUI callback/bind mechanisms
+The bridge uses a single canonical envelope for all JS ↔ C++ communication.
 
-Coconut should not expose WebUI transport details directly to application code.
+It is defined in `src/rpc_envelope.h` as:
 
-### 11.2 Public bridge contract
+```cpp
+namespace coconut::rpc {
 
-The bridge uses a JSON envelope for messages.
+enum class Type {
+  kCall,    // Request a command call (JS → C++)
+  kReturn,  // Successful response to a call (C++ → JS)
+  kError,   // Error response to a call (C++ → JS)
+  kEvent,   // One-way fire-and-forget (either direction)
+  kReady,   // Bridge readiness handshake (JS → C++)
+};
 
-#### Common envelope fields
+struct Message {
+  Type        type;     // discriminator
+  std::string id;       // empty for fire-and-forget
+  std::string name;     // command name, event name, or binding name
+  nlohmann::json payload; // params, result, or error details
 
-```lua
----@class CoconutBridgeMessage
----@field type string
----@field id? string|integer
----@field name? string
----@field payload? table
----@field error? table
+  nlohmann::json toJson() const;
+  static Message fromJson(const nlohmann::json& j);
+  static Message fromJson(const std::string& s);
+};
+
+} // namespace coconut::rpc
 ```
 
-### 11.3 Message types
+#### Envelope JSON shape
 
-#### `ready`
-Sent by the frontend when the bridge is initialized and ready to receive messages.
+```json
+{ "type": "call",   "id": "uuid",  "name": "cmd", "payload": {…} }
+{ "type": "return", "id": "uuid",                    "payload": <any> }
+{ "type": "error",  "id": "uuid",                    "payload": { "code": "…", "message": "…" } }
+{ "type": "event",                      "name": "evt", "payload": {…} }
+{ "type": "ready" }
+```
 
-#### `event`
-A one-way message from Lua to frontend.
+#### Envelope rules
 
-Used by `ctx:emit(name, payload)`.
+- `id` is required for `call`, `return`, and `error`
+- `name` is required for `call` and `event`
+- `payload` is a JSON value (object, array, or primitive)
+- `error` is only used on failure envelopes
+- the `type` field is the primary discriminator
+- `ready` has no `id` and carries no payload
+- `event` is used in both directions; its namespace is separate from commands
 
-#### `event_sync`
-A blocking Lua to frontend message.
+### 11.2 Transport abstraction
 
-Used by `ctx:emit_sync(name, payload)`.
+The transport interface is defined in `src/transport.h`:
+
+```cpp
+namespace coconut::transport {
+
+using MessageCallback = std::function<void(const rpc::Message&)>;
+
+class Transport {
+public:
+  virtual ~Transport() = default;
+  virtual void send(const rpc::Message& msg) = 0;
+  virtual void setMessageCallback(MessageCallback cb) = 0;
+};
+
+} // namespace coconut::transport
+```
+
+Concrete implementations:
+
+| Transport | Mechanism | Direction |
+|---|---|---|
+| `WebuiTransport` (current) | `webui_run()` → JS eval, `webui_bind()` ← WebSocket callback | Outgoing via eval, incoming via bound function |
+| `WebviewTransport` (target) | `webview_eval()` → JS, `webview_bind()` ← native WKScriptMessageHandler | Outgoing via eval, incoming via native handler |
+
+### 11.3 Transport ownership
+
+The transport is owned by `bridge::State` and created via `bridge::createTransport(app)`:
+
+```cpp
+// bridge::State now carries a Transport pointer
+struct State {
+  Config*               configs    = nullptr;
+  transport::Transport* transport  = nullptr;  // owned
+};
+
+// Factory
+void createTransport(App* app);
+```
+
+`createTransport()`:
+1. Creates a platform-specific transport (currently `WebuiTransport`)
+2. Stores it on `app->bridge_state->transport`
+3. Sets up the frontend binding via `setupEmitBinding()`
+4. In `lua_runtime.cpp`, the call changes from `bridge::setupEmitBinding()` → `bridge::createTransport()`
+
+The transport is destroyed in `bridge::destroy()`, which deletes the concrete transport before freeing the state.
+
+#### Outgoing RPC helper
+
+```cpp
+void rpcSend(App* app, const rpc::Message& msg);
+```
+
+This is the preferred way to send any RPC message from C++ to JS. It looks up the transport from `app->bridge_state` and calls its `send()` method.
+
+### 11.4 Legacy path (pre-refactor)
+
+Existing bridge functions (`emitToJS`, `callJS`, `emitToLua`, `callLua`) continue to work as direct wrappers around WebUI calls. They do not use the transport layer.
+
+Migration plan:
+
+| Phase | Change |
+|---|---|
+| Current | Both legacy and RPC paths coexist. `createTransport()` sets up the transport + binding. Legacy functions (`emitToJS`, `callJS`) bypass the transport. |
+| webview migration | `emitToJS` / `callJS` rewritten to use `transport->send(RpcMessage)`. A `WebviewTransport` replaces `WebuiTransport`. |
+| Complete | Legacy path removed. All C++ ↔ JS traffic goes through the transport interface. |
+
+### 11.5 Message types
 
 #### `call`
-A frontend to Lua command invocation.
+Frontend → Lua command invocation. Used when JavaScript calls `coconut.call(name, payload)`.
 
-Used when JavaScript requests a bound Lua command.
-
-The frontend receives a `Promise` for the result.
+- `id` is required for promise tracking
+- `name` is the registered command name
+- `payload` is the params table
 
 #### `return`
-A response message for request/response flows.
+Successful response to a `call`. C++ → JS.
 
-Used when the frontend or Lua side expects a value back.
-
-Promise resolution on the frontend is completed with this message.
+- `id` must match the call's id
+- `payload` is the return value from the Lua command
 
 #### `error`
-An error response for failed dispatches or malformed payloads.
+Error response to a `call`. C++ → JS.
 
-### 11.4 Lua -> frontend flow
+- `id` must match the call's id
+- `payload` is an object with `code`, `message`, and optional `details`
+
+#### `event`
+A one-way fire-and-forget message in either direction.
+
+Used by:
+- `ctx:emit(name, payload)` — Lua → frontend
+- `coconut.emit(name, payload)` — frontend → Lua
+- `__coconut_dispatch_event(name, payloadJson)` — injected JS runtime
+
+#### `ready`
+Sent by the frontend when the bridge initializes. See frontend readiness below.
+
+### 11.6 Lua → frontend flow
 
 `ctx:emit(name, payload)`
 
 - async by default
-- serializes a message envelope
+- serializes a `kEvent` RPC message
 - queues it for delivery
 - returns immediately
 
 `ctx:emit_sync(name, payload)`
 
-- serializes the same envelope
+- serializes the same `kEvent` envelope
 - sends it immediately
 - blocks until the dispatch step completes
 - may return an error if the frontend is not ready
 
-### 11.5 Frontend -> Lua flow
+### 11.7 Frontend → Lua flow
 
 Bound commands are invoked from the frontend using the command name registered by `ctx:bind(name, fn)`.
 
@@ -610,9 +708,9 @@ Rules:
 - the frontend call returns a `Promise`
 - the promise resolves with the Lua return value or rejects with an error
 
-### 11.5.1 Public frontend API
+### 11.7.1 Public frontend API
 
-Coconut should expose a small base frontend API, for example:
+Coconut exposes a small base frontend API:
 
 ```ts
 await coconut.ready()
@@ -623,11 +721,7 @@ const unsub = coconut.on("toast", (payload) => {
 await coconut.emit("frontend_ready", { at: Date.now() })
 ```
 
-Generated command helpers should wrap this base API rather than replace it.
-
-Generated helper modules should also export a union of known command names for autocomplete and type narrowing.
-
-Example future usage:
+Generated command helpers wrap this base API:
 
 ```ts
 import { sayHi } from "./commands/hello.g"
@@ -635,9 +729,7 @@ import { sayHi } from "./commands/hello.g"
 await sayHi({ name: "Ada" })
 ```
 
-This keeps `coconut.call(...)` available for generic or dynamic calls while still giving typed helpers for known commands.
-
-Suggested generated type shape:
+Generated type shape:
 
 ```ts
 export type CoconutCommandName = "sayHi" | "hello" | "note"
@@ -649,7 +741,7 @@ interface CoconutFrontendAPI<TCommandName extends string = CoconutCommandName> {
 
 ### Bridge payload encoding (v1)
 
-Across the `__coconut_*` bound functions, Coconut standardizes payload transport:
+Across the bound functions, Coconut standardizes payload transport:
 
 - every `payload` is serialized as a **JSON string** in JavaScript
 - C++ parses the JSON string into Lua tables
@@ -657,9 +749,9 @@ Across the `__coconut_*` bound functions, Coconut standardizes payload transport
 
 ### `coconut.call(...)` response envelope
 
-`coconut.call(name, payload)` ultimately relies on a C++ implementation of `__coconut_call(name, payloadJson)`.
+`coconut.call(name, payload)` relies on a C++ implementation of `__coconut_call(name, payloadJson)`.
 
-The C++ side must return a single JSON string envelope:
+The C++ side returns a single JSON string envelope:
 
 - success:
   - `{ "ok": true, "data": <lua/js value> }`
@@ -669,18 +761,16 @@ The C++ side must return a single JSON string envelope:
 JavaScript `coconut.call(...)` resolves with `data` on success and rejects with the decoded error on failure.
 
 #### `coconut.ready()`
-Returns a `Promise<void>` that resolves when the bridge handshake has completed and both sides are ready.
-
-Generated helpers and manual calls may await this before issuing bridge traffic.
+Returns a `Promise<void>` that resolves when the bridge handshake has completed.
 
 #### `coconut.on(name, fn)`
 Registers a frontend listener for a named Lua-emitted event.
 
-Runtime glue: Coconut’s injected JS should call `__coconut_dispatch_event(name, payloadJson)`.
+Runtime glue: Coconut's injected JS calls `__coconut_dispatch_event(name, payloadJson)`.
 
 - `name` is the event name (event namespace)
 - `payloadJson` is the JSON-string serialized payload
-- Coconut then parses `payloadJson` and invokes registered `on(...)` callbacks
+- Coconut parses `payloadJson` and invokes registered `on(...)` callbacks
 
 #### `coconut.emit(name, payload)`
 
@@ -701,7 +791,8 @@ Ack semantics (v1):
 - `coconut.emit(...)` relies on `__coconut_emit(name, payloadJson)`
 - `__coconut_emit` may return an empty/undefined value for success
 - if it returns a JSON envelope string, the envelope must match the `coconut.call(...)` failure form (`{ ok:false, error: ... }`) and the JS `emit` Promise rejects accordingly
-### 11.5.2 Namespace separation
+
+#### Namespace separation
 
 Coconut keeps command names and event names in separate namespaces.
 
@@ -712,23 +803,11 @@ Coconut keeps command names and event names in separate namespaces.
 #### `coconut.on(name, fn)` return value
 Returns an unsubscribe function.
 
-Suggested TypeScript type:
-
 ```ts
 type CoconutUnsubscribe = () => void
 ```
 
-Example:
-
-```ts
-const unsub = coconut.on("toast", (payload) => {
-  console.log(payload.message)
-})
-
-unsub()
-```
-
-### 11.6 Frontend readiness
+### 11.8 Frontend readiness
 
 Coconut uses a **two-way handshake** to determine when the bridge is active.
 
@@ -736,12 +815,12 @@ Coconut uses a **two-way handshake** to determine when the bridge is active.
 
 1. C++ creates the bridge and loads the frontend.
 2. The frontend bridge script initializes.
-3. The frontend sends `ready`.
+3. The frontend sends `ready` (a `kReady` RPC message).
 4. The runtime acknowledges that the bridge is active.
 
 #### Startup behavior before `ready`
 
-- async Lua -> frontend events are queued
+- async Lua → frontend events are queued
 - `coconut.emit(...)` queues until the bridge is ready
 - `coconut.call(...)` waits until the bridge is ready, then proceeds
 - sync operations may fail if the bridge is not available
@@ -749,24 +828,20 @@ Coconut uses a **two-way handshake** to determine when the bridge is active.
 
 #### `ready` message
 
-`ready` is the frontend's signal that its bridge layer is initialized and able to participate in message exchange.
+The frontend-side Promise returned by `coconut.ready()` resolves when the runtime calls `__coconut_bridge_ready()`.
 
-The runtime may use the handshake to establish that both sides are prepared before allowing normal traffic.
+Implementation note:
+- `__coconut_bridge_ready()` is a global function that Coconut's injected JS exposes
+- C++ calls it after the bridge dispatcher is installed and the bound functions are usable
 
-In v1, the frontend-side Promise returned by `coconut.ready()` is resolved when the runtime calls the injected JS entrypoint `__coconut_bridge_ready()`.
-
-Implementation note (bridge/glue):
-- `__coconut_bridge_ready()` is a global function that Coconut’s injected JS must expose
-- C++ should call it after the bridge dispatcher is installed and the bound functions are usable
-
-### 11.6.1 Pre-ready buffering rules
+### 11.8.1 Pre-ready buffering rules
 
 - event queues are allowed before readiness
 - command calls wait for readiness
 - queued events must preserve order per bridge context
 - if the queue overflows or the bridge never becomes ready, the runtime should reject with a bridge error instead of silently dropping messages
 
-### 11.7 Error handling
+### 11.9 Error handling
 
 Coconut uses **error values** instead of exceptions for normal recoverable failures.
 
@@ -801,16 +876,12 @@ struct Error {
 
 Bridge errors should be normalized into a structured error table.
 
-Suggested shape:
-
 ```lua
 ---@class CoconutBridgeError
 ---@field code string
 ---@field message string
 ---@field details? table
 ```
-
-Suggested TypeScript shape:
 
 ```ts
 export interface CoconutError {
@@ -830,119 +901,23 @@ If a frontend command promise is rejected, the rejection reason should be derive
 - use `message` for short human-readable summaries
 - use `details` for optional context, logs, or serialization hints
 
-### 11.8 Wire envelope by use case
+### 11.10 Implementation status
 
-The wire envelope is the internal bridge contract used by Coconut's runtime and generated helpers.
+#### Current (WebUI)
 
-It is **conceptual and object-shaped**. The runtime may represent it natively in C++/Lua/JS and does not need to stringify it as JSON unless the transport requires that.
+- RPC envelope types defined in `rpc_envelope.h` ✓
+- Transport interface defined in `transport.h` ✓
+- `WebuiTransport` implemented in `bridge.cpp` ✓
+- `bridge::createTransport(app)` creates transport + binding ✓
+- Legacy `emitToJS` / `callJS` still bypass transport (next phase)
+- Transport cleanup in `bridge::destroy()` ✓
 
-Suggested TypeScript shapes:
+#### Next (post-migration to webview)
 
-```ts
-export type CoconutWireCall = {
-  type: "call"
-  id: string
-  name: string
-  payload: Record<string, unknown>
-}
-
-export type CoconutWireReturn<T = unknown> = {
-  type: "return"
-  id: string
-  payload: T
-}
-
-export type CoconutWireError = {
-  type: "error"
-  id: string
-  error: CoconutError
-}
-
-export type CoconutWireEvent = {
-  type: "event"
-  name: string
-  payload: Record<string, unknown>
-}
-
-export type CoconutWireReady = {
-  type: "ready"
-}
-```
-
-#### `call`
-
-```lua
----@class CoconutWireCall
----@field type "call"
----@field id string
----@field name string
----@field payload table
-```
-
-Used for frontend -> Lua command requests.
-
-#### `return`
-
-```lua
----@class CoconutWireReturn
----@field type "return"
----@field id string
----@field payload any
-```
-
-Used for successful responses to `call`.
-
-#### `error`
-
-```lua
----@class CoconutWireError
----@field type "error"
----@field id string
----@field error CoconutBridgeError
-```
-
-Used when a `call` or a bridge operation fails.
-
-#### `event`
-
-```lua
----@class CoconutWireEvent
----@field type "event"
----@field name string
----@field payload table
-```
-
-Used for Lua -> frontend events and frontend -> Lua signaling.
-
-#### `ready`
-
-```lua
----@class CoconutWireReady
----@field type "ready"
-```
-
-Used by the frontend to announce the bridge is ready.
-
-### 11.9 Envelope rules
-
-- `id` is required for `call`, `return`, and `error`
-- `name` is required for `call` and `event`
-- `payload` is a table for all bridge payload-bearing messages in v0
-- `error` is only used on failure envelopes
-- the `type` field is the primary discriminator
-- the same message type should not reuse an `id`
-- `ready` has no `id` and carries no payload
-- `event` is used in both directions for signaling, but its namespace is separate from commands
-
-### 11.10 v0 implementation intent
-
-In v0, the bridge should remain simple:
-
-- avoid exposing WebUI-specific concepts in the public Lua API
-- keep the protocol stable
-- keep payloads as tables only
-- keep the frontend protocol small enough to version later
-- treat JSON as a conceptual schema, not a required internal representation
+- `WebviewTransport` for native WKWebView
+- All outbound messages use `transport->send(RpcMessage)`
+- Legacy path removed
+- JS protocol unified under `__coconut_rpc_receive` and `__coconut_rpc`
 
 ---
 

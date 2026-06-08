@@ -3,6 +3,8 @@
 
 #include "config.h"
 #include "error.h"
+#include "rpc_envelope.h"
+#include "transport.h"
 extern "C" {
   #include "webui.h"
 }
@@ -11,6 +13,7 @@ extern "C" {
 #include <nlohmann/json.hpp>
 
 #include <expected>
+#include <memory>
 
 #include <sol/sol.hpp>
 #include <sol/table.hpp>
@@ -20,7 +23,8 @@ namespace coconut {
   namespace bridge {
 
     struct State {
-      Config* configs = nullptr;
+      Config*                   configs    = nullptr;
+      transport::Transport*     transport  = nullptr; ///< owned, deleted in destroy()
     };
 
     std::expected<State*, Error> create(Config* config);
@@ -33,9 +37,11 @@ namespace coconut {
     void callLua(coconut::App* app,std::string fuctionName,nlohmann::json payload);
     void callJS(coconut::App* app,std::string functionName,nlohmann::json payload);
 
-    /// Register the __coconut_emit JS callback and inject the JS adapter.
-    /// Encapsulates the webui_bind / set_context / run calls that were
-    /// previously in lua_runtime.cpp.
+    /// Create a transport for the given app and store it on the bridge State.
+    /// Also registers the frontend-side binding and injects the JS adapter.
+    void createTransport(App* app);
+
+    /// Register the JS listener for inbound messages.
     void setupEmitBinding(App* app);
 
     void _coconut_js_listener(webui_event_t* e);

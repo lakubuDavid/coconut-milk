@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <format>
+#include <memory>
 #include <string>
 
 namespace coconut::bridge {
@@ -324,6 +325,72 @@ void callJS(coconut::App *app, std::string functionName,
   webui_run(app->window->window_id, script.c_str());
 }
 
+// ---------------------------------------------------------------------------
+// WebUI transport implementation
+// ---------------------------------------------------------------------------
+
+namespace {
+
+/// Concrete transport that sends/receives RPC messages over WebUI's
+/// webui_run()/webui_bind() mechanism.
+class WebuiTransport : public transport::Transport {
+public:
+  WebuiTransport(size_t win_id) : m_win_id(win_id) {}
+
+  ~WebuiTransport() override = default;
+
+  void send(const rpc::Message& msg) override {
+    auto json = msg.toJson().dump();
+    auto escaped = escapeJsSingleQuotedString(json);
+    auto script = std::format(
+        "globalThis.__coconut_rpc_receive('{}');", escaped);
+    webui_run(m_win_id, script.c_str());
+  }
+
+  void setMessageCallback(transport::MessageCallback cb) override {
+    m_callback = std::move(cb);
+  }
+
+  size_t windowId() const { return m_win_id; }
+  const transport::MessageCallback& callback() const { return m_callback; }
+
+private:
+  size_t m_win_id;
+  transport::MessageCallback m_callback;
+};
+
+} // anonymous namespace
+
+// ---------------------------------------------------------------------------
+// Transport creation and setup
+// ---------------------------------------------------------------------------
+
+void createTransport(coconut::App* app) {
+  if (app == nullptr || app->window == nullptr || app->bridge_state == nullptr) {
+    return;
+  }
+  const size_t win_id = app->window->window_id;
+  if (win_id == 0) {
+    return;
+  }
+
+  // Create the WebUI transport and store on bridge state.
+  auto* t = new WebuiTransport(win_id);
+  app->bridge_state->transport = t;
+
+  // Bind the incoming message handler.
+  setupEmitBinding(app);
+}
+
+/// Send an RPC message through the bridge state's transport.
+void rpcSend(coconut::App* app, const rpc::Message& msg) {
+  if (app == nullptr || app->bridge_state == nullptr ||
+      app->bridge_state->transport == nullptr) {
+    return;
+  }
+  app->bridge_state->transport->send(msg);
+}
+
 void setupEmitBinding(coconut::App* app) {
   if (app == nullptr || app->window == nullptr) {
     return;
@@ -400,6 +467,13 @@ void _coconut_js_listener(webui_event_t* e) {
   dispatchEventToLua(e);
 }
 
-void destroy(State *state) { delete state; }
+void destroy(State *state) {
+  if (state == nullptr) {
+    return;
+  }
+  delete state->transport; // WebuiTransport
+  state->transport = nullptr;
+  delete state;
+}
 
 } // namespace coconut::bridge
