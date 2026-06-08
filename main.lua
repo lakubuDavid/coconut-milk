@@ -5,7 +5,7 @@ function coconut.views()
   return {
     home = View.load("views/home.html"),
     note = View.load("views/note.html"),
-    about = View.html([[<h1>About</h1><p>A minimal Lua desktop UI framework.</p>]]),
+    commands=View.load("views/commands.html"),
   }
 end
 
@@ -25,11 +25,6 @@ end
 function coconut.onResize(ctx, w, h)
   -- coconut.emit("on_resize", { w = w, h = h })
   print(w, h)
-end
-
---- Register commands explicitly (optional — C++ also auto-loads from commands/*.g.lua)
-function coconut.commands(ctx)
-  -- Example: ctx:bind("my_command", require("commands.my_module").handler)
 end
 
 --- Love2D-like dispatcher for frontend → Lua events.
