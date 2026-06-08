@@ -1,19 +1,15 @@
 --- Coconut Milk application entry point.
----
---- Defines the application callbacks that the framework calls after
---- loading the base config (coconut.config.lua) and setting up the runtime.
 
 --- Returns a table of named view descriptors.
---- TODO: populate with real View.url/html/load calls once View methods are bound.
 function coconut.views()
-  return {}
+  return {
+    home = View.html([[<h1>Home</h1><p>Welcome to Coconut Milk.</p>]]),
+    about = View.html([[<h1>About</h1><p>A minimal Lua desktop UI framework.</p>]]),
+  }
 end
 
 --- Startup config hook.
---- Receives the runtime ctx object and uses chainable setters to
---- override config-file settings (browser, window size, initial view).
----
---- The setters mutate the shared Config in-place, merging app-level
+--- The ctx setters mutate the shared Config in-place, merging app-level
 --- overrides on top of the defaults from coconut.config.lua.
 function coconut.config(ctx)
   ctx

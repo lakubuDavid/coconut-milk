@@ -1,6 +1,7 @@
-#ifndef COMMENT_PARSER_HPP
-#define COMMENT_PARSER_HPP
+#ifndef COMMAND_DEFINITION_HPP
+#define COMMAND_DEFINITION_HPP
 
+#include "type_parser.hpp"
 #include "utils.hpp"
 #include <cstring>
 #include <iostream>
@@ -254,8 +255,38 @@ std::vector<CommandDefinition> commentsFsm(std::string code) {
 
   return ctx.commands;
 }
+/// Safely parse a LuaCATS type string, falling back to raw text on error.
+static std::string formatTypeOrPassthrough(const std::string& raw,
+                                            std::string (*fmt)(const Type&)) {
+  if (raw.empty()) return "any";
+  try {
+    Type parsed = parseType(raw);
+    return fmt(parsed);
+  } catch (const TypeParseError&) {
+    return raw; // fallback: use the raw string as-is
+  }
+}
+
+/// Write the preamble of runtime function declarations that the generated
+/// JS wrappers depend on (__coconut_call, etc.).  These are ambient
+/// declarations so editors/LSP don't flag undeclared variables.
+static void writeRuntimeDeclarations(std::ostream& out) {
+  out << "// Runtime functions used by the generated wrappers.\n";
+  out << "// These are provided by the Coconut Milk bridge at runtime.\n";
+  out << "\n";
+  out << "/**\n";
+  out << " * Call a Lua command registered via ctx:bind.\n";
+  out << " * @param name - Command name (matches the @command tag).\n";
+  out << " * @param payload - Parameters forwarded to the Lua handler.\n";
+  out << " * @returns Promise resolving with the Lua return value.\n";
+  out << " */\n";
+  out << "declare function __coconut_call<T >(name: string, payload: Record<string, unknown>): Promise<T>;\n";
+  out << "\n";
+}
+
 std::string generateTSDefinition(std::vector<CommandDefinition> commandDefs) {
   std::stringstream generatedDTS;
+  writeRuntimeDeclarations(generatedDTS);
   for (auto def : commandDefs) {
     // JSDoc string
     generatedDTS << "/**" << std::endl;
@@ -263,20 +294,34 @@ std::string generateTSDefinition(std::vector<CommandDefinition> commandDefs) {
     generatedDTS << "*/" << std::endl;
     generatedDTS << "declare function " << def.name << "(";
     for (auto param : def.parameters) {
-      generatedDTS << param.name << ":" << param.type << ",";
+      std::string tsType = formatTypeOrPassthrough(param.type, formatTypeTS);
+      generatedDTS << param.name << ":" << tsType << ",";
     }
     generatedDTS << ") : Promise<[";
-    generatedDTS << def.returnTypes << "]>;" << std::endl;
+    {
+      std::string ret =
+          formatTypeOrPassthrough(def.returnTypes, formatTypeTS);
+      generatedDTS << ret;
+    }
+    generatedDTS << "]>;" << std::endl;
   }
   return generatedDTS.str();
 }
-std::string generateTSWrapper(std::vector<CommandDefinition> commandDefs) {
+
+/// Generate a JavaScript wrapper with JSDoc type annotations.
+///
+/// The output is plain JS that works without a build step.  Editors with
+/// JSDoc support (VS Code, etc.) provide full type hints from the
+/// annotations, so consumers don't need TypeScript or a bundler.
+std::string generateJSWrapper(std::vector<CommandDefinition> commandDefs) {
   std::stringstream out;
   out << "// Auto-generated command wrappers. Do not edit.\n";
-  out << "// Uses __coconut_call for Lua command invocation.\n\n";
+  out << "// Uses __coconut_call for Lua command invocation.\n";
+  out << "// Plain JS with JSDoc — no build step required.\n";
+  out << "// @ts-check\n\n";
 
   for (const auto& def : commandDefs) {
-    // JSDoc comment — handle multiline descriptions
+    // JSDoc block comment
     out << "/**\n";
     {
       std::string d = def.description;
@@ -288,39 +333,56 @@ std::string generateTSWrapper(std::vector<CommandDefinition> commandDefs) {
       }
       if (prev < d.length()) {
         out << " * " << d.substr(prev) << "\n";
-      } else if (prev == 0 && d.empty()) {
-        // no description
       }
     }
+    // JSDoc @param entries with parsed types
+    // LuaCATS marks optional params with a trailing ? on the name
+    // (e.g. `---@param remember? boolean`).  In JSDoc we use bracket
+    // notation `[name]` — valid JS and understood by editors.
     for (const auto& p : def.parameters) {
-      out << " * @param " << p.name << " " << p.type << "\n";
+      if (p.name == "ctx") continue;
+      std::string jsType = formatTypeOrPassthrough(p.type, formatTypeJS);
+      std::string jsName = p.name;
+      if (!jsName.empty() && jsName.back() == '?') {
+        jsName.pop_back();
+        out << " * @param {" << jsType << "} [" << jsName << "]\n";
+      } else {
+        out << " * @param {" << jsType << "} " << jsName << "\n";
+      }
     }
-    if (!def.returnTypes.empty()) {
-      out << " * @returns " << def.returnTypes << "\n";
+    // JSDoc @returns — wrap in Promise since all Lua calls are async
+    {
+      std::string retType =
+          formatTypeOrPassthrough(def.returnTypes, formatTypeJS);
+      out << " * @returns {Promise<" << retType << ">}\n";
     }
     out << " */\n";
 
-    // Build param list for the TS function signature
-    // Skip 'ctx' — it's injected by the Lua runtime, not from JS.
-    // Collect non-ctx params into a single payload object.
+    // Function signature — plain JS, strip trailing ? from names
     out << "export async function " << def.name << "(";
     bool first = true;
     for (const auto& p : def.parameters) {
       if (p.name == "ctx") continue;
       if (!first) out << ", ";
       first = false;
-      out << p.name << ": " << p.type;
+      std::string jsName = p.name;
+      if (!jsName.empty() && jsName.back() == '?')
+        jsName.pop_back();
+      out << jsName;
     }
-    out << "): Promise<" << def.returnTypes << "> {\n";
+    out << ") {\n";
 
-    // Build the payload object
+    // Build the payload object — strip trailing ? from keys
     out << "  return __coconut_call(\"" << def.name << "\", {";
     first = true;
     for (const auto& p : def.parameters) {
       if (p.name == "ctx") continue;
       if (!first) out << ", ";
       first = false;
-      out << p.name;
+      std::string jsName = p.name;
+      if (!jsName.empty() && jsName.back() == '?')
+        jsName.pop_back();
+      out << jsName;
     }
     out << "});\n";
     out << "}\n\n";

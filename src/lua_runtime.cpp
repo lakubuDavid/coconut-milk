@@ -78,9 +78,57 @@ void _bindCoconutLuaApi(Runtime *runtime) {
 }
 
 void _bindViewClass(Runtime *runtime) {
-  sol::table viewClass =
-      (*runtime->lua_state)["View"].get_or_create<sol::table>();
-  runtime->lua_state->set("View", viewClass);
+  // Build the View module as Lua code so the descriptor methods (defineProps,
+  // on_load, on_mount, on_unmount, on_frontend_event) are easy to read and
+  // maintain.  Each factory creates a table with kind/value and chainable
+  // lifecycle methods.
+  const char* viewSrc = R"(
+    local function makeDescriptor(kind, value)
+      return {
+        kind = kind,
+        value = value,
+        _props = {},
+        _callbacks = {},
+
+        defineProps = function(self, props)
+          self._props = props or {}
+          return self
+        end,
+
+        on_load = function(self, fn)
+          self._callbacks.on_load = fn
+          return self
+        end,
+
+        on_mount = function(self, fn)
+          self._callbacks.on_mount = fn
+          return self
+        end,
+
+        on_unmount = function(self, fn)
+          self._callbacks.on_unmount = fn
+          return self
+        end,
+
+        on_frontend_event = function(self, name, fn)
+          if not self._callbacks.frontend_events then
+            self._callbacks.frontend_events = {}
+          end
+          self._callbacks.frontend_events[name] = fn
+          return self
+        end,
+      }
+    end
+
+    View = {
+      url  = function(url)  return makeDescriptor('url',  url) end,
+      html = function(html) return makeDescriptor('html', html) end,
+      load = function(path) return makeDescriptor('file', path) end,
+    }
+  )";
+
+  runtime->lua_state->script(viewSrc);
+  runtime->lua_state->set("View", (*runtime->lua_state)["View"]);
 }
 
 void _bindUserType(Runtime *runtime) {

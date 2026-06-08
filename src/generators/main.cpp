@@ -1,4 +1,4 @@
-#include "./comment_parser.hpp"
+#include "./command_definition.hpp"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -71,7 +71,7 @@ static void printUsage(const char* prog) {
   std::cerr << "Parse Lua doc comments (@command, @param, @return) and generate:\n";
   std::cerr << "  <stem>.g.lua   — Lua command registration wrapper\n";
   std::cerr << "  <stem>.d.ts    — TypeScript declaration file\n";
-  std::cerr << "  <stem>.g.ts    — TypeScript runtime wrappers (__coconut_call)\n";
+  std::cerr << "  <stem>.g.js    — JS wrapper with JSDoc types (no build step)\n";
 }
 
 int main(int argc, char** argv) {
@@ -171,10 +171,10 @@ int main(int argc, char** argv) {
     std::cout << "  wrote " << outPath << "\n";
   }
 
-  // ---- Write TS wrappers (.g.ts) ----
+  // ---- Write JS wrappers (.g.js) — JSDoc-typed, no build step ----
   {
-    auto wrappers = coconut::generator::generateTSWrapper(commands);
-    fs::path outPath = fs::path(outDir) / (stem + ".g.ts");
+    auto wrappers = coconut::generator::generateJSWrapper(commands);
+    fs::path outPath = fs::path(outDir) / (stem + ".g.js");
     std::ofstream out(outPath);
     out << wrappers;
     out.close();
