@@ -6,7 +6,10 @@
 
 COCONUT_TEST(unit, fs_roots_create_and_destroy) {
   coconut::Config config{};
-  coconut::fs::Roots *roots = coconut::fs::create(&config);
+
+  auto result = coconut::fs::create(&config);
+  COCONUT_REQUIRE(result);
+  coconut::fs::Roots* roots = result.value();
 
   COCONUT_REQUIRE(roots != nullptr);
   COCONUT_REQUIRE(roots->configs == &config);

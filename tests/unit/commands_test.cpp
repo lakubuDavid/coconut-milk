@@ -4,7 +4,10 @@
 
 COCONUT_TEST(unit, command_registry_create_and_destroy) {
   coconut::Config config{};
-  coconut::commands::Registry *registry = coconut::commands::create(&config);
+
+  auto result = coconut::commands::create(&config);
+  COCONUT_REQUIRE(result);
+  coconut::commands::Registry* registry = result.value();
 
   COCONUT_REQUIRE(registry != nullptr);
   COCONUT_REQUIRE(registry->configs == &config);

@@ -27,7 +27,7 @@ Read these before making architectural or API changes:
 
 ## C++ style
 
-- Prefer a C-like style with `struct`s and namespaces.
+- Prefer a C-like, Google based style with `struct`s and namespaces.
 - Avoid heavy class hierarchies unless there is a strong reason.
 - Use `create(...)` / `destroy(...)` pairs for modules when ownership needs to be explicit.
 - Keep module state in small structs.
@@ -35,6 +35,7 @@ Read these before making architectural or API changes:
 - Keep config as a shared startup object.
 - Pass config by pointer/reference, not by value, when modules share the same runtime config.
 - Prefer `std::expected<T, Error>` for recoverable failures.
+- Be defensive, use error as values where possible, try catch where somehing may fail, bubble up the errors
 - Use `ErrorCode` + `Error` as the shared error vocabulary.
 - Avoid exceptions for normal control flow.
 

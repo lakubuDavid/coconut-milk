@@ -8,38 +8,50 @@
 #include "error.h"
 #include "fs.h"
 #include "lua_runtime.h"
-#include "webui.h"
+#include "window.h"
 
+#include <expected>
 #include <optional>
 #include <string>
 #include <vector>
 
 namespace coconut {
 
-struct App {
-  Config *configs = nullptr;
-  CoconutContext *context = nullptr;
-  webui::Window *window = nullptr;
-  lua::Runtime *lua_state = nullptr;
-  bridge::State *bridge_state = nullptr;
-  commands::Registry *commands = nullptr;
-  fs::Roots *fs = nullptr;
-  std::vector<Error> errors;
-};
+  /// Top-level runtime owner.
+  struct App {
+    Config*             configs      = nullptr;
+    CoconutContext*     context      = nullptr;
 
-namespace app {
-App *create(Config *configs);
-void destroy(App *app);
+    /// WebUI window id (created by App core).
+    size_t              window_id    = 0;
 
-void setConfigs(App *app, Config *cfg);
+    window::Window*     window       = nullptr;
+    lua::Runtime*       lua_state    = nullptr;
+    bridge::State*      bridge_state = nullptr;
+    commands::Registry* commands     = nullptr;
+    fs::Roots*          fs           = nullptr;
+    std::vector<Error>  errors;
+  };
 
-std::optional<Error> getError(App *app);
-void pushError(App *app, Error err);
-void pushError(App *app, ErrorCode code, std::string message, std::string details);
+  namespace app {
 
-void run(App *app);
-} // namespace app
+    /// Allocate an App. Does not own/destroy the shared Config.
+    std::expected<App*, Error> create(Config* configs);
 
-} // namespace coconut
+    /// Destroy the App and owned runtime submodules.
+    /// Does not destroy the shared Config.
+    void destroy(App* app);
 
-#endif // APP_H
+    void setConfigs(App* app, Config* cfg);
+
+    std::optional<Error> getError(App* app);
+    void                 pushError(App* app, Error err);
+    void                 pushError(App* app, ErrorCode code, std::string message, std::string details);
+
+    void run(App* app);
+
+  }  // namespace app
+
+}  // namespace coconut
+
+#endif  // APP_H

@@ -77,7 +77,9 @@ A future version may allow changing the asset root, but the default is fixed in 
 
 ### View descriptor shape
 
-A view is represented as a plain Lua table.
+A view is represented as a table-like descriptor object (optionally with lazy factories) that can also carry controller configuration like `defineProps(...)` and lifecycle callbacks.
+
+In v0/v1, Coconut can attach controller methods (e.g. `on_mount`, `on_unmount`) via a metatable or other Lua mechanisms. The public shape is still an object/table descriptor, not raw window state.
 
 ```lua
 ---@class CoconutViewSpec
@@ -89,6 +91,26 @@ A view is represented as a plain Lua table.
 
 ### `coconut.views()`
 Returns a table of named views.
+
+### `coconut.events(name, payload, ctx)`
+A Love2D-like main dispatcher callback for **frontend → Lua events**.
+
+- called for every frontend-emitted event
+- `name` is the frontend event name (event namespace)
+- `payload` is the event payload table
+- `ctx` is the runtime context
+
+View controller callbacks are attached via methods on the view descriptor, for example:
+
+- `view:defineProps(default_props)` — declares view props defaults
+- `view:on_load(fn)` — once when the view is first loaded/created
+- `view:on_mount(fn)` — when the view becomes the active/visible view
+- `view:on_unmount(fn)` — when switching away from the view
+- `view:on_frontend_event(name, fn)` — when a frontend event is emitted while the view is active
+
+In addition, Coconut may also call `coconut.events(name, payload, ctx)` as a global dispatcher for frontend → Lua events.
+
+If navigation switches to the view with props (via `ctx.window:show(name, props)`), the effective props are available inside callbacks as `ctx.props`.
 
 ```lua
 function coconut.views()
@@ -103,8 +125,13 @@ end
 #### Rules
 
 - Each key is a view name.
+- Each value is either:
+  - a view descriptor created by `View.url/html/load`, OR
+  - a lazy view factory `function() -> view_descriptor` (called when the view is first loaded)
+
 - Names are used for routing and startup selection.
 - The runtime switches views by name, not by raw descriptor.
+- view props can be passed when switching views (via `ctx.window:show(name, props)`), and callbacks see them as `ctx.props`.
 
 ---
 
@@ -419,13 +446,13 @@ They may later evolve into a more Rust/C#-style attribute system, but in v0 they
 
 ## 8. Lifecycle hooks
 
-### `coconut.on_resize(w, h)`
+### `coconut.on_resize(ctx, w, h)`
 Called when the window is resized.
 
 Example:
 
 ```lua
-function coconut.on_resize(w, h)
+function coconut.on_resize(ctx, w, h)
   ctx:emit("on_resize", { w = w, h = h })
 end
 ```
@@ -468,8 +495,8 @@ function coconut.config(ctx)
     end)
 end
 
-function coconut.on_resize(w, h)
-  -- runtime may provide the current ctx or a dedicated event bridge later
+function coconut.on_resize(ctx, w, h)
+  -- runtime provides ctx so Lua can emit or dispatch events
 end
 ```
 
@@ -620,6 +647,27 @@ interface CoconutFrontendAPI<TCommandName extends string = CoconutCommandName> {
 }
 ```
 
+### Bridge payload encoding (v1)
+
+Across the `__coconut_*` bound functions, Coconut standardizes payload transport:
+
+- every `payload` is serialized as a **JSON string** in JavaScript
+- C++ parses the JSON string into Lua tables
+- Lua → C++ payloads are serialized back into JSON strings for JavaScript
+
+### `coconut.call(...)` response envelope
+
+`coconut.call(name, payload)` ultimately relies on a C++ implementation of `__coconut_call(name, payloadJson)`.
+
+The C++ side must return a single JSON string envelope:
+
+- success:
+  - `{ "ok": true, "data": <lua/js value> }`
+- failure:
+  - `{ "ok": false, "error": { "code": string, "message": string, "details"?: unknown } }`
+
+JavaScript `coconut.call(...)` resolves with `data` on success and rejects with the decoded error on failure.
+
 #### `coconut.ready()`
 Returns a `Promise<void>` that resolves when the bridge handshake has completed and both sides are ready.
 
@@ -628,7 +676,14 @@ Generated helpers and manual calls may await this before issuing bridge traffic.
 #### `coconut.on(name, fn)`
 Registers a frontend listener for a named Lua-emitted event.
 
+Runtime glue: Coconut’s injected JS should call `__coconut_dispatch_event(name, payloadJson)`.
+
+- `name` is the event name (event namespace)
+- `payloadJson` is the JSON-string serialized payload
+- Coconut then parses `payloadJson` and invokes registered `on(...)` callbacks
+
 #### `coconut.emit(name, payload)`
+
 Sends a frontend-originated event into the bridge.
 
 - async
@@ -637,6 +692,15 @@ Sends a frontend-originated event into the bridge.
 - no response payload is returned
 - the promise rejects if the frontend cannot notify the Lua side
 
+Payload encoding rule (v1):
+- `payload` is a Lua/JS object in app code
+- across the bridge boundary it is serialized as a **JSON string**
+- C++ parses it back into a Lua table
+
+Ack semantics (v1):
+- `coconut.emit(...)` relies on `__coconut_emit(name, payloadJson)`
+- `__coconut_emit` may return an empty/undefined value for success
+- if it returns a JSON envelope string, the envelope must match the `coconut.call(...)` failure form (`{ ok:false, error: ... }`) and the JS `emit` Promise rejects accordingly
 ### 11.5.2 Namespace separation
 
 Coconut keeps command names and event names in separate namespaces.
@@ -688,6 +752,12 @@ Coconut uses a **two-way handshake** to determine when the bridge is active.
 `ready` is the frontend's signal that its bridge layer is initialized and able to participate in message exchange.
 
 The runtime may use the handshake to establish that both sides are prepared before allowing normal traffic.
+
+In v1, the frontend-side Promise returned by `coconut.ready()` is resolved when the runtime calls the injected JS entrypoint `__coconut_bridge_ready()`.
+
+Implementation note (bridge/glue):
+- `__coconut_bridge_ready()` is a global function that Coconut’s injected JS must expose
+- C++ should call it after the bridge dispatcher is installed and the bound functions are usable
 
 ### 11.6.1 Pre-ready buffering rules
 

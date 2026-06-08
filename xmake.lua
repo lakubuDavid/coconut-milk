@@ -1,38 +1,86 @@
 -- Add the autoupdate rule globally or inside a target
 add_rules("plugin.compile_commands.autoupdate", {outputdir = ".", lsp = "clangd"})
 add_rules("mode.debug", "mode.release")
-add_requires("webui ~2.4.2", "luajit 2.*","sol2 ~3.3.*")
-set_languages("c99", "c++23")
+add_requires("luajit 2.*", "sol2 ~3.3.*")
+add_requires("nlohmann_json 3.12.0")
+
+add_includedirs("thirdparty/webui-2.5.0-beta.3/include")
+add_linkdirs("thirdparty/webui-2.5.0-beta.3/dist")
+
+set_languages("c11", "c++23")
+
+-- Build Coconut bridge frontend bundle (TS -> JS + .d.ts) and embed header.
+task("coconut_bridge_embeds")
+    set_menu {
+        usage = "xmake coconut_bridge_embeds",
+        description = "Build coconut bridge TS->JS + .d.ts and generate embed .h header"
+    }
+    set_category("build")
+    on_run(function ()
+        local ts_in = "src/embeds/coconut.ts"
+        local js_out = "src/embeds/coconut.js"
+        local dts_out = "src/embeds/coconut.d.ts"
+        local header_out = "src/embeds/coconut_embed.h"
+
+        -- 1) JS bundle
+        os.run("bun build " .. ts_in .. " --outfile " .. js_out .. " --format esm")
+
+        -- 2) Declarations (Bun doesn't emit .d.ts here)
+        os.run("bunx tsc " .. ts_in .. " --declaration --emitDeclarationOnly --outDir src/embeds --lib ES2020,DOM --target ES2020")
+
+        -- 3) C header embed (byte array)
+        os.run("python3 scripts/js2c_to_header.py --input " .. js_out .. " --output " .. header_out .. " --symbol coconut_js_embed")
+
+        cprint("[task] coconut-bridge-embeds generated: " .. js_out .. ", " .. dts_out .. ", " .. header_out)
+    end)
+
 
 target("coconut-milk")
     set_kind("binary")
+    before_build(function (target)
+        os.run("xmake coconut_bridge_embeds")
+    end)
     add_includedirs("src")
+    add_frameworks("Cocoa", "WebKit", "Foundation")
     add_files("src/*.cpp")
-    add_packages("webui")
     add_packages("sol2")
     add_packages("luajit")
     add_packages("lua")
+    add_packages("nlohmann_json")
+    add_links("webui-2-static")
+
+-- Generators experiment target
+
+target("coconut-milk-generators")
+    set_kind("binary")
+    set_targetdir("$(projectdir)/bin")
+    set_rundir("$(projectdir)")
+    add_includedirs("src")
+    add_files("src/generators/*.cpp")
 
 -- Test target
 target("coconut-milk-tests")
     set_kind("binary")
     add_includedirs("src", "tests")
+    add_frameworks("Cocoa", "WebKit", "Foundation")
     add_files(
         "tests/*.cpp",
         "tests/**/*.cpp",
         "src/app.cpp",
         "src/bridge.cpp",
         "src/commands.cpp",
+        "src/config.cpp",
         "src/context.cpp",
         "src/error.cpp",
         "src/fs.cpp",
         "src/lua_runtime.cpp",
-        "src/webui.cpp"
+        "src/window.cpp"
     )
-    add_packages("webui")
     add_packages("sol2")
     add_packages("luajit")
     add_packages("lua")
+    add_packages("nlohmann_json")
+    add_links("webui-2-static")
 
 --
 -- If you want to known more usage about xmake, please see https://xmake.io

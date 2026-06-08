@@ -3,7 +3,10 @@
 
 COCONUT_TEST(unit, app_create_and_destroy) {
   coconut::Config config{};
-  coconut::App *app = coconut::app::create(&config);
+
+  auto app_result = coconut::app::create(&config);
+  COCONUT_REQUIRE(app_result);
+  coconut::App* app = app_result.value();
 
   COCONUT_REQUIRE(app != nullptr);
   COCONUT_REQUIRE(app->configs == &config);

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coconut — Notes</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f0f13;
+      color: #e4e4e7;
+      min-height: 100vh;
+    }
+    nav {
+      background: #1a1a24;
+      padding: 0.75rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      border-bottom: 1px solid #2a2a3a;
+    }
+    nav h1 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #a78bfa;
+      letter-spacing: 0.02em;
+    }
+    nav a {
+      color: #a1a1aa;
+      text-decoration: none;
+      font-size: 0.9rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      transition: all 0.15s;
+    }
+    nav a:hover { color: #e4e4e7; background: #2a2a3a; }
+    nav a.active { color: #a78bfa; background: #2a2a3a; }
+    main {
+      max-width: 640px;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+    }
+    h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 1.5rem; }
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      background: #1a1a24;
+      border: 1px solid #2a2a3a;
+      border-radius: 8px;
+      color: #e4e4e7;
+      padding: 0.75rem;
+      font-size: 0.95rem;
+      font-family: inherit;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    textarea:focus { border-color: #a78bfa; }
+    .toolbar {
+      display: flex;
+      gap: 0.5rem;
+      margin: 0.75rem 0 1.5rem;
+    }
+    button {
+      background: #2a2a3a;
+      color: #e4e4e7;
+      border: 1px solid #3a3a4a;
+      padding: 0.5rem 1.25rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    button:hover { background: #3a3a4a; border-color: #a78bfa; }
+    button.primary {
+      background: #6d28d9;
+      border-color: #7c3aed;
+    }
+    button.primary:hover { background: #7c3aed; }
+    .note-list { list-style: none; }
+    .note-item {
+      background: #1a1a24;
+      border: 1px solid #2a2a3a;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .note-item .text {
+      flex: 1;
+      font-size: 0.9rem;
+      word-break: break-word;
+      padding-right: 1rem;
+    }
+    .note-item .del {
+      background: none;
+      border: none;
+      color: #ef4444;
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 0 0.25rem;
+    }
+    .note-item .del:hover { color: #f87171; }
+    .empty {
+      color: #52525b;
+      text-align: center;
+      padding: 2rem;
+      font-style: italic;
+    }
+    #note-stat {
+      font-size: 0.85rem;
+      color: #71717a;
+      margin-left: auto;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <h1>🥥 Coconut</h1>
+    <a href="#" data-view="home">Home</a>
+    <a href="#" class="active" data-view="note">Notes</a>
+  </nav>
+  <main>
+    <h2>📝 Notes <span id="note-stat"></span></h2>
+
+    <textarea id="note-input" placeholder="Write a note…"></textarea>
+    <div class="toolbar">
+      <button class="primary" id="add-btn">+ Add Note</button>
+      <button id="clear-btn">🗑 Clear All</button>
+    </div>
+
+    <ul class="note-list" id="note-list">
+      <li class="empty">No notes yet. Write one above ☝️</li>
+    </ul>
+  </main>
+
+  <script>
+    // --- Local notes store (session-based, in-memory) ---
+    const notes = [];
+    const listEl = document.getElementById('note-list');
+    const inputEl = document.getElementById('note-input');
+    const statEl = document.getElementById('note-stat');
+
+    function render() {
+      listEl.innerHTML = '';
+      if (notes.length === 0) {
+        listEl.innerHTML = '<li class="empty">No notes yet. Write one above ☝️</li>';
+        statEl.textContent = '';
+        return;
+      }
+      notes.forEach((text, i) => {
+        const li = document.createElement('li');
+        li.className = 'note-item';
+        li.innerHTML = `<span class="text">${escapeHtml(text)}</span>
+                        <button class="del" data-idx="${i}">✕</button>`;
+        listEl.appendChild(li);
+      });
+      li.querySelector('.del').onclick = () => { notes.splice(i, 1); render(); };
+      statEl.textContent = `${notes.length} note${notes.length !== 1 ? 's' : ''}`;
+    }
+
+    function escapeHtml(str) {
+      const d = document.createElement('div');
+      d.appendChild(document.createTextNode(str));
+      return d.innerHTML;
+    }
+
+    document.getElementById('add-btn').onclick = () => {
+      const text = inputEl.value.trim();
+      if (!text) return;
+      notes.push(text);
+      inputEl.value = '';
+      render();
+    };
+
+    document.getElementById('clear-btn').onclick = () => {
+      notes.length = 0;
+      render();
+    };
+
+    // Enter to add, Shift+Enter for newline
+    inputEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('add-btn').click();
+      }
+    });
+
+    // --- Nav links ---
+    document.querySelectorAll('nav a').forEach(a => {
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        const view = a.dataset.view;
+        if (window.__coconut_emit) {
+          window.__coconut_emit('navigate', JSON.stringify({ view }));
+        }
+      });
+    });
+
+    // --- Bridge ready signal ---
+    if (window.__coconut_on_ready) {
+      window.__coconut_on_ready(() => { /* bridge is live */ });
+    }
+  </script>
+</body>
+</html>

@@ -4,7 +4,10 @@
 
 COCONUT_TEST(unit, bridge_state_create_and_destroy) {
   coconut::Config config{};
-  coconut::bridge::State *state = coconut::bridge::create(&config);
+
+  auto result = coconut::bridge::create(&config);
+  COCONUT_REQUIRE(result);
+  coconut::bridge::State* state = result.value();
 
   COCONUT_REQUIRE(state != nullptr);
   COCONUT_REQUIRE(state->configs == &config);

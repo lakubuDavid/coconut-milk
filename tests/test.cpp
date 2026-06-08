@@ -1,4 +1,5 @@
 #include "test.h"
+#include "error.h"
 
 namespace coconut::test {
 
@@ -32,6 +33,17 @@ void require_equal(int lhs, int rhs, const char *lhs_expr, const char *rhs_expr,
     throw std::runtime_error(std::string(file) + ":" + std::to_string(line) +
                              ": equality failed: " + lhs_expr + " == " + rhs_expr +
                              " (lhs=" + std::to_string(lhs) + ", rhs=" + std::to_string(rhs) + ")");
+  }
+}
+
+void require_equal(coconut::ErrorCode lhs, coconut::ErrorCode rhs, const char *lhs_expr,
+                   const char *rhs_expr, const char *file, int line) {
+  if (lhs != rhs) {
+    throw std::runtime_error(
+        std::string(file) + ":" + std::to_string(line) +
+        ": equality failed: " + lhs_expr + " == " + rhs_expr +
+        " (lhs=" + std::to_string(static_cast<int>(lhs)) +
+        ", rhs=" + std::to_string(static_cast<int>(rhs)) + ")");
   }
 }
 

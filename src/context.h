@@ -2,9 +2,13 @@
 #define CONTEXT_H
 
 #include "config.h"
+#include "error.h"
 
+#include <expected>
 #include <sol/sol.hpp>
 #include <string>
+
+#include "window.h"
 
 namespace coconut {
 
@@ -12,49 +16,65 @@ namespace coconut {
 
   namespace bridge {
     struct State;
-  } // namespace bridge
+  }  // namespace bridge
 
   namespace commands {
     struct Registry;
-  } // namespace commands
+  }  // namespace commands
 
   namespace lua {
     struct Runtime;
-  } // namespace lua
+  }  // namespace lua
 
-  namespace webui {
-    struct Window;
-  } // namespace webui
-
+  /// Window size used during startup and resize operations.
   struct CoconutWindowSize {
     int w = 0;
     int h = 0;
   };
 
+  /// Runtime context exposed to Lua as `ctx`.
   struct CoconutContext {
     Config*             configs      = nullptr;
     App*                app          = nullptr;
     bridge::State*      bridge_state = nullptr;
     commands::Registry* commands     = nullptr;
     lua::Runtime*       lua_state    = nullptr;
-    webui::Window*      window       = nullptr;
+    window::Window*     window       = nullptr;
 
+    /// Startup: selects which browser backend WebUI should use. Chainable.
     CoconutContext* setBrowser(const std::string& mode);
+
+    /// Startup: initial window size. Chainable.
     CoconutContext* setWindowSize(const CoconutWindowSize& size);
+
+    /// Startup: selects initial view by name. Chainable.
     CoconutContext* setInitialView(const std::string& name);
-    void            show(const std::string& name);
-    void            reload();
-    void            close();
-    void            bind(const std::string& name, sol::protected_function fn);
-    void            emit(const std::string& name, sol::object payload);
-    void            emit_sync(const std::string& name, sol::object payload);
+
+    /// Runtime: switch view by name.
+    void show(const std::string& name);
+    void reload();
+    void close();
+
+    /// Registers a single command handler (one command name => one handler).
+    void bind(const std::string& name, sol::protected_function fn);
+
+    /// Sends an event to the frontend asynchronously.
+    void emit(const std::string& name, sol::object payload);
+
+    /// Sends an event to the frontend synchronously.
+    void emit_sync(const std::string& name, sol::object payload);
   };
 
   namespace context {
-    CoconutContext* create(Config* config);
-    void            destroy(CoconutContext* ctx);
-  } // namespace context
 
-} // namespace coconut
+    /// Allocate a CoconutContext instance bound to a shared Config.
+    std::expected<CoconutContext*, Error> create(Config* config);
 
-#endif // CONTEXT_H
+    /// Destroy a CoconutContext instance.
+    void destroy(CoconutContext* ctx);
+
+  }  // namespace context
+
+}  // namespace coconut
+
+#endif  // CONTEXT_H

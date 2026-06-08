@@ -5,8 +5,14 @@
 
 COCONUT_TEST(unit, lua_runtime_create_and_destroy) {
   coconut::Config config{};
-  coconut::CoconutContext *ctx = coconut::context::create(&config);
-  coconut::lua::Runtime *runtime = coconut::lua::create(&config, ctx);
+
+  auto ctx_result = coconut::context::create(&config);
+  COCONUT_REQUIRE(ctx_result);
+  coconut::CoconutContext* ctx = ctx_result.value();
+
+  auto lua_result = coconut::lua::create(&config, ctx);
+  COCONUT_REQUIRE(lua_result);
+  coconut::lua::Runtime* runtime = lua_result.value();
 
   COCONUT_REQUIRE(runtime != nullptr);
   COCONUT_REQUIRE(runtime->configs == &config);

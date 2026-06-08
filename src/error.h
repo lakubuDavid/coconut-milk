@@ -5,24 +5,35 @@
 
 namespace coconut {
 
-enum class ErrorCode {
-  Ok,
-  Unknown,
-  InvalidConfig,
-  InvalidView,
-  MissingFile,
-  DuplicateCommand,
-  LuaError,
-  BridgeError,
-  WebUiError,
-};
+  /// Machine-readable error categories.
+  enum class ErrorCode {
+    Ok,
+    Unknown,
+    InvalidConfig,
+    InvalidView,
+    MissingFile,
+    DuplicateCommand,
+    CommandNotFound,
+    InvalidPayload,
+    NotReady,
+    QueueOverflow,
+    LuaError,
+    BridgeError,
+    WebUiError,
+    ParseError,
+    NotImplementedYet
+  };
 
-struct Error {
-  ErrorCode code = ErrorCode::Ok;
-  std::string message;
-  std::string details;
-};
+  /// Shared error value type.
+  ///
+  /// Coconut uses these values with `std::expected<T, Error>` for
+  /// recoverable failures.
+  struct Error {
+    ErrorCode code = ErrorCode::Ok;
+    std::string message;
+    std::string details;
+  };
 
-} // namespace coconut
+}  // namespace coconut
 
-#endif // ERROR_H
+#endif  // ERROR_H

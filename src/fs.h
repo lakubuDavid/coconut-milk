@@ -2,23 +2,25 @@
 #define FS_H
 
 #include "config.h"
+#include "error.h"
 
+#include <expected>
 #include <string>
 
 namespace coconut {
-namespace fs {
+  namespace fs {
 
-struct Roots {
-  Config *configs = nullptr;
-  std::string view_root;
-  std::string asset_root;
-  std::string command_root;
-};
+    struct Roots {
+      Config*     configs = nullptr;
+      std::string view_root;
+      std::string asset_root;
+      std::string command_root;
+    };
 
-Roots *create(Config *config);
-void destroy(Roots *roots);
+    std::expected<Roots*, Error> create(Config* config);
+    void                         destroy(Roots* roots);
 
-} // namespace fs
-} // namespace coconut
+  }  // namespace fs
+}  // namespace coconut
 
-#endif // FS_H
+#endif  // FS_H

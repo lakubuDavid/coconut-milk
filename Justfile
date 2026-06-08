@@ -2,6 +2,7 @@ set shell := ["bash", "-uc"]
 
 DEFAULT_TARGET := "coconut-milk"
 TEST_TARGET := "coconut-milk-tests"
+GENERATOR_TARGET := "coconut-milk-generators"
 
 default:
 	@just --list
@@ -15,6 +16,10 @@ run:
 test:
 	xmake build {{TEST_TARGET}}
 	xmake run {{TEST_TARGET}}
+
+run-gen INP="samples/commands/hello.lua":
+	xmake build {{GENERATOR_TARGET}}
+	xmake run {{GENERATOR_TARGET}} "{{INP}}"
 
 clean:
 	xmake clean

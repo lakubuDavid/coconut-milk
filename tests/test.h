@@ -1,6 +1,8 @@
 #ifndef COCONUT_TEST_H
 #define COCONUT_TEST_H
 
+#include "error.h"
+
 #include <functional>
 #include <iostream>
 #include <stdexcept>
@@ -24,6 +26,7 @@ struct Registrar {
 void require(bool condition, const char *expr, const char *file, int line);
 void require_equal(const std::string &lhs, const std::string &rhs, const char *lhs_expr, const char *rhs_expr, const char *file, int line);
 void require_equal(int lhs, int rhs, const char *lhs_expr, const char *rhs_expr, const char *file, int line);
+void require_equal(coconut::ErrorCode lhs, coconut::ErrorCode rhs, const char *lhs_expr, const char *rhs_expr, const char *file, int line);
 
 int run_all();
 
@@ -38,7 +41,7 @@ int run_all();
                                                                               COCONUT_TEST_CONCAT(test_fn_, __LINE__)); \
   static void COCONUT_TEST_CONCAT(test_fn_, __LINE__)()
 
-#define COCONUT_REQUIRE(expr) ::coconut::test::require((expr), #expr, __FILE__, __LINE__)
+#define COCONUT_REQUIRE(expr) ::coconut::test::require(static_cast<bool>(expr), #expr, __FILE__, __LINE__)
 #define COCONUT_REQUIRE_EQ(lhs, rhs)                                                                \
   ::coconut::test::require_equal((lhs), (rhs), #lhs, #rhs, __FILE__, __LINE__)
 

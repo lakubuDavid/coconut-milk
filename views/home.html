@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coconut — Home</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f0f13;
+      color: #e4e4e7;
+      min-height: 100vh;
+    }
+    nav {
+      background: #1a1a24;
+      padding: 0.75rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      border-bottom: 1px solid #2a2a3a;
+    }
+    nav h1 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #a78bfa;
+      letter-spacing: 0.02em;
+    }
+    nav a {
+      color: #a1a1aa;
+      text-decoration: none;
+      font-size: 0.9rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      transition: all 0.15s;
+    }
+    nav a:hover { color: #e4e4e7; background: #2a2a3a; }
+    nav a.active { color: #a78bfa; background: #2a2a3a; }
+    main {
+      max-width: 720px;
+      margin: 3rem auto;
+      padding: 0 1.5rem;
+    }
+    .hero h2 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    .hero p {
+      color: #a1a1aa;
+      line-height: 1.6;
+      margin-bottom: 2rem;
+    }
+    .card {
+      background: #1a1a24;
+      border: 1px solid #2a2a3a;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .card h3 { margin-bottom: 0.75rem; color: #c4b5fd; }
+    .card p  { font-size: 0.9rem; color: #a1a1aa; }
+    #counter-display {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: #a78bfa;
+      text-align: center;
+      margin: 1rem 0;
+    }
+    .btn-group {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+    button {
+      background: #2a2a3a;
+      color: #e4e4e7;
+      border: 1px solid #3a3a4a;
+      padding: 0.5rem 1.25rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    button:hover {
+      background: #3a3a4a;
+      border-color: #a78bfa;
+    }
+    #bridge-status {
+      font-size: 0.85rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 4px;
+      display: inline-block;
+    }
+    #bridge-status.connected { background: #065f46; color: #6ee7b7; }
+    #bridge-status.pending   { background: #1e3a5f; color: #7dd3fc; }
+  </style>
+</head>
+<body>
+  <nav>
+    <h1>🥥 Coconut</h1>
+    <a href="#" class="active" data-view="home">Home</a>
+    <a href="#" data-view="note">Notes</a>
+  </nav>
+  <main>
+    <section class="hero">
+      <h2>Welcome to Coconut</h2>
+      <p>
+        A minimal Lua desktop UI framework — inspired by Tauri, powered by WebUI.
+        This is the built-in home view loaded from <code>views/home.html</code>.
+      </p>
+    </section>
+
+    <div class="card">
+      <h3>🧮 Counter</h3>
+      <div id="counter-display">0</div>
+      <div class="btn-group">
+        <button id="dec-btn">− Decrement</button>
+        <button id="inc-btn">+ Increment</button>
+        <button id="reset-btn">↺ Reset</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🔗 Bridge Status</h3>
+      <p>Frontend-to-Lua bridge:</p>
+      <p><span id="bridge-status" class="pending">waiting…</span></p>
+      <button id="ping-btn">📡 Ping Lua</button>
+    </div>
+  </main>
+
+  <script>
+    // --- Local counter (no bridge needed) ---
+    let count = 0;
+    const display = document.getElementById('counter-display');
+    document.getElementById('inc-btn').onclick = () => { display.textContent = ++count; };
+    document.getElementById('dec-btn').onclick = () => { display.textContent = --count; };
+    document.getElementById('reset-btn').onclick = () => { count = 0; display.textContent = count; };
+
+    // --- Navigation (emits view-switch event) ---
+    document.querySelectorAll('nav a').forEach(a => {
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        const view = a.dataset.view;
+        if (window.__coconut_emit) {
+          window.__coconut_emit('navigate', JSON.stringify({ view }));
+        }
+      });
+    });
+
+    // --- Bridge ping ---
+    document.getElementById('ping-btn').onclick = () => {
+      if (window.__coconut_call) {
+        window.__coconut_call('ping', '{}', (result) => {
+          const status = document.getElementById('bridge-status');
+          status.textContent = 'pong: ' + JSON.stringify(result);
+          status.className = 'connected';
+        });
+      } else {
+        document.getElementById('bridge-status').textContent = 'bridge not ready';
+      }
+    };
+
+    // --- Bridge ready handshake ---
+    if (window.__coconut_on_ready) {
+      window.__coconut_on_ready(() => {
+        document.getElementById('bridge-status').textContent = 'connected';
+        document.getElementById('bridge-status').className = 'connected';
+      });
+    }
+
+    // Override bridge-status once __coconut_bridge_ready fires
+    window.addEventListener('coconut-ready', () => {
+      document.getElementById('bridge-status').textContent = 'connected';
+      document.getElementById('bridge-status').className = 'connected';
+    });
+  </script>
+</body>
+</html>

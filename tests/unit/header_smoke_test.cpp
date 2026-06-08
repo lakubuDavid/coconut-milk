@@ -5,18 +5,41 @@
 #include "error.h"
 #include "fs.h"
 #include "lua_runtime.h"
-#include "webui.h"
+#include "window.h"
 #include "test.h"
+
+extern "C" {
+#include <webui.h>
+}
 
 COCONUT_TEST(unit, header_smoke_compiles) {
   coconut::Config config{};
-  coconut::CoconutContext *ctx = coconut::context::create(&config);
 
-  auto *bridge_state = coconut::bridge::create(&config);
-  auto *command_registry = coconut::commands::create(&config);
-  auto *lua_runtime = coconut::lua::create(&config, ctx);
-  auto *window = coconut::webui::create(&config);
-  auto *roots = coconut::fs::create(&config);
+  auto ctx_result = coconut::context::create(&config);
+  COCONUT_REQUIRE(ctx_result);
+  coconut::CoconutContext* ctx = ctx_result.value();
+
+  auto bridge_result = coconut::bridge::create(&config);
+  COCONUT_REQUIRE(bridge_result);
+  auto* bridge_state = bridge_result.value();
+
+  auto cmd_result = coconut::commands::create(&config);
+  COCONUT_REQUIRE(cmd_result);
+  auto* command_registry = cmd_result.value();
+
+  auto lua_result = coconut::lua::create(&config, ctx);
+  COCONUT_REQUIRE(lua_result);
+  auto* lua_runtime = lua_result.value();
+
+  size_t win_id = webui_new_window();
+  COCONUT_REQUIRE(win_id > 0);
+  auto win_result = coconut::window::createWindow(&config, win_id);
+  COCONUT_REQUIRE(win_result);
+  auto* window = win_result.value();
+
+  auto roots_result = coconut::fs::create(&config);
+  COCONUT_REQUIRE(roots_result);
+  auto* roots = roots_result.value();
 
   COCONUT_REQUIRE(ctx != nullptr);
   COCONUT_REQUIRE(bridge_state != nullptr);
@@ -34,7 +57,7 @@ COCONUT_TEST(unit, header_smoke_compiles) {
   COCONUT_REQUIRE(roots->configs == &config);
 
   coconut::fs::destroy(roots);
-  coconut::webui::destroy(window);
+  coconut::window::destroyWindow(window);
   coconut::lua::destroy(lua_runtime);
   coconut::commands::destroy(command_registry);
   coconut::bridge::destroy(bridge_state);

@@ -1,0 +1,48 @@
+#ifndef WINDOW_H
+#define WINDOW_H
+
+#include "config.h"
+#include "error.h"
+
+#include <expected>
+#include <map>
+#include <optional>
+#include <string>
+
+namespace coconut {
+namespace window {
+
+enum ViewKind {
+  VIEW_KIND_FILE,
+  VIEW_KIND_HTML,
+  VIEW_KIND_URL,
+};
+
+struct ViewConfig {};
+
+struct View {
+  ViewKind kind = VIEW_KIND_FILE;
+  std::string html;
+};
+
+struct Window {
+  Config *configs = nullptr;
+  std::map<std::string, View *> views;
+  size_t window_id = 0;
+  std::string current_view = "default";
+};
+
+std::expected<Window *, Error> createWindow(Config *config, size_t window_id);
+void destroyWindow(Window *window);
+void showWindow(Window* window);
+
+void showView(Window *window, std::string name);
+void addView(Window *window, std::string name, View *view);
+std::expected<View, Error> createView( std::string pathOrCode,
+                                      ViewKind kind,
+                                      std::optional<ViewConfig> configs);
+
+} // namespace window
+} // namespace coconut
+
+#endif // WINDOW_H

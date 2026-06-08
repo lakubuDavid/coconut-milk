@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://coconut-milk.dev/config.schema.json",
+  "title": "Coconut Milk Config",
+  "description": "Startup configuration for Coconut Milk desktop applications",
+  "type": "object",
+  "properties": {
+    "browser": {
+      "description": "Browser backend for WebUI",
+      "type": "string",
+      "default": "auto"
+    },
+    "window_width": {
+      "description": "Initial window width in pixels",
+      "type": "integer",
+      "minimum": 320,
+      "default": 1280
+    },
+    "window_height": {
+      "description": "Initial window height in pixels",
+      "type": "integer",
+      "minimum": 240,
+      "default": 640
+    },
+    "initial_view": {
+      "description": "Name of the view shown at startup",
+      "type": "string",
+      "default": "home"
+    },
+    "view_root": {
+      "description": "Directory for file-based view HTML files",
+      "type": "string",
+      "default": "views"
+    },
+    "asset_root": {
+      "description": "Directory for static assets",
+      "type": "string",
+      "default": "assets"
+    },
+    "command_root": {
+      "description": "Directory for command Lua modules",
+      "type": "string",
+      "default": "commands"
+    },
+    "generators": {
+      "description": "Generator pipeline configuration",
+      "type": "object",
+      "properties": {
+        "output_dir": {
+          "description": "Output directory for generated files (.g.lua, .d.ts, .g.ts)",
+          "type": "string",
+          "default": "generated"
+        }
+      },
+      "additionalProperties": false,
+      "default": {}
+    },
+    "views": {
+      "description": "Named view descriptors loaded at startup",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/ViewEntry"
+      },
+      "default": {}
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "ViewEntry": {
+      "description": "A single view descriptor: file path, inline HTML, or URL",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "description": "View content source type",
+          "type": "string",
+          "enum": ["file", "html", "url"]
+        },
+        "src": {
+          "description": "Source value: file path, inline HTML string, or URL",
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": ["kind", "src"],
+      "additionalProperties": false
+    }
+  }
+}

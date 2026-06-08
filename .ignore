@@ -2,6 +2,7 @@
 .xmake/
 .cache/
 build/
+thirdparty/
 
 # MacOS Cache
 .DS_Store
