@@ -50,6 +50,12 @@ void destroy(App *app) {
     window::destroyWindow(app->window);
     app->window = nullptr;
   }
+  // Destroy command handlers BEFORE Lua — they hold sol functions with
+  // references to the Lua state that become dangling after lua::destroy().
+  if (app->commands != nullptr) {
+    commands::destroy(app->commands);
+    app->commands = nullptr;
+  }
   if (app->lua_state != nullptr) {
     lua::destroy(app->lua_state);
     app->lua_state = nullptr;
@@ -57,10 +63,6 @@ void destroy(App *app) {
   if (app->bridge_state != nullptr) {
     bridge::destroy(app->bridge_state);
     app->bridge_state = nullptr;
-  }
-  if (app->commands != nullptr) {
-    commands::destroy(app->commands);
-    app->commands = nullptr;
   }
   if (app->fs != nullptr) {
     fs::destroy(app->fs);
