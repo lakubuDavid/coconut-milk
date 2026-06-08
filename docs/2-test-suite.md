@@ -31,16 +31,27 @@ Use different test levels for different risk areas:
 1. **Unit tests** for pure helpers and data transformation.
 2. **Integration tests** for C++ + Lua + generated glue interactions.
 3. **Bridge tests** for message routing and promise behavior.
-4. **End-to-end tests** for the sample application.
+4. **Transport conformance tests** — both WebUI and webview transports
+   must satisfy the transport::Transport interface.
+5. **End-to-end tests** for the sample application.
 
 ### Prefer deterministic tests
 
 The framework should avoid flaky tests by using:
 
-- mockable WebUI wrappers
+- mockable WebUI/webview wrappers
 - fake bridge endpoints
 - temporary test directories
 - minimal external dependencies
+
+### Transport-layer testing
+
+The transport interface (transport::Transport) is an abstraction that both
+WebUI and webview conform to. Tests should verify:
+
+- send(RpcMessage) dispatches the correct platform call
+- setMessageCallback registers and fires on inbound messages
+- Inbound WebUI/webview events are translated to the correct RpcMessage
 
 ### Test the contract, not implementation details
 
@@ -453,11 +464,40 @@ Use fake or temporary runtime roots to isolate tests from the repo layout.
 - named views register correctly
 - initial view can be resolved
 
-## Phase 4: WebUI
+## Phase 4: Window / Transport
 
-- window creates successfully
+### WebUI transport (current)
+
+- window creates successfully (webui_new_window)
 - initial view loads into the window
 - resize events are visible
+- webui_bind registers __coconut_emit and __coconut_call
+- webui_run delivers JS to the page
+- webui_wait blocks until window closes
+
+### Webview transport (target)
+
+- webview_create allocates a webview instance successfully
+- webview_set_html loads inline HTML
+- webview_navigate loads a URL
+- webview_init injects Coconut JS runtime before page load
+- webview_bind registers __coconut_rpc
+- webview_eval delivers JS to the page
+- webview_run blocks until window closes
+- webview_destroy cleans up without leaking
+
+### Transport interface conformance
+
+Both transports must satisfy transport::Transport:
+
+- send(rpc::Message) delivers the correct JS to the page
+  - Type::kEvent → __coconut_dispatch_event(name, payloadJson)
+  - Type::kReturn → __coconut_rpc_receive(json)
+  - Type::kError  → __coconut_rpc_receive(json)
+  - Type::kCall   → globalThis[name](json)
+  - Type::kReady  → __coconut_bridge_ready()
+- setMessageCallback registers a callback that fires on inbound messages
+- Inbound messages are deserialised into rpc::Message
 
 ## Phase 5: bridge
 

@@ -88,7 +88,8 @@ target("coconut-milk-tests")
         "src/error.cpp",
         "src/fs.cpp",
         "src/lua_runtime.cpp",
-        "src/window.cpp"
+        "src/window.cpp",
+        "src/webview_transport.cpp"
     )
     add_packages("sol2")
     add_packages("luajit")
