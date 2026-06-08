@@ -3,10 +3,6 @@
 
 #include <iostream>
 
-extern "C" {
-#include <webui.h>
-}
-
 namespace coconut::app {
 
 std::expected<App *, Error> create(Config *configs) {
@@ -21,17 +17,18 @@ std::expected<App *, Error> create(Config *configs) {
     return std::unexpected(ctx.error());
   }
 
-  // App core owns the WebUI window id.
-  const size_t win_id = webui_new_window();
-  if (win_id == 0) {
+  // Create the native webview window.
+  // TODO: wire Config::debug when the field is added to Config.
+  webview_t wv = webview_create(0, NULL);
+  if (wv == nullptr) {
     context::destroy(ctx.value());
     return std::unexpected(Error{.code = ErrorCode::WebUiError,
-                                 .message = "Failed to create WebUI window"});
+                                 .message = "Failed to create webview window"});
   }
 
   return new App{.configs = configs,
                  .context = ctx.value(),
-                 .window_id = win_id,
+                 .webview = wv,
                  .window = nullptr,
                  .lua_state = nullptr,
                  .bridge_state = nullptr,
@@ -47,21 +44,33 @@ void destroy(App *app) {
 
   if (app->window != nullptr) {
     window::destroyWindow(app->window);
+    app->window = nullptr;
   }
   if (app->lua_state != nullptr) {
     lua::destroy(app->lua_state);
+    app->lua_state = nullptr;
   }
   if (app->bridge_state != nullptr) {
     bridge::destroy(app->bridge_state);
+    app->bridge_state = nullptr;
   }
   if (app->commands != nullptr) {
     commands::destroy(app->commands);
+    app->commands = nullptr;
   }
   if (app->fs != nullptr) {
     fs::destroy(app->fs);
+    app->fs = nullptr;
   }
   if (app->context != nullptr) {
     context::destroy(app->context);
+    app->context = nullptr;
+  }
+
+  // Destroy the webview instance last (after window/transport are gone).
+  if (app->webview) {
+    webview_destroy(app->webview);
+    app->webview = nullptr;
   }
 
   delete app;
@@ -84,11 +93,10 @@ void run(App *app) {
   std::cerr << "[debug] app::run: window=" << app->window
             << " lua_state=" << app->lua_state << "\n";
 
-  // The initial view was already shown by main.ccp's showView call.
-  // Just block here until the user closes the window.
-  std::cerr << "[debug] app::run: calling webui_wait()\n";
-  webui_wait();
-  std::cerr << "[debug] app::run: webui_wait returned (unexpected)\n";
+  // Block the event loop until the native window closes.
+  std::cerr << "[debug] app::run: calling webview_run()\n";
+  webview_run(app->webview);
+  std::cerr << "[debug] app::run: webview_run returned (window closed)\n";
 }
 
 std::optional<Error> getError(App *app) {

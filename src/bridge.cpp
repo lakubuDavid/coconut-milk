@@ -1,8 +1,8 @@
 #include "bridge.h"
 #include "app.h"
 #include "lua_runtime.h"
-
-// WebUI headers included via bridge.h
+#include "webview_transport.h"
+#include "embeds/coconut_embed.h"
 
 #include <algorithm>
 #include <format>
@@ -163,25 +163,6 @@ void emitToJS(coconut::App *app, std::string eventName,
   rpcSend(app, msg);
 }
 
-void emitToJS(window::Window* window, std::string eventName,
-              nlohmann::json payload) {
-  if (window == nullptr || window->window_id == 0) {
-    return;
-  }
-
-  // Low-level fallback: send directly when no App* is available.
-  // TODO: route through transport once window owns a transport ref.
-  const auto payloadJson = payload.dump();
-  const auto jsName = escapeJsSingleQuotedString(eventName);
-  const auto jsPayloadJson = escapeJsSingleQuotedString(payloadJson);
-
-  const std::string script = std::format(
-      "globalThis.__coconut_dispatch_event('{}', '{}');", jsName,
-      jsPayloadJson);
-
-  webui_run(window->window_id, script.c_str());
-}
-
 void callLua(coconut::App *app, std::string functionName,
               nlohmann::json payload) {
   if (app == nullptr || app->lua_state == nullptr ||
@@ -208,10 +189,7 @@ void callLua(coconut::App *app, std::string functionName,
 
 void callJS(coconut::App *app, std::string functionName,
             nlohmann::json payload) {
-  if (app == nullptr || app->window == nullptr) {
-    return;
-  }
-  if (app->window->window_id == 0) {
+  if (app == nullptr || app->window == nullptr || app->webview == nullptr) {
     return;
   }
 
@@ -219,229 +197,41 @@ void callJS(coconut::App *app, std::string functionName,
   const std::string script = std::format(
       "globalThis['{}']({});", functionName, payloadStr);
 
-  webui_run(app->window->window_id, script.c_str());
+  webview_eval(app->webview, script.c_str());
 }
 
 // ---------------------------------------------------------------------------
-// WebUI transport — wraps webui_run / webui_bind behind Transport interface
+// Webview transport — wraps webview_bind / webview_eval behind Transport interface
 // ---------------------------------------------------------------------------
 
-namespace {
-
-/// Concrete transport that sends/receives RPC messages over WebUI's
-/// webui_run()/webui_bind() mechanism.
-///
-/// Outbound flow:  send(RpcMessage) → translates to JS function calls
-/// Inbound flow:   webui_bind callback → constructs RpcMessage → m_callback(msg)
-class WebuiTransport : public transport::Transport {
-public:
-  WebuiTransport(size_t win_id, coconut::App* app)
-      : m_win_id(win_id), m_app(app) {
-
-    // ── Inbound event channel ──
-    // JS calls:  __coconut_emit(name, payloadJson)
-    webui_bind(win_id, "__coconut_emit", &static_on_message);
-    webui_set_context(win_id, "__coconut_emit", this);
-
-    // ── Inbound command channel ──
-    // JS calls:  __coconut_call(name, payloadJson)
-    webui_bind(win_id, "__coconut_call", &static_on_call);
-    webui_set_context(win_id, "__coconut_call", this);
-
-
-    // Inject JS adapter that maps __coconut_js_listener → __coconut_emit.
-    const char* adapter =
-        "(function(){\n"
-        "  if (!globalThis.__coconut_js_listener) {\n"
-        "    globalThis.__coconut_js_listener = function(name, payloadJson) "
-        "{\n"
-        "      return globalThis.__coconut_emit(name, payloadJson);\n"
-        "    };\n"
-        "  }\n"
-        "})();";
-    webui_run(win_id, adapter);
-  }
-
-  ~WebuiTransport() override = default;
-
-  void send(const rpc::Message& msg) override {
-    switch (msg.type) {
-      case rpc::Type::kEvent: {
-        // Keep the existing __coconut_dispatch_event format.
-        auto payloadStr = msg.payload.is_null()
-                              ? "{}"
-                              : msg.payload.dump();
-        auto jsName = escapeJsSingleQuotedString(msg.name);
-        auto jsPayload = escapeJsSingleQuotedString(payloadStr);
-        auto script = std::format(
-            "globalThis.__coconut_dispatch_event('{}', '{}');",
-            jsName, jsPayload);
-        webui_run(m_win_id, script.c_str());
-        break;
-      }
-      case rpc::Type::kReturn:
-      case rpc::Type::kError: {
-        // Promise resolution: send full RPC JSON to a dedicated receiver.
-        auto json = msg.toJson().dump();
-        auto escaped = escapeJsSingleQuotedString(json);
-        auto script = std::format(
-            "globalThis.__coconut_rpc_receive('{}');", escaped);
-        webui_run(m_win_id, script.c_str());
-        break;
-      }
-      case rpc::Type::kCall: {
-        // Invoke a named JS function with the payload.
-        auto payloadStr = msg.payload.dump();
-        auto script = std::format(
-            "globalThis['{}']({});", msg.name, payloadStr);
-        webui_run(m_win_id, script.c_str());
-        break;
-      }
-      case rpc::Type::kReady: {
-        webui_run(m_win_id, "globalThis.__coconut_bridge_ready();");
-        break;
-      }
-    }
-  }
-
-  void setMessageCallback(transport::MessageCallback cb) override {
-    m_callback = std::move(cb);
-  }
-
-private:
-  /// Static WebUI callback — reads __coconut_emit args, constructs kEvent RpcMessage.
-  static void static_on_message(webui_event_t* e) {
-    void* raw = webui_get_context(e);
-    auto* self = static_cast<WebuiTransport*>(raw);
-    if (!self || !self->m_callback) {
-      return;
-    }
-
-    const char* eventNameC = webui_get_string(e);
-    const char* payloadJsonC = webui_get_string_at(e, 1);
-
-    rpc::Message msg;
-    msg.type = rpc::Type::kEvent;
-    msg.name = eventNameC ? eventNameC : "";
-    if (payloadJsonC) {
-      try {
-        msg.payload = nlohmann::json::parse(payloadJsonC);
-      } catch (...) {
-        msg.payload = nlohmann::json::object();
-      }
-    }
-
-    self->m_callback(msg);
-  }
-
-  /// Static WebUI callback — reads __coconut_call args, invokes Lua command,
-  /// calls webui_return with the result envelope so the JS Promise resolves.
-  static void static_on_call(webui_event_t* e) {
-    void* raw = webui_get_context(e);
-    auto* self = static_cast<WebuiTransport*>(raw);
-    if (!self || !self->m_app) {
-      return;
-    }
-
-    const char* nameC = webui_get_string(e);
-    const char* payloadJsonC = webui_get_string_at(e, 1);
-
-    const std::string name = nameC ? nameC : "";
-    nlohmann::json payload = nlohmann::json::object();
-    if (payloadJsonC) {
-      try {
-        payload = nlohmann::json::parse(payloadJsonC);
-      } catch (...) {}
-    }
-
-    coconut::App* app = self->m_app;
-
-    // Build response envelope: { ok:true, data } or { ok:false, error }.
-    auto makeError = [](const std::string& code,
-                        const std::string& msg) -> nlohmann::json {
-      return {{"ok", false},
-              {"error", {{"code", code}, {"message", msg}}}};
-    };
-
-    // Look up the command.
-    auto respond = [e](const nlohmann::json& env) {
-      std::string s = env.dump();
-      webui_return_string(e, s.c_str());
-    };
-
-    if (!app->commands) {
-      respond(makeError("BridgeError", "No command registry"));
-      return;
-    }
-    auto it = app->commands->handlers.find(name);
-    if (it == app->commands->handlers.end()) {
-      respond(makeError("CommandNotFound", "No handler for '" + name + "'"));
-      return;
-    }
-
-    // Invoke the Lua command.
-    if (!app->lua_state || !app->lua_state->lua_state ||
-        !app->lua_state->context) {
-      respond(makeError("BridgeError", "No Lua runtime"));
-      return;
-    }
-
-    sol::state_view lua(*app->lua_state->lua_state);
-    sol::table paramsTable = toTable(lua, payload);
-
-    auto result = it->second(paramsTable, app->lua_state->context);
-
-    nlohmann::json envelope;
-    if (result.valid()) {
-      envelope["ok"] = true;
-      sol::object val = result;
-      if (!val.valid() || val == sol::lua_nil) {
-        envelope["data"] = nullptr;
-      } else if (val.is<std::string>()) {
-        envelope["data"] = val.as<std::string>();
-      } else if (val.is<bool>()) {
-        envelope["data"] = val.as<bool>();
-      } else if (val.is<int>() || val.is<long long>()) {
-        envelope["data"] = val.as<long long>();
-      } else if (val.is<double>() || val.is<float>()) {
-        envelope["data"] = val.as<double>();
-      } else if (val.is<sol::table>()) {
-        envelope["data"] = toJson(val.as<sol::table>());
-      } else {
-        envelope["data"] = nullptr;
-      }
-    } else {
-      envelope["ok"] = false;
-      sol::error err = result;
-      envelope["error"] = {{"code", "LuaError"}, {"message", err.what()}};
-    }
-
-    respond(envelope);
-  }
-
-  size_t m_win_id;
-  coconut::App* m_app = nullptr;
-  transport::MessageCallback m_callback;
-};
-
-} // anonymous namespace
-
-// ---------------------------------------------------------------------------
-// Transport factory and public bridge API
-// ---------------------------------------------------------------------------
+static std::string decodeEmbed() {
+  size_t len = sizeof(coconut_js_embed);
+  if (len > 0 && coconut_js_embed[len - 1] == 0) len -= 1;
+  return std::string(
+      reinterpret_cast<const char*>(coconut_js_embed), len);
+}
 
 void createTransport(coconut::App* app) {
-  if (app == nullptr || app->window == nullptr ||
+  if (app == nullptr || app->webview == nullptr ||
       app->bridge_state == nullptr) {
     return;
   }
-  const size_t win_id = app->window->window_id;
-  if (win_id == 0) {
-    return;
-  }
 
-  // Create the WebUI transport with app pointer for __coconut_call binding.
-  auto* t = new WebuiTransport(win_id, app);
+  // Decode the embedded Coconut JS runtime.
+  std::string coconut_js = decodeEmbed();
+
+  // Append a ready signal at the end so it auto-fires when the page loads.
+  // (webview_eval before webview_run is silently dropped, so we bake
+  //  __coconut_bridge_ready() into the init script instead.)
+  coconut_js += R"(
+;
+globalThis.__coconut_bridge_ready();
+)";
+
+  // Create the webview transport, which calls:
+  //   webview_init()  — injects Coconut JS runtime (fires on next page load)
+  //   webview_bind()  — registers __coconut_rpc for inbound messages
+  auto* t = new WebviewTransport(app->webview, coconut_js);
   app->bridge_state->transport = t;
 
   // Register the bridge callback: incoming RpcMessages are dispatched to Lua.
@@ -455,19 +245,17 @@ void createTransport(coconut::App* app) {
             dispatchRpcCallToLua(app, msg);
             break;
           default:
-            // kReady, kReturn, kError not expected on inbound for now
             break;
         }
       });
 }
 
 /// Signal to the frontend that the bridge is ready.
-/// Called after the window is shown and the JS page has loaded.
+/// With webview this is a no-op — kReady is baked into the init script
+/// passed to webview_init() in createTransport().
 void signalReady(coconut::App* app) {
-  std::cerr << "[bridge] signalReady: kReady → frontend\n";
-  rpc::Message ready;
-  ready.type = rpc::Type::kReady;
-  rpcSend(app, ready);
+  (void)app;
+  // kReady fires automatically via webview_init script.
 }
 
 void rpcSend(coconut::App* app, const rpc::Message& msg) {

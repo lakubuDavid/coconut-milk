@@ -4,6 +4,8 @@
 #include "config.h"
 #include "error.h"
 
+#include <webview/webview.h>
+
 #include <expected>
 #include <map>
 #include <optional>
@@ -28,11 +30,11 @@ struct View {
 struct Window {
   Config *configs = nullptr;
   std::map<std::string, View *> views;
-  size_t window_id = 0;
+  webview_t webview = nullptr;
   std::string current_view = "default";
 };
 
-std::expected<Window *, Error> createWindow(Config *config, size_t window_id);
+std::expected<Window *, Error> createWindow(Config *config, webview_t wv);
 void destroyWindow(Window *window);
 void showWindow(Window* window);
 

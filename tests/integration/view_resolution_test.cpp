@@ -7,9 +7,7 @@
 #include "test.h"
 #include "window.h"
 
-extern "C" {
-#include <webui.h>
-}
+#include <webview/webview.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -27,12 +25,9 @@ COCONUT_TEST(integration, create_file_view_reads_content) {
 
   auto result = coconut::window::createView(tmp, coconut::window::VIEW_KIND_FILE,
                                             std::nullopt);
-  // This should succeed once file-based view loading works.
   COCONUT_REQUIRE(result.has_value());
-  // The runtime is injected into every view — check the original content
-  // is preserved and the script is present.
+  // The runtime is injected globally via webview_init() — no per-view injection.
   COCONUT_REQUIRE(result->html.rfind("<h1>Hello</h1>") != std::string::npos);
-  COCONUT_REQUIRE(result->html.find("<script>") != std::string::npos);
 
   std::remove(tmp);
 }
@@ -41,7 +36,6 @@ COCONUT_TEST(integration, create_file_view_missing_file_fails) {
   auto result = coconut::window::createView("/nonexistent/file.html",
                                             coconut::window::VIEW_KIND_FILE,
                                             std::nullopt);
-  // Must fail with a MissingFile error.
   COCONUT_REQUIRE(!result.has_value());
   COCONUT_REQUIRE_EQ(result.error().code, coconut::ErrorCode::MissingFile);
 }
@@ -51,12 +45,8 @@ COCONUT_TEST(integration, create_html_view_stores_inline) {
   auto result = coconut::window::createView(html, coconut::window::VIEW_KIND_HTML,
                                             std::nullopt);
   COCONUT_REQUIRE(result.has_value());
-  // Runtime injection appends a <script> block — check original content
-  // is preserved (the injection happens before </body> so the original
-  // prefix and suffix should still be present).
-  COCONUT_REQUIRE(result->html.find("<html><body>Hello") != std::string::npos);
-  COCONUT_REQUIRE(result->html.find("</body></html>") != std::string::npos);
-  COCONUT_REQUIRE(result->html.find("<script>") != std::string::npos);
+  // Runtime is injected globally via webview_init() — no per-view injection.
+  COCONUT_REQUIRE(result->html.find("<html><body>Hello</body></html>") != std::string::npos);
 }
 
 COCONUT_TEST(integration, create_url_view_not_yet_implemented) {
@@ -70,41 +60,38 @@ COCONUT_TEST(integration, create_url_view_not_yet_implemented) {
 
 COCONUT_TEST(integration, add_view_stores_in_window) {
   coconut::Config cfg{};
-  size_t win_id = webui_new_window();
-  COCONUT_REQUIRE(win_id > 0);
-  auto win = coconut::window::createWindow(&cfg, win_id);
+  webview_t wv = webview_create(0, NULL);
+  COCONUT_REQUIRE(wv != nullptr);
+  auto win = coconut::window::createWindow(&cfg, wv);
   COCONUT_REQUIRE(win.has_value());
   auto* w = win.value();
 
   auto view = coconut::window::createView("<p>test</p>", coconut::window::VIEW_KIND_HTML,
                                           std::nullopt);
   COCONUT_REQUIRE(view.has_value());
-  // Allocate a heap copy so the Window owns it.
   auto* vp = new coconut::window::View(std::move(*view));
 
   coconut::window::addView(w, "test_view", vp);
   COCONUT_REQUIRE_EQ(w->views.size(), size_t(1));
   COCONUT_REQUIRE(w->views.count("test_view"));
-  // Runtime injection appends a <script> block — check original content
-  // is preserved and the script tag is present.
+  // No per-view runtime injection with webview.
   COCONUT_REQUIRE(w->views["test_view"]->html.rfind("<p>test</p>") != std::string::npos);
-  COCONUT_REQUIRE(w->views["test_view"]->html.find("<script>") != std::string::npos);
 
-  // destroyWindow now frees all heap views in the map.
   coconut::window::destroyWindow(w);
+  webview_destroy(wv);
 }
 
 COCONUT_TEST(integration, show_window_without_view_does_not_crash) {
   coconut::Config cfg{};
-  size_t win_id = webui_new_window();
-  COCONUT_REQUIRE(win_id > 0);
-  auto win = coconut::window::createWindow(&cfg, win_id);
+  webview_t wv = webview_create(0, NULL);
+  COCONUT_REQUIRE(wv != nullptr);
+  auto win = coconut::window::createWindow(&cfg, wv);
   COCONUT_REQUIRE(win.has_value());
   auto* w = win.value();
 
   // current_view is empty — showWindow should be a safe no-op or show placeholder.
-  // If it crashes, the guard is missing.
   coconut::window::showWindow(w);
 
   coconut::window::destroyWindow(w);
+  webview_destroy(wv);
 }

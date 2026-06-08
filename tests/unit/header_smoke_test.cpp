@@ -8,9 +8,7 @@
 #include "window.h"
 #include "test.h"
 
-extern "C" {
-#include <webui.h>
-}
+#include <webview/webview.h>
 
 COCONUT_TEST(unit, header_smoke_compiles) {
   coconut::Config config{};
@@ -31,9 +29,9 @@ COCONUT_TEST(unit, header_smoke_compiles) {
   COCONUT_REQUIRE(lua_result);
   auto* lua_runtime = lua_result.value();
 
-  size_t win_id = webui_new_window();
-  COCONUT_REQUIRE(win_id > 0);
-  auto win_result = coconut::window::createWindow(&config, win_id);
+  webview_t wv = webview_create(0, NULL);
+  COCONUT_REQUIRE(wv != nullptr);
+  auto win_result = coconut::window::createWindow(&config, wv);
   COCONUT_REQUIRE(win_result);
   auto* window = win_result.value();
 
@@ -62,4 +60,6 @@ COCONUT_TEST(unit, header_smoke_compiles) {
   coconut::commands::destroy(command_registry);
   coconut::bridge::destroy(bridge_state);
   coconut::context::destroy(ctx);
+
+  webview_destroy(wv);
 }

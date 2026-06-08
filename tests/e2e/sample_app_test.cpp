@@ -12,9 +12,7 @@
 #include "test.h"
 #include "window.h"
 
-extern "C" {
-#include <webui.h>
-}
+#include <webview/webview.h>
 
 COCONUT_TEST(e2e, full_app_startup_lifecycle) {
   // 1. Config defaults
@@ -23,9 +21,9 @@ COCONUT_TEST(e2e, full_app_startup_lifecycle) {
   COCONUT_REQUIRE_EQ(cfg.initial_view, std::string("home"));
 
   // 2. Window
-  size_t win_id = webui_new_window();
-  COCONUT_REQUIRE(win_id > 0);
-  auto win = coconut::window::createWindow(&cfg, win_id);
+  webview_t wv = webview_create(0, NULL);
+  COCONUT_REQUIRE(wv != nullptr);
+  auto win = coconut::window::createWindow(&cfg, wv);
   COCONUT_REQUIRE(win.has_value());
   coconut::window::Window* window = win.value();
   COCONUT_REQUIRE(window->configs == &cfg);
@@ -65,4 +63,5 @@ COCONUT_TEST(e2e, full_app_startup_lifecycle) {
   coconut::lua::destroy(lua_rt);
   coconut::context::destroy(context);
   coconut::window::destroyWindow(window);
+  webview_destroy(wv);
 }

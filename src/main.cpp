@@ -65,8 +65,8 @@ int main() {
   }
 
   std::cerr << "[debug] main: creating window...\n";
-  // Step 4: create window wrapper using the app-owned WebUI window id.
-  auto window_result = coconut::window::createWindow(&cfg, app->window_id);
+  // Step 4: create window wrapper using the app-owned webview handle.
+  auto window_result = coconut::window::createWindow(&cfg, app->webview);
   if (!window_result) {
     std::cerr << "Failed to create window: "
               << window_result.error().message << "\n";
@@ -154,10 +154,8 @@ int main() {
 
   // Show the initial view once all views are registered.
   if (!cfg.initial_view.empty()) {
-    // Signal BEFORE showView — webui_show_browser() blocks until tab closes.
-    // Queueing kReady before the page loads ensures it's delivered when
-    // the WebSocket connects.
-    bridge::signalReady(app);
+    // kReady is baked into the webview_init() script (see createTransport).
+    // No need to signalReady — it auto-fires when the page loads.
     std::cerr << "[debug]   showing initial view '" << cfg.initial_view << "'\n";
     window::showView(window, cfg.initial_view);
   }

@@ -10,6 +10,8 @@
 #include "lua_runtime.h"
 #include "window.h"
 
+#include <webview/webview.h>
+
 #include <expected>
 #include <optional>
 #include <string>
@@ -22,8 +24,8 @@ namespace coconut {
     Config*             configs      = nullptr;
     CoconutContext*     context      = nullptr;
 
-    /// WebUI window id (created by App core).
-    size_t              window_id    = 0;
+    /// webview handle (created by App core).
+    webview_t           webview      = nullptr;
 
     window::Window*     window       = nullptr;
     lua::Runtime*       lua_state    = nullptr;

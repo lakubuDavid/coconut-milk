@@ -2,16 +2,14 @@
 #include "test.h"
 #include "window.h"
 
-extern "C" {
-#include <webui.h>
-}
+#include <webview/webview.h>
 
-COCONUT_TEST(unit, webui_window_create_and_destroy) {
+COCONUT_TEST(unit, webview_window_create_and_destroy) {
   coconut::Config config{};
 
-  size_t win_id = webui_new_window();
-  COCONUT_REQUIRE(win_id > 0);
-  auto result = coconut::window::createWindow(&config, win_id);
+  webview_t wv = webview_create(0, NULL);
+  COCONUT_REQUIRE(wv != nullptr);
+  auto result = coconut::window::createWindow(&config, wv);
   COCONUT_REQUIRE(result);
   coconut::window::Window* window = result.value();
 
@@ -19,5 +17,7 @@ COCONUT_TEST(unit, webui_window_create_and_destroy) {
   COCONUT_REQUIRE(window->configs == &config);
   COCONUT_REQUIRE(window->views.empty());
 
+  // Clean up: window does NOT own the webview handle (App does).
   coconut::window::destroyWindow(window);
+  webview_destroy(wv);
 }

@@ -5,10 +5,6 @@
 #include "error.h"
 #include "rpc_envelope.h"
 #include "transport.h"
-extern "C" {
-  #include "webui.h"
-}
-#include "window.h"
 
 #include <nlohmann/json.hpp>
 
@@ -32,7 +28,6 @@ namespace coconut {
     void                         destroy(State* state);
 
     void emitToLua(coconut::App* app,std::string eventName, nlohmann::json payload);
-    void emitToJS(window::Window* window,std::string eventName,nlohmann::json payload);
     void emitToJS(coconut::App* app,std::string eventName,nlohmann::json payload);
 
     void callLua(coconut::App* app,std::string fuctionName,nlohmann::json payload);

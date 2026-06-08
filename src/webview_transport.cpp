@@ -68,7 +68,7 @@ void WebviewTransport::send(const rpc::Message& msg) {
       break;
     }
     case rpc::Type::kReady: {
-      webview_eval(m_webview, "globalThis.__coconut_bridge_ready();");
+      // kReady is baked into the webview_init() script — no need to eval.
       break;
     }
   }
