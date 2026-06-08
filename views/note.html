@@ -122,6 +122,7 @@
     <h1>🥥 Coconut</h1>
     <a href="#" data-view="home">Home</a>
     <a href="#" class="active" data-view="note">Notes</a>
+    <a href="#" data-view="commands">Commands</a>
   </nav>
   <main>
     <h2>📝 Notes <span id="note-stat"></span></h2>
@@ -194,16 +195,19 @@
       a.addEventListener('click', e => {
         e.preventDefault();
         const view = a.dataset.view;
-        if (window.__coconut_emit) {
-          window.__coconut_emit('navigate', JSON.stringify({ view }));
+        if (window.coconut && window.coconut.emit) {
+          window.coconut.emit('navigate', { view });
         }
       });
     });
 
     // --- Bridge ready signal ---
-    if (window.__coconut_on_ready) {
-      window.__coconut_on_ready(() => { /* bridge is live */ });
-    }
+    (async () => {
+      if (window.coconut && window.coconut.ready) {
+        await coconut.ready();
+        console.log('[coconut] bridge ready');
+      }
+    })();
   </script>
 </body>
 </html>
