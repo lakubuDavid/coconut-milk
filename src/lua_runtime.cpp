@@ -24,8 +24,7 @@ std::expected<Runtime *, Error> create(Config *cfg, CoconutContext *ctx) {
   _bindViewClass(runtime);
   _bindUserType(runtime);
 
-  // Wire JS -> Lua through the bridge's transport layer (no direct WebUI calls).
-  bridge::createTransport(runtime->app);
+  // Transport is created by main.cpp after runtime->app is wired.
 
   return runtime;
 }

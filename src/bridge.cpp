@@ -77,8 +77,11 @@ static std::string escapeJsSingleQuotedString(std::string_view s) {
 
 /// Route an incoming kEvent RPC message to Lua's coconut.events().
 static void dispatchRpcEventToLua(coconut::App* app, const rpc::Message& msg) {
+
+
   if (app == nullptr || app->lua_state == nullptr ||
       app->lua_state->lua_state == nullptr || app->lua_state->context == nullptr) {
+
     return;
   }
 
@@ -260,6 +263,7 @@ class WebuiTransport : public transport::Transport {
 public:
   WebuiTransport(size_t win_id, coconut::App* app)
       : m_win_id(win_id), m_app(app) {
+
     // ── Inbound event channel ──
     // JS calls:  __coconut_emit(name, payloadJson)
     webui_bind(win_id, "__coconut_emit", &static_on_message);
@@ -267,10 +271,9 @@ public:
 
     // ── Inbound command channel ──
     // JS calls:  __coconut_call(name, payloadJson)
-    // The handler invokes the Lua command and returns the result synchronously
-    // via webui_return(), resolving the JS Promise.
     webui_bind(win_id, "__coconut_call", &static_on_call);
     webui_set_context(win_id, "__coconut_call", this);
+
 
     // Inject JS adapter that maps __coconut_js_listener → __coconut_emit.
     const char* adapter =
@@ -487,6 +490,7 @@ void createTransport(coconut::App* app) {
 /// Signal to the frontend that the bridge is ready.
 /// Called after the window is shown and the JS page has loaded.
 void signalReady(coconut::App* app) {
+  std::cerr << "[bridge] signalReady: kReady → frontend\n";
   rpc::Message ready;
   ready.type = rpc::Type::kReady;
   rpcSend(app, ready);

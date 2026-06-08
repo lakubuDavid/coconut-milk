@@ -142,38 +142,33 @@
       a.addEventListener('click', e => {
         e.preventDefault();
         const view = a.dataset.view;
-        if (window.__coconut_emit) {
-          window.__coconut_emit('navigate', JSON.stringify({ view }));
+        if (window.coconut && window.coconut.emit) {
+          window.coconut.emit('navigate', { view });
         }
       });
     });
 
     // --- Bridge ping ---
-    document.getElementById('ping-btn').onclick = () => {
-      if (window.__coconut_call) {
-        window.__coconut_call('ping', '{}', (result) => {
-          const status = document.getElementById('bridge-status');
-          status.textContent = 'pong: ' + JSON.stringify(result);
-          status.className = 'connected';
-        });
-      } else {
-        document.getElementById('bridge-status').textContent = 'bridge not ready';
+    document.getElementById('ping-btn').onclick = async () => {
+      const status = document.getElementById('bridge-status');
+      try {
+        const result = await coconut.call('ping', {});
+        status.textContent = 'pong: ' + JSON.stringify(result);
+        status.className = 'connected';
+      } catch (err) {
+        status.textContent = 'error: ' + (err.message || JSON.stringify(err));
+        status.className = 'pending';
       }
     };
 
     // --- Bridge ready handshake ---
-    if (window.__coconut_on_ready) {
-      window.__coconut_on_ready(() => {
-        document.getElementById('bridge-status').textContent = 'connected';
-        document.getElementById('bridge-status').className = 'connected';
-      });
-    }
-
-    // Override bridge-status once __coconut_bridge_ready fires
-    window.addEventListener('coconut-ready', () => {
-      document.getElementById('bridge-status').textContent = 'connected';
-      document.getElementById('bridge-status').className = 'connected';
-    });
+    (async () => {
+      await coconut.ready();
+      const status = document.getElementById('bridge-status');
+      status.textContent = 'connected';
+      status.className = 'connected';
+      console.log('[coconut] bridge ready — coconut.call() available');
+    })();
   </script>
 </body>
 </html>

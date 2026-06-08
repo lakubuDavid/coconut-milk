@@ -103,7 +103,8 @@ function _stringifyPayload(payload: CoconutPayload): string {
  * - payloads cross the bridge as JSON strings
  * - events are delivered via injected dispatcher callbacks
  */
-export const coconut = {
+const coconut = {
+
   ready: async () => {
     if (_ready) return
     await _readyPromise
@@ -169,5 +170,8 @@ export const coconut = {
     } satisfies CoconutError
   },
 }
+
+// Expose globally so injected <script> (non-module) can access `window.coconut`.
+;(globalThis as any).coconut = coconut
 
 

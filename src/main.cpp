@@ -51,6 +51,19 @@ int main() {
     app->context->commands = app->commands;
   }
 
+  std::cerr << "[debug] main: creating bridge state...\n";
+  // Step 3b: create bridge state (needed before transport creation).
+  {
+    auto bridge_result = coconut::bridge::create(&cfg);
+    if (!bridge_result) {
+      std::cerr << "Failed to create bridge state: "
+                << bridge_result.error().message << "\n";
+      coconut::app::destroy(app);
+      return 1;
+    }
+    app->bridge_state = bridge_result.value();
+  }
+
   std::cerr << "[debug] main: creating window...\n";
   // Step 4: create window wrapper using the app-owned WebUI window id.
   auto window_result = coconut::window::createWindow(&cfg, app->window_id);
@@ -78,6 +91,10 @@ int main() {
 
   // Wire back: runtime needs app for bridge access.
   lua_runtime->app = app;
+
+  // Create the bridge transport and bind JS entry points.
+  // Must happen after runtime->app is set (transport needs the App*).
+  bridge::createTransport(app);
 
   // Step 6: load user entry point (main.lua) and apply coconut.config(ctx).
   // The loadEntryPoint function handles:

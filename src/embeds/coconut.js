@@ -86,6 +86,4 @@ var coconut = {
     };
   }
 };
-export {
-  coconut
-};
+globalThis.coconut = coconut;
