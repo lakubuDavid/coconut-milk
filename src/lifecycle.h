@@ -8,6 +8,7 @@ namespace coconut {
   struct App;
   namespace lifecycle {
     void registerEvents(coconut::App* app);
+    void unregisterEvents();
   }
 }
 

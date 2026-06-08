@@ -27,6 +27,10 @@ namespace coconut {
     std::expected<State*, Error> create(Config* config);
     void                         destroy(State* state);
 
+    /// Dispatch a named event + JSON payload to Lua's coconut.events(name, payload, ctx).
+    void dispatchEventToLua(coconut::App* app, const std::string& name,
+                            const nlohmann::json& payload);
+
     void emitToLua(coconut::App* app,std::string eventName, nlohmann::json payload);
     void emitToJS(coconut::App* app,std::string eventName,nlohmann::json payload);
 

@@ -50,18 +50,15 @@ static std::string escapeLuaString(std::string_view s) {
 // ---------------------------------------------------------------------------
 
 /// Route an incoming kEvent RPC message to Lua's coconut.events().
-static void dispatchRpcEventToLua(coconut::App* app, const rpc::Message& msg) {
-
-
+void dispatchEventToLua(coconut::App* app, const std::string& name,
+                         const nlohmann::json& payload) {
   if (app == nullptr || app->lua_state == nullptr ||
       app->lua_state->lua_state == nullptr || app->lua_state->context == nullptr) {
-
     return;
   }
 
   sol::state_view lua(*app->lua_state->lua_state);
-
-  sol::table payloadTable = toTable(lua, msg.payload);
+  sol::table payloadTable = toTable(lua, payload);
 
   sol::object coconutObj = lua["coconut"];
   if (!coconutObj.valid() || !coconutObj.is<sol::table>()) {
@@ -75,7 +72,11 @@ static void dispatchRpcEventToLua(coconut::App* app, const rpc::Message& msg) {
   }
 
   // Call: coconut.events(name, payloadTable, ctx)
-  eventsFn(msg.name, payloadTable, app->lua_state->context);
+  eventsFn(name, payloadTable, app->lua_state->context);
+}
+
+static void dispatchRpcEventToLua(coconut::App* app, const rpc::Message& msg) {
+  dispatchEventToLua(app, msg.name, msg.payload);
 }
 
 /// Route an incoming kCall RPC message to the command registry.

@@ -1,5 +1,9 @@
 /// Cocoa NSWindow lifecycle observers for resize, focus, blur.
 /// Uses raw Objective-C runtime (no ObjC syntax, no ARC issues).
+///
+/// Events are dispatched to BOTH:
+///   - The frontend via bridge::emitToJS()  → coconut.on('resize', ...)
+///   - Lua via       bridge::dispatchEventToLua() → coconut.events(name, payload, ctx)
 
 #include "lifecycle.h"
 #include "app.h"
@@ -21,29 +25,34 @@ namespace coconut::lifecycle {
 
 static coconut::App* s_app = nullptr;
 
-/// Emit a lifecycle event to the frontend.
-static void emit(const std::string& name, nlohmann::json payload) {
+/// Dispatch event to both frontend and Lua.
+static void dispatch(const std::string& name, nlohmann::json payload) {
   if (!s_app) return;
-  bridge::emitToJS(s_app, name, std::move(payload));
+
+  // Frontend: coconut.on('resize', cb)
+  bridge::emitToJS(s_app, name, payload);
+
+  // Lua:      coconut.events(name, payload, ctx)
+  bridge::dispatchEventToLua(s_app, name, payload);
 }
 
 /// Called when the window is resized.
 extern "C" void coconut_onResize(id self, SEL cmd, id notification) {
   (void)self; (void)cmd; (void)notification;
   nlohmann::json payload = {{"w", 0}, {"h", 0}};
-  emit("resize", payload);
+  dispatch("resize", payload);
 }
 
 /// Called when the window becomes key (focused).
 extern "C" void coconut_onFocus(id self, SEL cmd, id notification) {
   (void)self; (void)cmd; (void)notification;
-  emit("focus", {{"active", true}});
+  dispatch("focus", {{"active", true}});
 }
 
 /// Called when the window resigns key (blurred).
 extern "C" void coconut_onBlur(id self, SEL cmd, id notification) {
   (void)self; (void)cmd; (void)notification;
-  emit("focus", {{"active", false}});
+  dispatch("focus", {{"active", false}});
 }
 
 void registerEvents(coconut::App* app) {
@@ -98,6 +107,13 @@ void registerEvents(coconut::App* app) {
               (IMP)coconut_onBlur, sel_registerName("onBlur:"));
 
   std::cerr << "[lifecycle] registered resize/focus/blur observers\n";
+}
+
+void unregisterEvents() {
+  // Prevent any further dispatches during teardown.
+  // The ObjC observer objects will be released naturally when the
+  // process exits — no need to explicitly remove them.
+  s_app = nullptr;
 }
 
 } // namespace coconut::lifecycle

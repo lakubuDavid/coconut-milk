@@ -4,6 +4,7 @@
 function coconut.views()
   return {
     home = View.load("views/home.html"),
+    note = View.load("views/note.html"),
     about = View.html([[<h1>About</h1><p>A minimal Lua desktop UI framework.</p>]]),
   }
 end

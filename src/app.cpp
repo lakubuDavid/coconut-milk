@@ -1,4 +1,5 @@
 #include "app.h"
+#include "lifecycle.h"
 #include "window.h"
 
 #include <iostream>
@@ -41,6 +42,9 @@ void destroy(App *app) {
   if (app == nullptr) {
     return;
   }
+
+  // Stop any lifecycle observers from firing during teardown.
+  lifecycle::unregisterEvents();
 
   if (app->window != nullptr) {
     window::destroyWindow(app->window);
