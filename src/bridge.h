@@ -38,15 +38,12 @@ namespace coconut {
     void callJS(coconut::App* app,std::string functionName,nlohmann::json payload);
 
     /// Create a transport for the given app and store it on the bridge State.
-    /// Also registers the frontend-side binding and injects the JS adapter.
+    /// Registers the frontend-side binding and injects the JS adapter.
+    /// Inbound messages are routed to the bridge's internal callback.
     void createTransport(App* app);
 
-    /// Register the JS listener for inbound messages.
-    void setupEmitBinding(App* app);
-
-    void _coconut_js_listener(webui_event_t* e);
-
-    void dispatchEventToLua(webui_event_t* e);
+    /// Send an RPC message through the bridge state's transport.
+    void rpcSend(App* app, const rpc::Message& msg);
 
     // Convert json object/array to a lua table.
     // Requires a Lua state to allocate the sol::table.

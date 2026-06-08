@@ -71,14 +71,100 @@ static std::string escapeJsSingleQuotedString(std::string_view s) {
   return out;
 }
 
-void emitToLua(coconut::App *app, std::string eventName,
-               nlohmann::json payload) {
-  if (app == nullptr || app->lua_state == nullptr || app->lua_state->lua_state == nullptr) {
+// ---------------------------------------------------------------------------
+// Inbound RPC dispatch helpers (bridge owns the dispatch logic)
+// ---------------------------------------------------------------------------
+
+/// Route an incoming kEvent RPC message to Lua's coconut.events().
+static void dispatchRpcEventToLua(coconut::App* app, const rpc::Message& msg) {
+  if (app == nullptr || app->lua_state == nullptr ||
+      app->lua_state->lua_state == nullptr || app->lua_state->context == nullptr) {
     return;
   }
 
-  // For now we pass payload as a JSON string.
-  // Later versions should decode into a Lua table.
+  sol::state_view lua(*app->lua_state->lua_state);
+
+  sol::table payloadTable = toTable(lua, msg.payload);
+
+  sol::object coconutObj = lua["coconut"];
+  if (!coconutObj.valid() || !coconutObj.is<sol::table>()) {
+    return;
+  }
+
+  sol::table coconutTbl = coconutObj.as<sol::table>();
+  sol::protected_function eventsFn = coconutTbl["events"];
+  if (!eventsFn.valid()) {
+    return;
+  }
+
+  // Call: coconut.events(name, payloadTable, ctx)
+  eventsFn(msg.name, payloadTable, app->lua_state->context);
+}
+
+/// Route an incoming kCall RPC message to the command registry.
+/// Sends a kReturn or kError response through the transport.
+static void dispatchRpcCallToLua(coconut::App* app, const rpc::Message& msg) {
+  if (app == nullptr || app->commands == nullptr) {
+    return;
+  }
+
+  // Look up handler in the command registry.
+  auto it = app->commands->handlers.find(msg.name);
+  if (it == app->commands->handlers.end()) {
+    rpc::Message err;
+    err.type = rpc::Type::kError;
+    err.id   = msg.id;
+    err.payload = {{"code", "CommandNotFound"},
+                   {"message", "No handler for '" + msg.name + "'"}};
+    rpcSend(app, err);
+    return;
+  }
+
+  // Invoke the registered Lua function.
+  const sol::protected_function& fn = it->second;
+
+  sol::state_view lua(*app->lua_state->lua_state);
+  sol::table paramsTable = toTable(lua, msg.payload);
+
+  auto result = fn(paramsTable, app->lua_state->context);
+
+  rpc::Message reply;
+  reply.id = msg.id;
+
+  if (result.valid()) {
+    reply.type = rpc::Type::kReturn;
+    sol::object val = result;
+    if (val.is<sol::table>()) {
+      reply.payload = toJson(val.as<sol::table>());
+    } else if (val.is<std::string>()) {
+      reply.payload = val.as<std::string>();
+    } else if (val.is<long long>()) {
+      reply.payload = val.as<long long>();
+    } else if (val.is<double>()) {
+      reply.payload = val.as<double>();
+    } else if (val.is<bool>()) {
+      reply.payload = val.as<bool>();
+    }
+  } else {
+    reply.type = rpc::Type::kError;
+    sol::error err = result;
+    reply.payload = {{"code", "LuaError"}, {"message", err.what()}};
+  }
+
+  rpcSend(app, reply);
+}
+
+// ---------------------------------------------------------------------------
+// Remaining legacy helpers (callLua, callJS using raw WebUI)
+// ---------------------------------------------------------------------------
+
+void emitToLua(coconut::App *app, std::string eventName,
+               nlohmann::json payload) {
+  if (app == nullptr || app->lua_state == nullptr ||
+      app->lua_state->lua_state == nullptr) {
+    return;
+  }
+
   const auto payloadJson = payload.dump();
   const auto luaEventName = escapeLuaString(eventName);
   const auto luaPayloadJson = escapeLuaString(payloadJson);
@@ -92,31 +178,22 @@ void emitToLua(coconut::App *app, std::string eventName,
 
 void emitToJS(coconut::App *app, std::string eventName,
                nlohmann::json payload) {
-  if (app == nullptr || app->window == nullptr) {
-    return;
-  }
-
-  const auto payloadJson = payload.dump();
-  const auto jsName = escapeJsSingleQuotedString(eventName);
-  const auto jsPayloadJson = escapeJsSingleQuotedString(payloadJson);
-
-  // JS side expects: __coconut_dispatch_event(name, payloadJsonString)
-  const std::string script = std::format(
-      "globalThis.__coconut_dispatch_event('{}', '{}');", jsName,
-      jsPayloadJson);
-
-  if (app->window->window_id > 0) {
-    webui_run(app->window->window_id, script.c_str());
-  }
+  // Route through the transport as an RPC event.
+  rpc::Message msg;
+  msg.type    = rpc::Type::kEvent;
+  msg.name    = std::move(eventName);
+  msg.payload = std::move(payload);
+  rpcSend(app, msg);
 }
-
 
 void emitToJS(window::Window* window, std::string eventName,
               nlohmann::json payload) {
-  if (window == nullptr) {
+  if (window == nullptr || window->window_id == 0) {
     return;
   }
 
+  // Low-level fallback: send directly when no App* is available.
+  // TODO: route through transport once window owns a transport ref.
   const auto payloadJson = payload.dump();
   const auto jsName = escapeJsSingleQuotedString(eventName);
   const auto jsPayloadJson = escapeJsSingleQuotedString(payloadJson);
@@ -125,10 +202,208 @@ void emitToJS(window::Window* window, std::string eventName,
       "globalThis.__coconut_dispatch_event('{}', '{}');", jsName,
       jsPayloadJson);
 
-  if (window->window_id > 0) {
-    webui_run(window->window_id, script.c_str());
+  webui_run(window->window_id, script.c_str());
+}
+
+void callLua(coconut::App *app, std::string functionName,
+              nlohmann::json payload) {
+  if (app == nullptr || app->lua_state == nullptr ||
+      app->lua_state->lua_state == nullptr) {
+    return;
+  }
+
+  sol::state &lua = *app->lua_state->lua_state;
+  sol::protected_function fn = lua[functionName];
+  if (!fn.valid()) {
+    return;
+  }
+
+  sol::object arg = functionName == "coconut.events"
+                        ? sol::make_object(lua, payload.dump())
+                        : toTable(lua, payload);
+
+  auto result = fn(arg);
+  if (!result.valid()) {
+    sol::error err = result;
+    (void)err;
   }
 }
+
+void callJS(coconut::App *app, std::string functionName,
+            nlohmann::json payload) {
+  if (app == nullptr || app->window == nullptr) {
+    return;
+  }
+  if (app->window->window_id == 0) {
+    return;
+  }
+
+  const std::string payloadStr = payload.dump();
+  const std::string script = std::format(
+      "globalThis['{}']({});", functionName, payloadStr);
+
+  webui_run(app->window->window_id, script.c_str());
+}
+
+// ---------------------------------------------------------------------------
+// WebUI transport — wraps webui_run / webui_bind behind Transport interface
+// ---------------------------------------------------------------------------
+
+namespace {
+
+/// Concrete transport that sends/receives RPC messages over WebUI's
+/// webui_run()/webui_bind() mechanism.
+///
+/// Outbound flow:  send(RpcMessage) → translates to JS function calls
+/// Inbound flow:   webui_bind callback → constructs RpcMessage → m_callback(msg)
+class WebuiTransport : public transport::Transport {
+public:
+  WebuiTransport(size_t win_id, void* context)
+      : m_win_id(win_id) {
+    // Bind the inbound handler.  The JS side calls:
+    //   __coconut_emit(name, payloadJson)  — legacy two-arg format
+    webui_bind(win_id, "__coconut_emit", &static_on_message);
+    webui_set_context(win_id, "__coconut_emit", this);
+
+    // Inject JS adapter that converts old-style JS calls to the
+    // WebUI-bound __coconut_emit(name, payloadJson).
+    const char* adapter =
+        "(function(){\n"
+        "  if (!globalThis.__coconut_js_listener) {\n"
+        "    globalThis.__coconut_js_listener = function(name, payloadJson) "
+        "{\n"
+        "      return globalThis.__coconut_emit(name, payloadJson);\n"
+        "    };\n"
+        "  }\n"
+        "})();";
+    webui_run(win_id, adapter);
+  }
+
+  ~WebuiTransport() override = default;
+
+  void send(const rpc::Message& msg) override {
+    switch (msg.type) {
+      case rpc::Type::kEvent: {
+        // Keep the existing __coconut_dispatch_event format.
+        auto payloadStr = msg.payload.is_null()
+                              ? "{}"
+                              : msg.payload.dump();
+        auto jsName = escapeJsSingleQuotedString(msg.name);
+        auto jsPayload = escapeJsSingleQuotedString(payloadStr);
+        auto script = std::format(
+            "globalThis.__coconut_dispatch_event('{}', '{}');",
+            jsName, jsPayload);
+        webui_run(m_win_id, script.c_str());
+        break;
+      }
+      case rpc::Type::kReturn:
+      case rpc::Type::kError: {
+        // Promise resolution: send full RPC JSON to a dedicated receiver.
+        auto json = msg.toJson().dump();
+        auto escaped = escapeJsSingleQuotedString(json);
+        auto script = std::format(
+            "globalThis.__coconut_rpc_receive('{}');", escaped);
+        webui_run(m_win_id, script.c_str());
+        break;
+      }
+      case rpc::Type::kCall: {
+        // Invoke a named JS function with the payload.
+        auto payloadStr = msg.payload.dump();
+        auto script = std::format(
+            "globalThis['{}']({});", msg.name, payloadStr);
+        webui_run(m_win_id, script.c_str());
+        break;
+      }
+      case rpc::Type::kReady: {
+        webui_run(m_win_id, "globalThis.__coconut_bridge_ready();");
+        break;
+      }
+    }
+  }
+
+  void setMessageCallback(transport::MessageCallback cb) override {
+    m_callback = std::move(cb);
+  }
+
+private:
+  /// Static WebUI callback — reads the event and constructs an RpcMessage.
+  static void static_on_message(webui_event_t* e) {
+    void* raw = webui_get_context(e);
+    auto* self = static_cast<WebuiTransport*>(raw);
+    if (!self || !self->m_callback) {
+      return;
+    }
+
+    // JS contract: __coconut_emit(name: string, payloadJson: string)
+    const char* eventNameC = webui_get_string(e);
+    const char* payloadJsonC = webui_get_string_at(e, 1);
+
+    rpc::Message msg;
+    msg.type = rpc::Type::kEvent;
+    msg.name = eventNameC ? eventNameC : "";
+    if (payloadJsonC) {
+      try {
+        msg.payload = nlohmann::json::parse(payloadJsonC);
+      } catch (...) {
+        msg.payload = nlohmann::json::object();
+      }
+    }
+
+    self->m_callback(msg);
+  }
+
+  size_t m_win_id;
+  transport::MessageCallback m_callback;
+};
+
+} // anonymous namespace
+
+// ---------------------------------------------------------------------------
+// Transport factory and public bridge API
+// ---------------------------------------------------------------------------
+
+void createTransport(coconut::App* app) {
+  if (app == nullptr || app->window == nullptr ||
+      app->bridge_state == nullptr) {
+    return;
+  }
+  const size_t win_id = app->window->window_id;
+  if (win_id == 0) {
+    return;
+  }
+
+  // Create the WebUI transport.
+  auto* t = new WebuiTransport(win_id, app->lua_state);
+  app->bridge_state->transport = t;
+
+  // Register the bridge callback: incoming RpcMessages are dispatched to Lua.
+  t->setMessageCallback(
+      [app](const rpc::Message& msg) {
+        switch (msg.type) {
+          case rpc::Type::kEvent:
+            dispatchRpcEventToLua(app, msg);
+            break;
+          case rpc::Type::kCall:
+            dispatchRpcCallToLua(app, msg);
+            break;
+          default:
+            // kReady, kReturn, kError not expected on inbound for now
+            break;
+        }
+      });
+}
+
+void rpcSend(coconut::App* app, const rpc::Message& msg) {
+  if (app == nullptr || app->bridge_state == nullptr ||
+      app->bridge_state->transport == nullptr) {
+    return;
+  }
+  app->bridge_state->transport->send(msg);
+}
+
+// ---------------------------------------------------------------------------
+// JSON <-> Lua conversion helpers
+// ---------------------------------------------------------------------------
 
 static sol::object jsonToLua(sol::state_view lua, const nlohmann::json& v) {
   if (v.is_null()) {
@@ -176,7 +451,6 @@ sol::table toTable(sol::state_view lua, const nlohmann::json& json) {
     return obj.as<sol::table>();
   }
 
-  // Non-object/array: wrap as { value = ... } so we still return a table.
   sol::table t = lua.create_table();
   t["value"] = obj;
   return t;
@@ -190,7 +464,6 @@ sol::table toTable(sol::state_view lua, const std::string& jsonStr) {
 static nlohmann::json luaToJsonValue(const sol::object& obj);
 
 static nlohmann::json luaToJsonTable(const sol::table& t) {
-  // Decide array vs object.
   bool looksArray = true;
   std::size_t maxIndex = 0;
   std::size_t count = 0;
@@ -232,7 +505,6 @@ static nlohmann::json luaToJsonTable(const sol::table& t) {
     if (k.is<std::string>()) {
       key = k.as<std::string>();
     } else {
-      // Fallback: stringify numeric keys.
       if (k.is<long long>() || k.is<int>()) {
         key = std::to_string(static_cast<long long>(k.as<long long>()));
       } else {
@@ -276,195 +548,11 @@ static nlohmann::json luaToJsonValue(const sol::object& obj) {
     return luaToJsonTable(obj.as<sol::table>());
   }
 
-  // Fallback: encode as string.
   return obj.as<std::string>();
 }
 
 nlohmann::json toJson(const sol::table& table) {
   return luaToJsonTable(table);
-}
-
-void callLua(coconut::App *app, std::string functionName,
-              nlohmann::json payload) {
-  if (app == nullptr || app->lua_state == nullptr ||
-      app->lua_state->lua_state == nullptr) {
-    return;
-  }
-
-  sol::state &lua = *app->lua_state->lua_state;
-  sol::protected_function fn = lua[functionName];
-  if (!fn.valid()) {
-    return;
-  }
-
-  // Convert JSON payload to a Lua table value.
-  sol::object arg = functionName == "coconut.events"
-                        ? sol::make_object(lua, payload.dump())
-                        : toTable(lua, payload);
-
-  auto result = fn(arg);
-  if (!result.valid()) {
-    sol::error err = result;
-    (void)err;
-  }
-}
-
-void callJS(coconut::App *app, std::string functionName,
-            nlohmann::json payload) {
-  if (app == nullptr || app->window == nullptr) {
-    return;
-  }
-  if (app->window->window_id == 0) {
-    return;
-  }
-
-  const std::string payloadStr = payload.dump();
-  const std::string script = std::format(
-      "globalThis['{}']({});", functionName, payloadStr);
-
-  webui_run(app->window->window_id, script.c_str());
-}
-
-// ---------------------------------------------------------------------------
-// WebUI transport implementation
-// ---------------------------------------------------------------------------
-
-namespace {
-
-/// Concrete transport that sends/receives RPC messages over WebUI's
-/// webui_run()/webui_bind() mechanism.
-class WebuiTransport : public transport::Transport {
-public:
-  WebuiTransport(size_t win_id) : m_win_id(win_id) {}
-
-  ~WebuiTransport() override = default;
-
-  void send(const rpc::Message& msg) override {
-    auto json = msg.toJson().dump();
-    auto escaped = escapeJsSingleQuotedString(json);
-    auto script = std::format(
-        "globalThis.__coconut_rpc_receive('{}');", escaped);
-    webui_run(m_win_id, script.c_str());
-  }
-
-  void setMessageCallback(transport::MessageCallback cb) override {
-    m_callback = std::move(cb);
-  }
-
-  size_t windowId() const { return m_win_id; }
-  const transport::MessageCallback& callback() const { return m_callback; }
-
-private:
-  size_t m_win_id;
-  transport::MessageCallback m_callback;
-};
-
-} // anonymous namespace
-
-// ---------------------------------------------------------------------------
-// Transport creation and setup
-// ---------------------------------------------------------------------------
-
-void createTransport(coconut::App* app) {
-  if (app == nullptr || app->window == nullptr || app->bridge_state == nullptr) {
-    return;
-  }
-  const size_t win_id = app->window->window_id;
-  if (win_id == 0) {
-    return;
-  }
-
-  // Create the WebUI transport and store on bridge state.
-  auto* t = new WebuiTransport(win_id);
-  app->bridge_state->transport = t;
-
-  // Bind the incoming message handler.
-  setupEmitBinding(app);
-}
-
-/// Send an RPC message through the bridge state's transport.
-void rpcSend(coconut::App* app, const rpc::Message& msg) {
-  if (app == nullptr || app->bridge_state == nullptr ||
-      app->bridge_state->transport == nullptr) {
-    return;
-  }
-  app->bridge_state->transport->send(msg);
-}
-
-void setupEmitBinding(coconut::App* app) {
-  if (app == nullptr || app->window == nullptr) {
-    return;
-  }
-  const size_t win_id = app->window->window_id;
-  if (win_id == 0) {
-    return;
-  }
-
-  webui_bind(win_id, "__coconut_emit",
-             &coconut::bridge::_coconut_js_listener);
-  webui_set_context(win_id, "__coconut_emit", app->lua_state);
-
-  // JS adapter: let frontend trigger __coconut_js_listener(name,
-  // payloadJson) which forwards into the WebUI-bound function.
-  const char* adapter =
-      "(function(){\n"
-      "  if (!globalThis.__coconut_js_listener) {\n"
-      "    globalThis.__coconut_js_listener = function(name, payloadJson) "
-      "{\n"
-      "      return globalThis.__coconut_emit(name, payloadJson);\n"
-      "    };\n"
-      "  }\n"
-      "})();";
-  webui_run(win_id, adapter);
-}
-
-void dispatchEventToLua(webui_event_t* e) {
-  if (e == nullptr) {
-    return;
-  }
-
-  // The runtime is attached as user context via setupEmitBinding.
-  void* raw = webui_get_context(e);
-  auto* runtime = static_cast<coconut::lua::Runtime*>(raw);
-  if (runtime == nullptr || runtime->lua_state == nullptr || runtime->context == nullptr) {
-    return;
-  }
-
-  // JS contract: __coconut_emit(name: string, payloadJson: string)
-  const char* eventNameC = webui_get_string(e);
-  const char* payloadJsonC = webui_get_string_at(e, 1);
-
-  const std::string eventName = eventNameC ? eventNameC : "";
-  const std::string payloadJsonStr = payloadJsonC ? payloadJsonC : "{}";
-
-  nlohmann::json payload;
-  try {
-    payload = nlohmann::json::parse(payloadJsonStr);
-  } catch (...) {
-    payload = nlohmann::json::object();
-  }
-
-  sol::state_view lua_view(*runtime->lua_state);
-
-  sol::table payloadTable = toTable(lua_view, payload);
-
-  sol::object coconutObj = (*runtime->lua_state)["coconut"];
-  if (!coconutObj.valid() || !coconutObj.is<sol::table>()) {
-    return;
-  }
-
-  sol::table coconutTbl = coconutObj.as<sol::table>();
-  sol::protected_function eventsFn = coconutTbl["events"];
-  if (!eventsFn.valid()) {
-    return;
-  }
-
-  // Call: coconut.events(name, payloadTable, ctx)
-  eventsFn(eventName, payloadTable, runtime->context);
-}
-
-void _coconut_js_listener(webui_event_t* e) {
-  dispatchEventToLua(e);
 }
 
 void destroy(State *state) {
