@@ -3,10 +3,6 @@
 #include "app.h"
 #include "bridge.h"
 
-extern "C" {
-#include <webui.h>
-}
-
 #include <sol/state.hpp>
 #include <sol/table.hpp>
 
@@ -28,29 +24,8 @@ std::expected<Runtime *, Error> create(Config *cfg, CoconutContext *ctx) {
   _bindViewClass(runtime);
   _bindUserType(runtime);
 
-  // Wire JS -> Lua for `coconut.emit(...)`.
-  // JS side calls: __coconut_emit(name, payloadJson)
-  if (ctx != nullptr && ctx->window != nullptr) {
-    const size_t win_id = ctx->window->window_id;
-    if (win_id > 0) {
-      webui_bind(win_id, "__coconut_emit",
-                 &coconut::bridge::_coconut_js_listener);
-      webui_set_context(win_id, "__coconut_emit", runtime);
-
-      // JS adapter: let frontend trigger `__coconut_js_listener(name,
-      // payloadJson)` which forwards into the WebUI-bound function.
-      const char *adapter =
-          "(function(){\n"
-          "  if (!globalThis.__coconut_js_listener) {\n"
-          "    globalThis.__coconut_js_listener = function(name, payloadJson) "
-          "{\n"
-          "      return globalThis.__coconut_emit(name, payloadJson);\n"
-          "    };\n"
-          "  }\n"
-          "})();";
-      webui_run(win_id, adapter);
-    }
-  }
+  // Wire JS -> Lua through the bridge (no direct WebUI calls).
+  bridge::setupEmitBinding(runtime->app);
 
   return runtime;
 }

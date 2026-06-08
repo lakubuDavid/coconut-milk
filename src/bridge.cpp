@@ -2,9 +2,7 @@
 #include "app.h"
 #include "lua_runtime.h"
 
-extern "C" {
-#include <webui.h>
-}
+// WebUI headers included via bridge.h
 
 #include <algorithm>
 #include <format>
@@ -326,12 +324,39 @@ void callJS(coconut::App *app, std::string functionName,
   webui_run(app->window->window_id, script.c_str());
 }
 
+void setupEmitBinding(coconut::App* app) {
+  if (app == nullptr || app->window == nullptr) {
+    return;
+  }
+  const size_t win_id = app->window->window_id;
+  if (win_id == 0) {
+    return;
+  }
+
+  webui_bind(win_id, "__coconut_emit",
+             &coconut::bridge::_coconut_js_listener);
+  webui_set_context(win_id, "__coconut_emit", app->lua_state);
+
+  // JS adapter: let frontend trigger __coconut_js_listener(name,
+  // payloadJson) which forwards into the WebUI-bound function.
+  const char* adapter =
+      "(function(){\n"
+      "  if (!globalThis.__coconut_js_listener) {\n"
+      "    globalThis.__coconut_js_listener = function(name, payloadJson) "
+      "{\n"
+      "      return globalThis.__coconut_emit(name, payloadJson);\n"
+      "    };\n"
+      "  }\n"
+      "})();";
+  webui_run(win_id, adapter);
+}
+
 void dispatchEventToLua(webui_event_t* e) {
   if (e == nullptr) {
     return;
   }
 
-  // The runtime is attached as user context in lua_runtime.cpp.
+  // The runtime is attached as user context via setupEmitBinding.
   void* raw = webui_get_context(e);
   auto* runtime = static_cast<coconut::lua::Runtime*>(raw);
   if (runtime == nullptr || runtime->lua_state == nullptr || runtime->context == nullptr) {

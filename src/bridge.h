@@ -33,7 +33,12 @@ namespace coconut {
     void callLua(coconut::App* app,std::string fuctionName,nlohmann::json payload);
     void callJS(coconut::App* app,std::string functionName,nlohmann::json payload);
 
-    void _coconut_js_listener(webui_event_t* e); // Will bee called wheneverr an event iis set from JS and will dispatch it to lua
+    /// Register the __coconut_emit JS callback and inject the JS adapter.
+    /// Encapsulates the webui_bind / set_context / run calls that were
+    /// previously in lua_runtime.cpp.
+    void setupEmitBinding(App* app);
+
+    void _coconut_js_listener(webui_event_t* e);
 
     void dispatchEventToLua(webui_event_t* e);
 

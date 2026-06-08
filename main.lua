@@ -3,7 +3,7 @@
 --- Returns a table of named view descriptors.
 function coconut.views()
   return {
-    home = View.html([[<h1>Home</h1><p>Welcome to Coconut Milk.</p>]]),
+    home = View.load("views/home.html"),
     about = View.html([[<h1>About</h1><p>A minimal Lua desktop UI framework.</p>]]),
   }
 end

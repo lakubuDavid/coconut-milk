@@ -118,20 +118,20 @@ void showWindow(Window *window) {
 
   const std::string& view_name = window->current_view;
   if (view_name.empty()) {
-    webui_show(window->window_id,
-               "<!DOCTYPE html><html lang=\"en\"><body><h1>default View</h1></body></html>");
+    webui_show_browser(window->window_id,
+               "<!DOCTYPE html><html lang=\"en\"><body><h1>default View</h1></body></html>",webui_browser::AnyBrowser);
     return;
   }
 
   // Use find() — never at() which throws on missing key.
   const auto it = window->views.find(view_name);
   if (it == window->views.end() || it->second == nullptr) {
-    webui_show(window->window_id,
-               "<!DOCTYPE html><html lang=\"en\"><body><h1>View not found</h1></body></html>");
+    webui_show_browser(window->window_id,
+               "<!DOCTYPE html><html lang=\"en\"><body><h1>View not found</h1></body></html>",webui_browser::AnyBrowser);
     return;
   }
 
-  webui_show(window->window_id, it->second->html.c_str());
+  webui_show_browser(window->window_id, it->second->html.c_str(),webui_browser::AnyBrowser);
 }
 
 void showView(Window *window, std::string name) {
