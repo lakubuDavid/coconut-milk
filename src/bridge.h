@@ -45,6 +45,10 @@ namespace coconut {
     /// Send an RPC message through the bridge state's transport.
     void rpcSend(App* app, const rpc::Message& msg);
 
+    /// Signal the frontend that the bridge is ready.
+    /// Called after the window is shown and JS has loaded.
+    void signalReady(App* app);
+
     // Convert json object/array to a lua table.
     // Requires a Lua state to allocate the sol::table.
     sol::table toTable(sol::state_view lua, const nlohmann::json& json);

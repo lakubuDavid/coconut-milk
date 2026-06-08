@@ -258,15 +258,21 @@ namespace {
 /// Inbound flow:   webui_bind callback → constructs RpcMessage → m_callback(msg)
 class WebuiTransport : public transport::Transport {
 public:
-  WebuiTransport(size_t win_id, void* context)
-      : m_win_id(win_id) {
-    // Bind the inbound handler.  The JS side calls:
-    //   __coconut_emit(name, payloadJson)  — legacy two-arg format
+  WebuiTransport(size_t win_id, coconut::App* app)
+      : m_win_id(win_id), m_app(app) {
+    // ── Inbound event channel ──
+    // JS calls:  __coconut_emit(name, payloadJson)
     webui_bind(win_id, "__coconut_emit", &static_on_message);
     webui_set_context(win_id, "__coconut_emit", this);
 
-    // Inject JS adapter that converts old-style JS calls to the
-    // WebUI-bound __coconut_emit(name, payloadJson).
+    // ── Inbound command channel ──
+    // JS calls:  __coconut_call(name, payloadJson)
+    // The handler invokes the Lua command and returns the result synchronously
+    // via webui_return(), resolving the JS Promise.
+    webui_bind(win_id, "__coconut_call", &static_on_call);
+    webui_set_context(win_id, "__coconut_call", this);
+
+    // Inject JS adapter that maps __coconut_js_listener → __coconut_emit.
     const char* adapter =
         "(function(){\n"
         "  if (!globalThis.__coconut_js_listener) {\n"
@@ -326,7 +332,7 @@ public:
   }
 
 private:
-  /// Static WebUI callback — reads the event and constructs an RpcMessage.
+  /// Static WebUI callback — reads __coconut_emit args, constructs kEvent RpcMessage.
   static void static_on_message(webui_event_t* e) {
     void* raw = webui_get_context(e);
     auto* self = static_cast<WebuiTransport*>(raw);
@@ -334,7 +340,6 @@ private:
       return;
     }
 
-    // JS contract: __coconut_emit(name: string, payloadJson: string)
     const char* eventNameC = webui_get_string(e);
     const char* payloadJsonC = webui_get_string_at(e, 1);
 
@@ -352,7 +357,93 @@ private:
     self->m_callback(msg);
   }
 
+  /// Static WebUI callback — reads __coconut_call args, invokes Lua command,
+  /// calls webui_return with the result envelope so the JS Promise resolves.
+  static void static_on_call(webui_event_t* e) {
+    void* raw = webui_get_context(e);
+    auto* self = static_cast<WebuiTransport*>(raw);
+    if (!self || !self->m_app) {
+      return;
+    }
+
+    const char* nameC = webui_get_string(e);
+    const char* payloadJsonC = webui_get_string_at(e, 1);
+
+    const std::string name = nameC ? nameC : "";
+    nlohmann::json payload = nlohmann::json::object();
+    if (payloadJsonC) {
+      try {
+        payload = nlohmann::json::parse(payloadJsonC);
+      } catch (...) {}
+    }
+
+    coconut::App* app = self->m_app;
+
+    // Build response envelope: { ok:true, data } or { ok:false, error }.
+    auto makeError = [](const std::string& code,
+                        const std::string& msg) -> nlohmann::json {
+      return {{"ok", false},
+              {"error", {{"code", code}, {"message", msg}}}};
+    };
+
+    // Look up the command.
+    auto respond = [e](const nlohmann::json& env) {
+      std::string s = env.dump();
+      webui_return_string(e, s.c_str());
+    };
+
+    if (!app->commands) {
+      respond(makeError("BridgeError", "No command registry"));
+      return;
+    }
+    auto it = app->commands->handlers.find(name);
+    if (it == app->commands->handlers.end()) {
+      respond(makeError("CommandNotFound", "No handler for '" + name + "'"));
+      return;
+    }
+
+    // Invoke the Lua command.
+    if (!app->lua_state || !app->lua_state->lua_state ||
+        !app->lua_state->context) {
+      respond(makeError("BridgeError", "No Lua runtime"));
+      return;
+    }
+
+    sol::state_view lua(*app->lua_state->lua_state);
+    sol::table paramsTable = toTable(lua, payload);
+
+    auto result = it->second(paramsTable, app->lua_state->context);
+
+    nlohmann::json envelope;
+    if (result.valid()) {
+      envelope["ok"] = true;
+      sol::object val = result;
+      if (!val.valid() || val == sol::lua_nil) {
+        envelope["data"] = nullptr;
+      } else if (val.is<std::string>()) {
+        envelope["data"] = val.as<std::string>();
+      } else if (val.is<bool>()) {
+        envelope["data"] = val.as<bool>();
+      } else if (val.is<int>() || val.is<long long>()) {
+        envelope["data"] = val.as<long long>();
+      } else if (val.is<double>() || val.is<float>()) {
+        envelope["data"] = val.as<double>();
+      } else if (val.is<sol::table>()) {
+        envelope["data"] = toJson(val.as<sol::table>());
+      } else {
+        envelope["data"] = nullptr;
+      }
+    } else {
+      envelope["ok"] = false;
+      sol::error err = result;
+      envelope["error"] = {{"code", "LuaError"}, {"message", err.what()}};
+    }
+
+    respond(envelope);
+  }
+
   size_t m_win_id;
+  coconut::App* m_app = nullptr;
   transport::MessageCallback m_callback;
 };
 
@@ -372,8 +463,8 @@ void createTransport(coconut::App* app) {
     return;
   }
 
-  // Create the WebUI transport.
-  auto* t = new WebuiTransport(win_id, app->lua_state);
+  // Create the WebUI transport with app pointer for __coconut_call binding.
+  auto* t = new WebuiTransport(win_id, app);
   app->bridge_state->transport = t;
 
   // Register the bridge callback: incoming RpcMessages are dispatched to Lua.
@@ -391,6 +482,14 @@ void createTransport(coconut::App* app) {
             break;
         }
       });
+}
+
+/// Signal to the frontend that the bridge is ready.
+/// Called after the window is shown and the JS page has loaded.
+void signalReady(coconut::App* app) {
+  rpc::Message ready;
+  ready.type = rpc::Type::kReady;
+  rpcSend(app, ready);
 }
 
 void rpcSend(coconut::App* app, const rpc::Message& msg) {

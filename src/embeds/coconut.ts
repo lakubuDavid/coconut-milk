@@ -56,6 +56,15 @@ function _markReady() {
 }
 
 /**
+ * Called by the WebUI transport to deliver kReturn/kError RPC responses.
+ * Currently a no-op; will be used for promise resolution when all traffic
+ * routes through the transport (post-webview migration).
+ */
+;(globalThis as any).__coconut_rpc_receive = (_msgJson: string): void => {
+  // TODO: resolve/reject pending promise map
+}
+
+/**
  * Called by injected JS from C++ to deliver Lua -> JS events.
  *
  * @param name event name

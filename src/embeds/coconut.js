@@ -14,6 +14,7 @@ function _markReady() {
 globalThis.__coconut_bridge_ready = () => {
   _markReady();
 };
+globalThis.__coconut_rpc_receive = (_msgJson) => {};
 globalThis.__coconut_dispatch_event = (name, payloadJson) => {
   const set = _listeners.get(name);
   if (!set || set.size === 0)

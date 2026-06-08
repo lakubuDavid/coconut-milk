@@ -139,6 +139,8 @@ int main() {
   if (!cfg.initial_view.empty()) {
     std::cerr << "[debug]   showing initial view '" << cfg.initial_view << "'\n";
     window::showView(window, cfg.initial_view);
+    // Signal the frontend that the bridge is active — resolves coconut.ready().
+    bridge::signalReady(app);
   }
 
   std::cerr << "[debug] main: calling app::run()...\n";
