@@ -5,6 +5,7 @@ add_requires("luajit 2.*", "sol2 ~3.3.*")
 add_requires("nlohmann_json 3.12.0")
 
 add_includedirs("thirdparty/webui-2.5.0-beta.3/include")
+add_includedirs("thirdparty/webview/core/include")
 add_linkdirs("thirdparty/webui-2.5.0-beta.3/dist")
 
 set_languages("c11", "c++23")
@@ -35,6 +36,14 @@ task("coconut_bridge_embeds")
     end)
 
 
+target("webview")
+    set_kind("static")
+    add_includedirs("thirdparty/webview/core/include")
+    add_frameworks("Cocoa", "WebKit", "Foundation")
+    add_files("thirdparty/webview/core/src/webview.cc")
+    set_languages("c11", "c++17")
+    set_targetdir("$(buildir)/lib")
+
 target("coconut-milk")
     set_kind("binary")
     set_rundir("$(projectdir)")
@@ -42,12 +51,14 @@ target("coconut-milk")
         os.run("xmake coconut_bridge_embeds")
     end)
     add_includedirs("src")
+    add_includedirs("thirdparty/webview/core/include")
     add_frameworks("Cocoa", "WebKit", "Foundation")
     add_files("src/*.cpp")
     add_packages("sol2")
     add_packages("luajit")
     add_packages("lua")
     add_packages("nlohmann_json")
+    add_deps("webview")
     add_links("webui-2-static")
 
 -- Generators experiment target
@@ -63,7 +74,9 @@ target("coconut-milk-generators")
 target("coconut-milk-tests")
     set_kind("binary")
     add_includedirs("src", "tests")
+    add_includedirs("thirdparty/webview/core/include")
     add_frameworks("Cocoa", "WebKit", "Foundation")
+    add_deps("webview")
     add_files(
         "tests/*.cpp",
         "tests/**/*.cpp",

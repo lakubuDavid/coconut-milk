@@ -154,10 +154,12 @@ int main() {
 
   // Show the initial view once all views are registered.
   if (!cfg.initial_view.empty()) {
+    // Signal BEFORE showView — webui_show_browser() blocks until tab closes.
+    // Queueing kReady before the page loads ensures it's delivered when
+    // the WebSocket connects.
+    bridge::signalReady(app);
     std::cerr << "[debug]   showing initial view '" << cfg.initial_view << "'\n";
     window::showView(window, cfg.initial_view);
-    // Signal the frontend that the bridge is active — resolves coconut.ready().
-    bridge::signalReady(app);
   }
 
   std::cerr << "[debug] main: calling app::run()...\n";

@@ -14,6 +14,7 @@ extern "C" {
 
 #include <expected>
 #include <memory>
+#include <string_view>
 
 #include <sol/sol.hpp>
 #include <sol/table.hpp>
@@ -56,6 +57,23 @@ namespace coconut {
 
     // Convert lua table to a json value.
     nlohmann::json toJson(const sol::table& table);
+
+  // ── Utility: escape a string for embedding in a single-quoted JS string ──
+  inline std::string escapeJsSingleQuotedString(std::string_view s) {
+    std::string out;
+    out.reserve(s.size());
+    for (char c : s) {
+      switch (c) {
+        case '\\': out += "\\\\"; break;
+        case '\'': out += "\\'"; break;
+        case '\n': out += "\\n"; break;
+        case '\r': out += "\\r"; break;
+        case '\t': out += "\\t"; break;
+        default:   out += c;      break;
+      }
+    }
+    return out;
+  }
 
   }  // namespace bridge
 }  // namespace coconut

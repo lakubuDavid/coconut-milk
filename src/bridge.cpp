@@ -43,33 +43,7 @@ static std::string escapeLuaString(std::string_view s) {
   return out;
 }
 
-static std::string escapeJsSingleQuotedString(std::string_view s) {
-  std::string out;
-  out.reserve(s.size());
-  for (char c : s) {
-    switch (c) {
-      case '\\':
-        out += "\\\\";
-        break;
-      case '\'':
-        out += "\\'";
-        break;
-      case '\n':
-        out += "\\n";
-        break;
-      case '\r':
-        out += "\\r";
-        break;
-      case '\t':
-        out += "\\t";
-        break;
-      default:
-        out += c;
-        break;
-    }
-  }
-  return out;
-}
+// escapeJsSingleQuotedString is now defined inline in bridge.h
 
 // ---------------------------------------------------------------------------
 // Inbound RPC dispatch helpers (bridge owns the dispatch logic)
