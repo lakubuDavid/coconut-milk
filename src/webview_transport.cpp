@@ -1,5 +1,8 @@
 #include "webview_transport.h"
-#include "bridge.h" // for escapeJsSingleQuotedString, toJson
+#include "app.h"
+#include "bridge.h" // for escapeJsSingleQuotedString, toTable, toJson
+#include "commands.h"
+#include "lua_runtime.h"
 
 #include <nlohmann/json.hpp>
 
@@ -9,29 +12,31 @@
 
 namespace coconut::bridge {
 
-WebviewTransport::WebviewTransport(webview_t w, const std::string& coconut_js)
-    : m_webview(w) {
+WebviewTransport::WebviewTransport(webview_t w, coconut::App* app,
+                                   const std::string& coconut_js)
+    : m_webview(w), m_app(app) {
   if (!w) {
     std::cerr << "[webview] WebviewTransport: null handle\n";
     return;
   }
 
   // Inject the Coconut JS runtime before any page loads.
+  // This includes the coconut object, __coconut_bridge_ready(), and
+  // shims for __coconut_call / __coconut_emit that delegate to __coconut_rpc.
   if (!coconut_js.empty()) {
     webview_init(w, coconut_js.c_str());
   }
 
   // Bind the inbound RPC channel.
-  // JS calls: window.__coconut_rpc(msgJson)
-  // webview delivers: req = JSON.stringify([msgJson])
+  // JS calls:  window.__coconut_rpc(msgJson)
+  // webview:   req = JSON.stringify([msgJson])
+  //            promise resolved by webview_return() called from handler
   webview_bind(w, "__coconut_rpc", &WebviewTransport::static_on_rpc, this);
-
-  m_inited = true;
 }
 
 WebviewTransport::~WebviewTransport() {
-  // webview_destroy is owned by the window/app, not by the transport.
   m_webview = nullptr;
+  m_app = nullptr;
 }
 
 void WebviewTransport::send(const rpc::Message& msg) {
@@ -39,7 +44,6 @@ void WebviewTransport::send(const rpc::Message& msg) {
 
   switch (msg.type) {
     case rpc::Type::kEvent: {
-      // Keep the existing __coconut_dispatch_event format.
       auto payloadStr = msg.payload.is_null() ? "{}" : msg.payload.dump();
       auto jsName = escapeJsSingleQuotedString(msg.name);
       auto jsPayload = escapeJsSingleQuotedString(payloadStr);
@@ -51,7 +55,6 @@ void WebviewTransport::send(const rpc::Message& msg) {
     }
     case rpc::Type::kReturn:
     case rpc::Type::kError: {
-      // Promise resolution via __coconut_rpc_receive.
       auto json = msg.toJson().dump();
       auto escaped = escapeJsSingleQuotedString(json);
       auto script = std::format(
@@ -60,7 +63,6 @@ void WebviewTransport::send(const rpc::Message& msg) {
       break;
     }
     case rpc::Type::kCall: {
-      // Invoke a named JS function with the payload.
       auto payloadStr = msg.payload.dump();
       auto script = std::format(
           "globalThis['{}']({});", msg.name, payloadStr);
@@ -68,7 +70,7 @@ void WebviewTransport::send(const rpc::Message& msg) {
       break;
     }
     case rpc::Type::kReady: {
-      // kReady is baked into the webview_init() script — no need to eval.
+      // Handled by webview_init() — no eval needed.
       break;
     }
   }
@@ -78,14 +80,17 @@ void WebviewTransport::setMessageCallback(transport::MessageCallback cb) {
   m_callback = std::move(cb);
 }
 
+// ---------------------------------------------------------------------------
+// Inbound RPC: called when JS invokes window.__coconut_rpc(...)
+// ---------------------------------------------------------------------------
+
 // static
 void WebviewTransport::static_on_rpc(const char* id, const char* req,
                                       void* arg) {
   auto* self = static_cast<WebviewTransport*>(arg);
-  if (!self || !self->m_callback) return;
+  if (!self || !self->m_webview) return;
 
-  // req is a JSON array of arguments: [msgJson]
-  // Parse it to extract the RPC message JSON string.
+  // Parse req = JSON.stringify([msgJson])
   std::string msgJson;
   try {
     auto args = nlohmann::json::parse(req);
@@ -95,11 +100,107 @@ void WebviewTransport::static_on_rpc(const char* id, const char* req,
   } catch (...) {
     return;
   }
-
   if (msgJson.empty()) return;
 
   auto msg = rpc::Message::fromJson(msgJson);
-  self->m_callback(msg);
+
+  switch (msg.type) {
+    case rpc::Type::kCall:
+      self->handleCall(id, msg);
+      break;
+    case rpc::Type::kEvent:
+      self->handleEvent(id, msg);
+      break;
+    default:
+      // Unknown type — resolve with undefined.
+      webview_return(self->m_webview, id, 0, "");
+      break;
+  }
+}
+
+void WebviewTransport::handleCall(const char* id, const rpc::Message& msg) {
+  // Build the full envelope so webview's onReply parses it back to an object.
+  // The JS shim for __coconut_call re-stringifies it for coconut.call().
+  auto respond = [this, id](nlohmann::json envelope) {
+    std::string result = envelope.dump();
+    webview_return(m_webview, id, 0, result.c_str());
+  };
+
+  auto makeError = [](const std::string& code,
+                      const std::string& message) -> nlohmann::json {
+    return {{"ok", false},
+            {"error", {{"code", code}, {"message", message}}}};
+  };
+
+  if (!m_app || !m_app->commands) {
+    respond(makeError("BridgeError", "No command registry"));
+    return;
+  }
+
+  auto it = m_app->commands->handlers.find(msg.name);
+  if (it == m_app->commands->handlers.end()) {
+    respond(makeError("CommandNotFound", "No handler for '" + msg.name + "'"));
+    return;
+  }
+
+  if (!m_app->lua_state || !m_app->lua_state->lua_state ||
+      !m_app->lua_state->context) {
+    respond(makeError("BridgeError", "No Lua runtime"));
+    return;
+  }
+
+  sol::state_view lua(*m_app->lua_state->lua_state);
+  sol::table paramsTable = toTable(lua, msg.payload);
+
+  auto result = it->second(paramsTable, m_app->lua_state->context);
+
+  nlohmann::json envelope;
+  if (result.valid()) {
+    envelope["ok"] = true;
+    sol::object val = result;
+    if (!val.valid() || val == sol::lua_nil) {
+      envelope["data"] = nullptr;
+    } else if (val.is<std::string>()) {
+      envelope["data"] = val.as<std::string>();
+    } else if (val.is<bool>()) {
+      envelope["data"] = val.as<bool>();
+    } else if (val.is<int>() || val.is<long long>()) {
+      envelope["data"] = val.as<long long>();
+    } else if (val.is<double>() || val.is<float>()) {
+      envelope["data"] = val.as<double>();
+    } else if (val.is<sol::table>()) {
+      envelope["data"] = toJson(val.as<sol::table>());
+    } else {
+      envelope["data"] = nullptr;
+    }
+  } else {
+    envelope["ok"] = false;
+    sol::error err = result;
+    envelope["error"] = {{"code", "LuaError"}, {"message", err.what()}};
+  }
+
+  respond(envelope);
+}
+
+void WebviewTransport::handleEvent(const char* id, const rpc::Message& msg) {
+  // Dispatch to Lua's coconut.events(name, payload, ctx).
+  if (m_app && m_app->lua_state && m_app->lua_state->lua_state &&
+      m_app->lua_state->context) {
+    sol::state_view lua(*m_app->lua_state->lua_state);
+    sol::table payloadTable = toTable(lua, msg.payload);
+
+    sol::object coconutObj = lua["coconut"];
+    if (coconutObj.valid() && coconutObj.is<sol::table>()) {
+      sol::table coconutTbl = coconutObj.as<sol::table>();
+      sol::protected_function eventsFn = coconutTbl["events"];
+      if (eventsFn.valid()) {
+        eventsFn(msg.name, payloadTable, m_app->lua_state->context);
+      }
+    }
+  }
+
+  // Resolve the JS promise with undefined.
+  webview_return(m_webview, id, 0, "");
 }
 
 } // namespace coconut::bridge

@@ -220,34 +220,30 @@ void createTransport(coconut::App* app) {
   // Decode the embedded Coconut JS runtime.
   std::string coconut_js = decodeEmbed();
 
-  // Append a ready signal at the end so it auto-fires when the page loads.
-  // (webview_eval before webview_run is silently dropped, so we bake
-  //  __coconut_bridge_ready() into the init script instead.)
+  // Append shims for old __coconut_call / __coconut_emit names that
+  // coconut.ts still references, and auto-fire the bridge-ready signal.
   coconut_js += R"(
-;
+// Shim: forward __coconut_call through the __coconut_rpc webview binding.
+// webview_bind creates an async function; webview_return() resolves the promise.
+globalThis.__coconut_call = async function(name, payloadJson) {
+  var msg = JSON.stringify({ type: "call", name: name, payload: JSON.parse(payloadJson) });
+  var result = await globalThis.__coconut_rpc(msg);
+  // __coconut_rpc returns the parsed envelope object; re-stringify for coconut.call()
+  return JSON.stringify(result);
+};
+globalThis.__coconut_emit = async function(name, payloadJson) {
+  var msg = JSON.stringify({ type: "event", name: name, payload: JSON.parse(payloadJson) });
+  await globalThis.__coconut_rpc(msg);
+};
 globalThis.__coconut_bridge_ready();
 )";
 
   // Create the webview transport, which calls:
   //   webview_init()  — injects Coconut JS runtime (fires on next page load)
   //   webview_bind()  — registers __coconut_rpc for inbound messages
-  auto* t = new WebviewTransport(app->webview, coconut_js);
+  // The transport handles dispatch internally (via App* reference).
+  auto* t = new WebviewTransport(app->webview, app, coconut_js);
   app->bridge_state->transport = t;
-
-  // Register the bridge callback: incoming RpcMessages are dispatched to Lua.
-  t->setMessageCallback(
-      [app](const rpc::Message& msg) {
-        switch (msg.type) {
-          case rpc::Type::kEvent:
-            dispatchRpcEventToLua(app, msg);
-            break;
-          case rpc::Type::kCall:
-            dispatchRpcCallToLua(app, msg);
-            break;
-          default:
-            break;
-        }
-      });
 }
 
 /// Signal to the frontend that the bridge is ready.
