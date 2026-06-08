@@ -1,6 +1,7 @@
 #include "app.h"
 #include "commands.h"
 #include "config.h"
+#include "lifecycle.h"
 #include "lua_runtime.h"
 #include "window.h"
 
@@ -95,6 +96,10 @@ int main() {
   // Create the bridge transport and bind JS entry points.
   // Must happen after runtime->app is set (transport needs the App*).
   bridge::createTransport(app);
+
+  // Register Cocoa NSWindow lifecycle observers (resize, focus, blur).
+  // These emit bridge events so the frontend can listen with coconut.on().
+  lifecycle::registerEvents(app);
 
   // Step 6: load user entry point (main.lua) and apply coconut.config(ctx).
   // The loadEntryPoint function handles:

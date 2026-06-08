@@ -10,7 +10,7 @@ end
 ---@command ping
 ---@return string
 local function ping(params, ctx)
-  return "pong"
+  return "pong helllo"
 end
 
 ---@command greet

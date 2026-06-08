@@ -65,3 +65,9 @@ export interface CoconutJsAPI<TCommandName extends string = CoconutCommandName> 
 
 export type CoconutCommandHelper<TParams extends CoconutPayload = CoconutPayload, TResult = unknown> =
   (payload: TParams) => Promise<TResult>
+
+  declare global{
+    interface Window {
+      coconut:CoconutJsAPI
+    }
+  }

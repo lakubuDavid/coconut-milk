@@ -87,6 +87,7 @@ target("coconut-milk-tests")
         "src/context.cpp",
         "src/error.cpp",
         "src/fs.cpp",
+        "src/lifecycle.cpp",
         "src/lua_runtime.cpp",
         "src/window.cpp",
         "src/webview_transport.cpp"

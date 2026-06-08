@@ -22,7 +22,8 @@ end
 
 --- Called when the window is resized.
 function coconut.on_resize(ctx, w, h)
-  coconut.emit("on_resize", { w = w, h = h })
+  -- coconut.emit("on_resize", { w = w, h = h })
+  print(w,h)
 end
 
 --- Love2D-like dispatcher for frontend → Lua events.
