@@ -304,6 +304,24 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
     }
   }
 
+  // ── coconut.commands(ctx) [manual override] ──────────────────────
+  // If the user's main.lua defines coconut.commands(), call it first.
+  // This gives explicit control before the auto-loader runs.
+  std::cerr << "[debug]   checking coconut.commands()...\n";
+  sol::object cmds_fn = lua["coconut"]["commands"];
+  if (cmds_fn.is<sol::function>()) {
+    std::cerr << "[debug]   calling coconut.commands(ctx)...\n";
+    sol::object ctx_obj = lua["ctx"];
+    auto cmds_result = cmds_fn.as<sol::function>()(ctx_obj);
+    if (!cmds_result.valid()) {
+      sol::error err = cmds_result;
+      std::cerr << "[warn]    coconut.commands(ctx) failed: " << err.what()
+                << "\n";
+    } else {
+      std::cerr << "[debug]   coconut.commands(ctx) applied\n";
+    }
+  }
+
   // ── Auto-load generated commands ──────────────────────────────────
   // Scan the command root directory for .g.lua files.  Each .g.lua
   // exports a register(ctx) function that calls ctx:bind() for each

@@ -4,29 +4,46 @@
 function coconut.views()
   return {
     home = View.load("views/home.html"),
+    note = View.load("views/note.html"),
     about = View.html([[<h1>About</h1><p>A minimal Lua desktop UI framework.</p>]]),
-    commands = View.load("views/commands.html"),
   }
 end
 
 --- Startup config hook.
+--- The ctx setters mutate the shared Config in-place, merging app-level
+--- overrides on top of the defaults from coconut.config.lua.
 function coconut.config(ctx)
   ctx
-    :setBrowser("auto")
-    :setWindowSize({ w = 1280, h = 640 })
-    :setInitialView("home")
+      :setBrowser("auto")
+      :setWindowSize({ w = 1280, h = 640 })
+      :setInitialView("home")
 
   return ctx
+end
+
+--- Called when the window is resized.
+function coconut.onResize(ctx, w, h)
+  -- coconut.emit("on_resize", { w = w, h = h })
+  print(w, h)
+end
+
+--- Register commands explicitly (optional — C++ also auto-loads from commands/*.g.lua)
+function coconut.commands(ctx)
+  -- Example: ctx:bind("my_command", require("commands.my_module").handler)
 end
 
 --- Love2D-like dispatcher for frontend → Lua events.
 function coconut.events(name, payload, ctx)
   if name == "navigate" then
     ctx:show(payload.view)
+  elseif name == "resize" then
+    print(payload.w, payload.h)
   end
 end
 
---- Called when the window is resized.
-function coconut.on_resize(ctx, w, h)
-  coconut.emit("on_resize", { w = w, h = h })
+--- Register commands (called from ctx:bind).
+function coconut.commands(ctx)
+  ctx:bind("ping", function(params, ctx)
+    return "pong"
+  end)
 end
