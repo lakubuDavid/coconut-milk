@@ -308,10 +308,24 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
   if (views_fn.is<sol::function>()) {
     std::cerr << "[debug]   calling coconut.views()...\n";
     auto views_result = views_fn.as<sol::function>()();
-    if (views_result.valid() &&
-        views_result.get_type() == sol::type::table) {
-      std::cerr << "[debug]   coconut.views() returned view descriptors\n";
-      // TODO: merge returned views into window's view registry
+    if (views_result.valid()) {
+      sol::object views_obj = views_result;
+      if (views_obj.is<sol::table>()) {
+        std::cerr << "[debug]   coconut.views() returned view descriptors\n";
+        sol::table vt = views_obj.as<sol::table>();
+        for (auto& [k, v] : vt) {
+          if (!v.is<sol::table>()) continue;
+          sol::table desc = v.as<sol::table>();
+          std::string name = k.as<std::string>();
+          std::string kind = desc["kind"].get_or<std::string>("");
+          std::string value = desc["value"].get_or<std::string>("");
+          if (kind.empty()) continue;
+          cfg->views[name] = ViewEntry{.kind = std::move(kind),
+                                        .src = std::move(value)};
+          std::cerr << "[debug]     view '" << name << "' ("
+                    << cfg->views[name].kind << ")\n";
+        }
+      }
     }
   }
 

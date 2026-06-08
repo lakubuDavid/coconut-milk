@@ -29,7 +29,10 @@ COCONUT_TEST(integration, create_file_view_reads_content) {
                                             std::nullopt);
   // This should succeed once file-based view loading works.
   COCONUT_REQUIRE(result.has_value());
-  COCONUT_REQUIRE_EQ(result->html, std::string("<h1>Hello</h1>\n"));
+  // The runtime is injected into every view — check the original content
+  // is preserved and the script is present.
+  COCONUT_REQUIRE(result->html.rfind("<h1>Hello</h1>") != std::string::npos);
+  COCONUT_REQUIRE(result->html.find("<script>") != std::string::npos);
 
   std::remove(tmp);
 }
@@ -48,7 +51,12 @@ COCONUT_TEST(integration, create_html_view_stores_inline) {
   auto result = coconut::window::createView(html, coconut::window::VIEW_KIND_HTML,
                                             std::nullopt);
   COCONUT_REQUIRE(result.has_value());
-  COCONUT_REQUIRE_EQ(result->html, html);
+  // Runtime injection appends a <script> block — check original content
+  // is preserved (the injection happens before </body> so the original
+  // prefix and suffix should still be present).
+  COCONUT_REQUIRE(result->html.find("<html><body>Hello") != std::string::npos);
+  COCONUT_REQUIRE(result->html.find("</body></html>") != std::string::npos);
+  COCONUT_REQUIRE(result->html.find("<script>") != std::string::npos);
 }
 
 COCONUT_TEST(integration, create_url_view_not_yet_implemented) {
@@ -77,7 +85,10 @@ COCONUT_TEST(integration, add_view_stores_in_window) {
   coconut::window::addView(w, "test_view", vp);
   COCONUT_REQUIRE_EQ(w->views.size(), size_t(1));
   COCONUT_REQUIRE(w->views.count("test_view"));
-  COCONUT_REQUIRE_EQ(w->views["test_view"]->html, std::string("<p>test</p>"));
+  // Runtime injection appends a <script> block — check original content
+  // is preserved and the script tag is present.
+  COCONUT_REQUIRE(w->views["test_view"]->html.rfind("<p>test</p>") != std::string::npos);
+  COCONUT_REQUIRE(w->views["test_view"]->html.find("<script>") != std::string::npos);
 
   // destroyWindow now frees all heap views in the map.
   coconut::window::destroyWindow(w);

@@ -83,9 +83,9 @@ void run(App *app) {
 
   std::cerr << "[debug] app::run: window=" << app->window
             << " lua_state=" << app->lua_state << "\n";
-  std::cerr << "[debug] app::run: calling showWindow(...)\n";
-  showWindow(app->window);
 
+  // The initial view was already shown by main.ccp's showView call.
+  // Just block here until the user closes the window.
   std::cerr << "[debug] app::run: calling webui_wait()\n";
   webui_wait();
   std::cerr << "[debug] app::run: webui_wait returned (unexpected)\n";

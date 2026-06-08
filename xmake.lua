@@ -37,6 +37,7 @@ task("coconut_bridge_embeds")
 
 target("coconut-milk")
     set_kind("binary")
+    set_rundir("$(projectdir)")
     before_build(function (target)
         os.run("xmake coconut_bridge_embeds")
     end)

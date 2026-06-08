@@ -5,6 +5,9 @@
 #include "window.h"
 
 #include <iostream>
+#include <memory>
+#include <print>
+#include <vector>
 
 using namespace coconut;
 
@@ -90,6 +93,52 @@ int main() {
     // Log the error but continue — non-fatal; app runs with current config.
     std::cerr << "[warn] entry-point: " << entry_result.error().message
               << " (" << entry_result.error().details << ")\n";
+  }
+
+  // Step 7: load view descriptors into the window.
+  // Views come from two sources:
+  //   - the config file (coconut.config.lua / coconut.config.json) via
+  //     `Config::views`
+  //   - the Lua entry point's `coconut.views()` which also populates
+  //     `Config::views` during loadEntryPoint
+  // Convert each ViewEntry into a window::View and register it.
+  // Ownership passes to the window — destroyWindow frees the views.
+  for (const auto& [name, entry] : cfg.views) {
+    window::ViewKind kind;
+    if (entry.kind == "file")
+      kind = window::VIEW_KIND_FILE;
+    else if (entry.kind == "html")
+      kind = window::VIEW_KIND_HTML;
+    else {
+      std::cerr << "[debug]   skipping view '" << name << "': unknown kind '"
+                << entry.kind << "'\n";
+      continue;
+    }
+
+    std::cerr << "[debug]   creating view '" << name << "' ("
+              << entry.kind << ", " << entry.src.substr(0, 60) << "...)\n";
+    auto view_result = window::createView(entry.src, kind, std::nullopt);
+    if (!view_result) {
+      std::cerr << "[warn]    failed to create view '" << name << "': "
+                << view_result.error().message << "\n";
+      continue;
+    }
+
+    auto* v = new window::View(std::move(*view_result));
+    window::addView(window, name, v);
+    std::cerr << "[debug]   view '" << name << "' registered\n";
+  }
+
+  for(const auto [k,v] : window->views){
+    std::println("Views: {} ",k);
+  }
+
+  
+
+  // Show the initial view once all views are registered.
+  if (!cfg.initial_view.empty()) {
+    std::cerr << "[debug]   showing initial view '" << cfg.initial_view << "'\n";
+    window::showView(window, cfg.initial_view);
   }
 
   std::cerr << "[debug] main: calling app::run()...\n";
