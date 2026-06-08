@@ -6,6 +6,7 @@
 #include <sol/state.hpp>
 #include <sol/table.hpp>
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 
@@ -303,21 +304,79 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
     }
   }
 
-  // ── coconut.commands(ctx) ──────────────────────────────────────────
-  // Registers command handlers via ctx:bind().  Called after views so
-  // the bridge is fully wired and ctx is available.
-  std::cerr << "[debug]   checking coconut.commands()...\n";
-  sol::object cmds_fn = lua["coconut"]["commands"];
-  if (cmds_fn.is<sol::function>()) {
-    std::cerr << "[debug]   calling coconut.commands(ctx)...\n";
+  // ── Auto-load generated commands ──────────────────────────────────
+  // Scan the command root directory for .g.lua files.  Each .g.lua
+  // exports a register(ctx) function that calls ctx:bind() for each
+  // command defined in the corresponding .lua module.
+  {
+    std::string cmdRoot = cfg ? cfg->command_root : "commands";
+    std::cerr << "[debug]   scanning " << cmdRoot << "/ for .g.lua files...\n";
+
+    // Add command root to package.path so the .g.lua's require() works.
+    std::string pkgPath = cmdRoot + "/?.lua;" + cmdRoot + "/?/init.lua";
+    lua.script("package.path = package.path .. '" + pkgPath + "'");
+
     sol::object ctx_obj = lua["ctx"];
-    auto cmds_result = cmds_fn.as<sol::function>()(ctx_obj);
-    if (!cmds_result.valid()) {
-      sol::error err = cmds_result;
-      std::cerr << "[warn]    coconut.commands(ctx) failed: " << err.what()
-                << "\n";
+    if (!ctx_obj.valid()) {
+      std::cerr << "[warn]    ctx not available, skipping command auto-load\n";
     } else {
-      std::cerr << "[debug]   coconut.commands(ctx) applied\n";
+      int loaded = 0;
+      try {
+        for (auto& entry : std::filesystem::directory_iterator(cmdRoot)) {
+          auto path = entry.path();
+          if (path.extension() != ".lua") continue;
+          auto stem = path.stem().string();
+
+          // Only load .g.lua files (generated command registration wrappers).
+          if (stem.size() < 2 ||
+              stem.substr(stem.size() - 2) != ".g")
+            continue;
+
+          std::string cmdName =
+              stem.substr(0, stem.size() - 2);
+          std::cerr << "[debug]     found " << cmdName
+                    << ".g.lua, loading...\n";
+
+          // Load the .g.lua file — it returns a register function.
+          auto loadResult = lua.script_file(path.string(),
+              sol::script_pass_on_error);
+          if (!loadResult.valid()) {
+            sol::error e = loadResult;
+            std::cerr << "[warn]      failed to load " << path.filename()
+                      << ": " << e.what() << "\n";
+            continue;
+          }
+
+          // The returned value should be the register function.
+          sol::object ret = loadResult;
+          if (!ret.is<sol::function>()) {
+            std::cerr << "[warn]      " << path.filename()
+                      << " did not return a function (returned type "
+                      << static_cast<int>(ret.get_type()) << ")\n";
+            continue;
+          }
+
+          // Call register(ctx).
+          auto bindResult =
+              ret.as<sol::function>()(ctx_obj);
+          if (!bindResult.valid()) {
+            sol::error e = bindResult;
+            std::cerr << "[warn]      register(" << cmdName
+                      << ") failed: " << e.what() << "\n";
+          } else {
+            ++loaded;
+            std::cerr << "[debug]     registered " << cmdName
+                      << " commands\n";
+          }
+        }
+      } catch (const std::filesystem::filesystem_error& err) {
+        std::cerr << "[debug]   no " << cmdRoot
+                  << "/ directory or empty\n";
+      }
+      if (loaded > 0) {
+        std::cerr << "[debug]   loaded " << loaded
+                  << " command module(s)\n";
+      }
     }
   }
 
