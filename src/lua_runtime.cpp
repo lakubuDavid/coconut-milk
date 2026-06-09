@@ -64,6 +64,16 @@ void _bindCoconutLuaApi(Runtime *runtime) {
   coconut.set_function("warn",  [](const std::string& msg) { debug::warn(msg); });
   coconut.set_function("error", [](const std::string& msg) { debug::error(msg); });
 
+  // Built-in stubs — overridden by user's main.lua when loaded.
+  coconut.set_function("config",
+      [](CoconutContext* ctx) -> CoconutContext* { return ctx; });
+  coconut.set_function("views",
+      [](sol::this_state s) -> sol::table {
+        return sol::state_view(s).create_table();
+      });
+  coconut.set_function("events",
+      [](const std::string&, sol::object, CoconutContext*) { });
+
   // ── Dialog bindings: coconut.dialog ─────────────────────────────
   // Exposes native message box and file dialogs to Lua.
   sol::table dialog = (*runtime->lua_state).create_table();

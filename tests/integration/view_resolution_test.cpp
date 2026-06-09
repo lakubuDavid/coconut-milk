@@ -27,7 +27,8 @@ COCONUT_TEST(integration, create_file_view_reads_content) {
                                             std::nullopt);
   COCONUT_REQUIRE(result.has_value());
   // The runtime is injected globally via webview_init() — no per-view injection.
-  COCONUT_REQUIRE(result->html.rfind("<h1>Hello</h1>") != std::string::npos);
+  // File views now store the absolute path and serve via file:// navigation.
+  COCONUT_REQUIRE(result->path.find("_coconut_view_file_test.html") != std::string::npos);
 
   std::remove(tmp);
 }
