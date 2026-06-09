@@ -320,6 +320,7 @@ void _bindUserType(Runtime *runtime) {
       "setTitle", &CoconutContext::setTitle,
       "setResizable", &CoconutContext::setResizable,
       "setFrameless", &CoconutContext::setFrameless,
+      "setTransparent", &CoconutContext::setTransparent,
       "setInitialView", &CoconutContext::setInitialView,
       "show",   &CoconutContext::show,
       "reload", &CoconutContext::reload,

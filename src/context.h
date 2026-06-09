@@ -79,6 +79,9 @@ namespace coconut {
     /// Startup: frameless (no native titlebar). Chainable.
     CoconutContext* setFrameless(bool on);
 
+    /// Startup: transparent window background. Chainable.
+    CoconutContext* setTransparent(bool on);
+
     /// Startup: selects initial view by name. Chainable.
     CoconutContext* setInitialView(const std::string& name);
 

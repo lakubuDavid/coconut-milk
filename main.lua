@@ -21,6 +21,7 @@ function coconut.config(ctx)
       :setMinimumWindowSize({ w = 640, h = 320 })
       :setMaximumWindowSize({ w = 2560, h = 1440 })
       :setFrameless(true)
+      :setTransparent(true)
       :setInitialView("home")
 
   return ctx

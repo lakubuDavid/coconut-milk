@@ -1,10 +1,14 @@
 /* Coconut Milk — Shared Styles */
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #0f0f13;
+  background: #0f0f13dd;
   color: #e4e4e7;
   min-height: 100vh;
 }
@@ -12,6 +16,7 @@ body {
 /* ── Title bar (drag region for frameless windows) ── */
 .titlebar {
   background: #1a1a24;
+  /* background: red; */
   padding: 0.5rem 1rem 0.5rem 4.5rem;
   display: flex;
   align-items: center;
@@ -19,14 +24,21 @@ body {
   user-select: none;
   cursor: grab;
   -webkit-user-select: none;
+  width: 100dvw;
 }
-.titlebar:active { cursor: grabbing; }
+
+.titlebar:active {
+  cursor: grabbing;
+}
+
 .titlebar .app-name {
   font-size: 0.85rem;
   font-weight: 600;
   color: #a78bfa;
   letter-spacing: 0.02em;
+  margin-right: auto;
 }
+
 .titlebar .win-btn {
   background: none;
   border: none;
@@ -37,7 +49,11 @@ body {
   border-radius: 3px;
   transition: all 0.15s;
 }
-.titlebar .win-btn:hover { color: #e4e4e7; background: #2a2a3a; }
+
+.titlebar .win-btn:hover {
+  color: #e4e4e7;
+  background: #2a2a3a;
+}
 
 /* ── Navigation ── */
 nav {
@@ -50,11 +66,13 @@ nav {
   user-select: none;
   -webkit-user-select: none;
 }
+
 nav h1 {
   font-size: 1.1rem;
   font-weight: 600;
   color: #a78bfa;
 }
+
 nav a {
   color: #a1a1aa;
   text-decoration: none;
@@ -63,8 +81,16 @@ nav a {
   border-radius: 4px;
   transition: all 0.15s;
 }
-nav a:hover { color: #e4e4e7; background: #2a2a3a; }
-nav a.active { color: #a78bfa; background: #2a2a3a; }
+
+nav a:hover {
+  color: #e4e4e7;
+  background: #2a2a3a;
+}
+
+nav a.active {
+  color: #a78bfa;
+  background: #2a2a3a;
+}
 
 /* ── Main content ── */
 main {
@@ -81,11 +107,13 @@ main {
   padding: 1.25rem;
   margin-bottom: 1rem;
 }
+
 .card h3 {
   color: #c4b5fd;
   margin-bottom: 0.5rem;
   font-size: 1rem;
 }
+
 .card .desc {
   color: #a1a1aa;
   font-size: 0.85rem;
@@ -103,12 +131,25 @@ button {
   cursor: pointer;
   transition: all 0.15s;
 }
-button:hover { background: #3a3a4a; border-color: #a78bfa; }
-button.primary { background: #3a3a4a; border-color: #a78bfa; color: #c4b5fd; }
-button.primary:hover { background: #4a4a5a; }
+
+button:hover {
+  background: #3a3a4a;
+  border-color: #a78bfa;
+}
+
+button.primary {
+  background: #3a3a4a;
+  border-color: #a78bfa;
+  color: #c4b5fd;
+}
+
+button.primary:hover {
+  background: #4a4a5a;
+}
 
 /* ── Inputs ── */
-input, select {
+input,
+select {
   background: #2a2a3a;
   border: 1px solid #3a3a4a;
   border-radius: 4px;
@@ -116,7 +157,10 @@ input, select {
   color: #e4e4e7;
   font-size: 0.85rem;
 }
-input[type="checkbox"] { accent-color: #a78bfa; }
+
+input[type="checkbox"] {
+  accent-color: #a78bfa;
+}
 
 /* ── Bridge status ── */
 #bridge-status {
@@ -125,8 +169,16 @@ input[type="checkbox"] { accent-color: #a78bfa; }
   border-radius: 4px;
   display: inline-block;
 }
-#bridge-status.connected { background: #065f46; color: #6ee7b7; }
-#bridge-status.pending   { background: #1e3a5f; color: #7dd3fc; }
+
+#bridge-status.connected {
+  background: #065f46;
+  color: #6ee7b7;
+}
+
+#bridge-status.pending {
+  background: #1e3a5f;
+  color: #7dd3fc;
+}
 
 /* ── Result message ── */
 .result-msg {
@@ -139,12 +191,24 @@ input[type="checkbox"] { accent-color: #a78bfa; }
   color: #6ee7b7;
   white-space: pre-wrap;
 }
-.result-msg.error { color: #fca5a5; }
+
+.result-msg.error {
+  color: #fca5a5;
+}
 
 /* ── Transparent window support ── */
 @media (prefers-color-scheme: dark) {
-  body.transparent-window { background: transparent !important; }
-  .transparent-window .card { background: rgba(26,26,36,0.85); backdrop-filter: blur(12px); }
+  body.transparent-window {
+    background: transparent !important;
+  }
+
+  .transparent-window .card {
+    background: rgba(26, 26, 36, 0.85);
+    backdrop-filter: blur(12px);
+  }
+
   .transparent-window .titlebar,
-  .transparent-window nav { background: rgba(26,26,36,0.7); }
+  .transparent-window nav {
+    background: rgba(26, 26, 36, 0.7);
+  }
 }

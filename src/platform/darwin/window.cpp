@@ -72,6 +72,15 @@ void platformApplyWindowStyle(webview_t wv, Config* cfg) {
     ((void(*)(id, SEL, BOOL))objc_msgSend)(
         win, sel_registerName("setHasShadow:"), NO);
 
+    // Inject a frontend script to add the transparent-window CSS class
+    // to the body element after the DOM is ready.
+    if (wv) {
+      webview_init(wv,
+          "document.addEventListener('DOMContentLoaded', function(){"
+          "  if(document.body) document.body.classList.add('transparent-window');"
+          "});");
+    }
+
     debug::info("platformApplyWindowStyle: transparent");
   }
 }

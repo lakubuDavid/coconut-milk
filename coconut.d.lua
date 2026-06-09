@@ -72,6 +72,7 @@ View = {}
 ---@field setTitle fun(self: CoconutContext, title: string): CoconutContext
 ---@field setResizable fun(self: CoconutContext, on: boolean): CoconutContext
 ---@field setFrameless fun(self: CoconutContext, on: boolean): CoconutContext
+---@field setTransparent fun(self: CoconutContext, on: boolean): CoconutContext
 ---@field setInitialView fun(self: CoconutContext, name: string): CoconutContext
 ---@field bind fun(self: CoconutContext, name: string, fn: fun(params: table, ctx: CoconutContext))
 

@@ -89,9 +89,6 @@ int main() {
   app->window = window;
   app->context->window = window;
 
-  // Apply native window style (frameless, etc.) before showing any view.
-  window::applyWindowStyle(window);
-
   debug::info("main: creating lua runtime...");
   // Step 5: create Lua runtime.
   auto lua_result = coconut::lua::create(&cfg, app->context);
@@ -179,7 +176,10 @@ int main() {
     std::println("Views: {} ",k);
   }
 
-  
+  // Apply native window style (frameless, transparent, etc.) after
+  // the Lua entry point has had a chance to set config overrides via
+  // coconut.config(ctx).  This must happen before showWindow().
+  window::applyWindowStyle(window);
 
   // Show the initial view once all views are registered.
   if (!cfg.initial_view.empty()) {

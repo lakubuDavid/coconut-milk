@@ -136,6 +136,11 @@ namespace coconut {
     return this;
   }
 
+  CoconutContext* CoconutContext::setTransparent(bool on) {
+    if (configs != nullptr) configs->transparent = on;
+    return this;
+  }
+
   void CoconutContext::show(const std::string& name) {
     if (window != nullptr) {
       window::showView(window, name);
