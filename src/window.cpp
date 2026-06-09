@@ -47,7 +47,30 @@ void showWindow(Window *window) {
     w = window->configs->window_width;
     h = window->configs->window_height;
   }
-  webview_set_size(window->webview, w, h, WEBVIEW_HINT_NONE);
+
+  // Resizability: fixed or normal
+  auto hint = (window->configs && !window->configs->resizable)
+                  ? WEBVIEW_HINT_FIXED
+                  : WEBVIEW_HINT_NONE;
+  webview_set_size(window->webview, w, h, hint);
+
+  // Minimum size constraints (0 = no constraint)
+  if (window->configs && (window->configs->window_min_width > 0 ||
+                          window->configs->window_min_height > 0)) {
+    int mw = window->configs->window_min_width;
+    int mh = window->configs->window_min_height;
+    webview_set_size(window->webview, mw > 0 ? mw : 1, mh > 0 ? mh : 1,
+                     WEBVIEW_HINT_MIN);
+  }
+
+  // Maximum size constraints (0 = no constraint)
+  if (window->configs && (window->configs->window_max_width > 0 ||
+                          window->configs->window_max_height > 0)) {
+    int mw = window->configs->window_max_width;
+    int mh = window->configs->window_max_height;
+    webview_set_size(window->webview, mw, mh,
+                     WEBVIEW_HINT_MAX);
+  }
 
   const std::string& view_name = window->current_view;
   if (view_name.empty()) {

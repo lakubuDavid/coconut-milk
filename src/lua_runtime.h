@@ -45,6 +45,11 @@ namespace coconut {
     /// Returns an Error if the file exists but loading or cb execution fails.
     std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg);
 
+    /// Wire the ctx.window Lua binding after the runtime's app pointer is set.
+    /// Must be called after runtime->app is wired (i.e. after create() and
+    /// after lua_runtime->app = app).
+    void wireWindowHandle(Runtime* runtime);
+
     /// Call a registered Lua command by name.
     ///
     /// Looks up the handler previously registered via ctx:bind(name, fn) and

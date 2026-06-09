@@ -1,0 +1,23 @@
+{
+  "version": "1.0",
+  "project": "coconut-milk",
+  "updatedAt": "2026-06-09T02:29:42.962Z",
+  "tasks": [
+    {
+      "id": "task-1780972179664-hopdtgz",
+      "title": "Dialog module (open/save/message box) + Lua bindings",
+      "description": "Create platform-abstracted dialog module with macOS impl via ObjC runtime, bind to Lua as coconut.dialog.*",
+      "status": "in_progress",
+      "createdAt": "2026-06-09T02:29:39.664Z",
+      "updatedAt": "2026-06-09T02:29:39.664Z"
+    },
+    {
+      "id": "task-1780972182962-4y7yjly",
+      "title": "Add min/max window size + resizable to Config",
+      "description": "Add window_min_width/height, window_max_width/height, resizable to Config struct, parse from config files, apply via webview_set_size hints",
+      "status": "pending",
+      "createdAt": "2026-06-09T02:29:42.962Z",
+      "updatedAt": "2026-06-09T02:29:42.962Z"
+    }
+  ]
+}

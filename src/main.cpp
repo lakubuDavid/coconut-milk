@@ -1,6 +1,7 @@
 #include "app.h"
 #include "commands.h"
 #include "config.h"
+#include "debug.h"
 #include "lifecycle.h"
 #include "lua_runtime.h"
 #include "window.h"
@@ -23,28 +24,27 @@ int main() {
     cfg = cfg_result.value();
   } else {
     const auto err = cfg_result.error();
-    std::cerr << "Config load failed (keeping defaults): " << err.message
-              << " (" << err.details << ")\n";
-    std::cerr << "  → Place coconut.config.lua (or coconut.config.json) in the working directory.\n";
+    debug::warn(std::format("Config load failed (keeping defaults): {} ({})",
+                            err.message, err.details));
+    debug::info("Place coconut.config.lua (or coconut.config.json) in the working directory.");
   }
 
-  std::cerr << "[debug] main: creating app...\n";
+  debug::info("main: creating app...");
   // Step 2: create app (App core owns WebUI window id + context).
   auto app_result = coconut::app::create(&cfg);
   if (!app_result) {
-    std::cerr << "Failed to create app: " << app_result.error().message
-              << "\n";
+    debug::error(std::format("Failed to create app: {}", app_result.error().message));
     return 1;
   }
   auto* app = app_result.value();
 
-  std::cerr << "[debug] main: creating commands registry...\n";
+  debug::info("main: creating commands registry...");
   // Step 3: create command registry (needed before ctx:bind is called).
   {
     auto cmd_result = coconut::commands::create(&cfg);
     if (!cmd_result) {
-      std::cerr << "Failed to create commands registry: "
-                << cmd_result.error().message << "\n";
+      debug::error(std::format("Failed to create commands registry: {}",
+                                cmd_result.error().message));
       coconut::app::destroy(app);
       return 1;
     }
@@ -52,25 +52,25 @@ int main() {
     app->context->commands = app->commands;
   }
 
-  std::cerr << "[debug] main: creating bridge state...\n";
+  debug::info("main: creating bridge state...");
   // Step 3b: create bridge state (needed before transport creation).
   {
     auto bridge_result = coconut::bridge::create(&cfg);
     if (!bridge_result) {
-      std::cerr << "Failed to create bridge state: "
-                << bridge_result.error().message << "\n";
+      debug::error(std::format("Failed to create bridge state: {}",
+                                bridge_result.error().message));
       coconut::app::destroy(app);
       return 1;
     }
     app->bridge_state = bridge_result.value();
   }
 
-  std::cerr << "[debug] main: creating window...\n";
+  debug::info("main: creating window...");
   // Step 4: create window wrapper using the app-owned webview handle.
   auto window_result = coconut::window::createWindow(&cfg, app->webview);
   if (!window_result) {
-    std::cerr << "Failed to create window: "
-              << window_result.error().message << "\n";
+    debug::error(std::format("Failed to create window: {}",
+                              window_result.error().message));
     coconut::app::destroy(app);
     return 1;
   }
@@ -78,12 +78,12 @@ int main() {
   app->window = window;
   app->context->window = window;
 
-  std::cerr << "[debug] main: creating lua runtime...\n";
+  debug::info("main: creating lua runtime...");
   // Step 5: create Lua runtime.
   auto lua_result = coconut::lua::create(&cfg, app->context);
   if (!lua_result) {
-    std::cerr << "Failed to create Lua runtime: " << lua_result.error().message
-              << "\n";
+    debug::error(std::format("Failed to create Lua runtime: {}",
+                              lua_result.error().message));
     coconut::app::destroy(app);
     return 1;
   }
@@ -92,6 +92,9 @@ int main() {
 
   // Wire back: runtime needs app for bridge access.
   lua_runtime->app = app;
+
+  // Wire ctx.window Lua binding now that the app pointer is available.
+  coconut::lua::wireWindowHandle(lua_runtime);
 
   // Create the bridge transport and bind JS entry points.
   // Must happen after runtime->app is set (transport needs the App*).
@@ -109,12 +112,13 @@ int main() {
   // The ctx setters (setBrowser, setWindowSize, setInitialView) mutate the
   // shared Config in-place — merging app-level overrides on top of the
   // config-file defaults.
-  std::cerr << "[debug] main: loading entry point...\n";
+  debug::info("main: loading entry point...");
   auto entry_result = coconut::lua::loadEntryPoint(lua_runtime, &cfg);
   if (!entry_result && entry_result.error().code != ErrorCode::Ok) {
     // Log the error but continue — non-fatal; app runs with current config.
-    std::cerr << "[warn] entry-point: " << entry_result.error().message
-              << " (" << entry_result.error().details << ")\n";
+    debug::warn(std::format("entry-point: {} ({})",
+                             entry_result.error().message,
+                             entry_result.error().details));
   }
 
   // Step 7: load view descriptors into the window.
@@ -132,23 +136,23 @@ int main() {
     else if (entry.kind == "html")
       kind = window::VIEW_KIND_HTML;
     else {
-      std::cerr << "[debug]   skipping view '" << name << "': unknown kind '"
-                << entry.kind << "'\n";
+      debug::info(std::format("skipping view '{}': unknown kind '{}'",
+                              name, entry.kind));
       continue;
     }
 
-    std::cerr << "[debug]   creating view '" << name << "' ("
-              << entry.kind << ", " << entry.src.substr(0, 60) << "...)\n";
+    debug::info(std::format("creating view '{}' ({}, {}...)",
+                             name, entry.kind, entry.src.substr(0, 60)));
     auto view_result = window::createView(entry.src, kind, std::nullopt);
     if (!view_result) {
-      std::cerr << "[warn]    failed to create view '" << name << "': "
-                << view_result.error().message << "\n";
+      debug::warn(std::format("failed to create view '{}': {}",
+                               name, view_result.error().message));
       continue;
     }
 
     auto* v = new window::View(std::move(*view_result));
     window::addView(window, name, v);
-    std::cerr << "[debug]   view '" << name << "' registered\n";
+    debug::info(std::format("view '{}' registered", name));
   }
 
   for(const auto [k,v] : window->views){
@@ -161,11 +165,11 @@ int main() {
   if (!cfg.initial_view.empty()) {
     // kReady is baked into the webview_init() script (see createTransport).
     // No need to signalReady — it auto-fires when the page loads.
-    std::cerr << "[debug]   showing initial view '" << cfg.initial_view << "'\n";
+    debug::info(std::format("showing initial view '{}'", cfg.initial_view));
     window::showView(window, cfg.initial_view);
   }
 
-  std::cerr << "[debug] main: calling app::run()...\n";
+  debug::info("main: calling app::run()...");
   coconut::app::run(app);
 
   coconut::app::destroy(app);

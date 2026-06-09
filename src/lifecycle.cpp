@@ -2,6 +2,7 @@
 /// at compile time based on OS macros.
 
 #include "lifecycle.h"
+#include "debug.h"
 
 // Select platform implementation
 #if defined(__APPLE__)
@@ -19,7 +20,7 @@
 namespace coconut::lifecycle {
 
 void registerEvents(App* app) {
-  std::cerr << "[lifecycle] registering platform hooks...\n";
+  debug::info("registering platform hooks...");
   platformRegisterEvents(app);
 }
 

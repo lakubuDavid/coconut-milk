@@ -32,6 +32,9 @@ namespace coconut {
     int h = 0;
   };
 
+  /// Forward declaration — defined below.
+  struct CoconutWindowHandle;
+
   /// Runtime context exposed to Lua as `ctx`.
   struct CoconutContext {
     Config*             configs      = nullptr;
@@ -40,6 +43,7 @@ namespace coconut {
     commands::Registry* commands     = nullptr;
     lua::Runtime*       lua_state    = nullptr;
     window::Window*     window       = nullptr;
+    CoconutWindowHandle* window_handle = nullptr;
 
     /// Startup: selects which browser backend WebUI should use. Chainable.
     CoconutContext* setBrowser(const std::string& mode);
@@ -63,6 +67,21 @@ namespace coconut {
 
     /// Sends an event to the frontend synchronously.
     void emit_sync(const std::string& name, sol::object payload);
+  };
+
+  /// Window handle exposed to Lua as `ctx.window`.
+  /// Wraps window-level operations (minimize, maximize, fullscreen, etc.).
+  struct CoconutWindowHandle {
+    App* app = nullptr;
+
+    void show(const std::string& name);
+    void reload();
+    void close();
+    void minimize();
+    void maximize();
+    void setFullscreen(bool on);
+    void toggleFullscreen();
+    void resize(int w, int h);
   };
 
   namespace context {

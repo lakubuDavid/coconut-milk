@@ -29,6 +29,11 @@ struct Config {
   std::string browser = "auto";
   int window_width = 1280;
   int window_height = 640;
+  int window_min_width = 0;
+  int window_min_height = 0;
+  int window_max_width = 0;
+  int window_max_height = 0;
+  bool resizable = true;
   std::string initial_view = "home";
   std::string view_root = "views";
   std::string asset_root = "assets";

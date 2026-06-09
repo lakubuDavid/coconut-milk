@@ -1,4 +1,5 @@
 #include "app.h"
+#include "debug.h"
 #include "lifecycle.h"
 #include "window.h"
 
@@ -90,19 +91,19 @@ void setConfigs(App *app, Config *cfg) {
 }
 
 void run(App *app) {
-  std::cerr << "[debug] app::run: app=" << app << "\n";
+  debug::info(std::format("app::run: app={}", static_cast<void*>(app)));
   if (app == nullptr) {
-    std::cerr << "[debug] app::run: null app\n";
+    debug::error("app::run: null app");
     return;
   }
 
-  std::cerr << "[debug] app::run: window=" << app->window
-            << " lua_state=" << app->lua_state << "\n";
+  debug::info(std::format("app::run: window={} lua_state={}",
+              static_cast<void*>(app->window), static_cast<void*>(app->lua_state)));
 
   // Block the event loop until the native window closes.
-  std::cerr << "[debug] app::run: calling webview_run()\n";
+  debug::info("app::run: calling webview_run()");
   webview_run(app->webview);
-  std::cerr << "[debug] app::run: webview_run returned (window closed)\n";
+  debug::info("app::run: webview_run returned (window closed)");
 }
 
 std::optional<Error> getError(App *app) {

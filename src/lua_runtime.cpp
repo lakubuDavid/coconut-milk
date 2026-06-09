@@ -2,6 +2,8 @@
 
 #include "app.h"
 #include "bridge.h"
+#include "debug.h"
+#include "dialog.h"
 
 #include <sol/state.hpp>
 #include <sol/table.hpp>
@@ -48,6 +50,62 @@ void _bindCoconutLuaApi(Runtime *runtime) {
 
         bridge::emitToJS(runtime->app, name, payloadJson);
       });
+
+  // Debug logging functions exposed to Lua as coconut.log / .info / .warn / .error
+  coconut.set_function("log",   [](const std::string& msg) { debug::log(msg); });
+  coconut.set_function("info",  [](const std::string& msg) { debug::info(msg); });
+  coconut.set_function("warn",  [](const std::string& msg) { debug::warn(msg); });
+  coconut.set_function("error", [](const std::string& msg) { debug::error(msg); });
+
+  // ── Dialog bindings: coconut.dialog ─────────────────────────────
+  // Exposes native message box and file dialogs to Lua.
+  sol::table dialog = (*runtime->lua_state).create_table();
+
+  dialog.set_function("message", [](sol::variadic_args va) -> sol::table {
+    sol::state_view lua = va.lua_state();
+    std::string title = "Message";
+    std::string message;
+    std::string kind = "info";
+    if (va.size() >= 1 && va[0].is<std::string>()) message = va[0].as<std::string>();
+    if (va.size() >= 2 && va[1].is<std::string>()) title = va[1].as<std::string>();
+    if (va.size() >= 3 && va[2].is<std::string>()) kind = va[2].as<std::string>();
+    auto r = dialog::messageBox(title, message, kind);
+    sol::table t = lua.create_table();
+    t["confirmed"] = r.confirmed;
+    return t;
+  });
+
+  dialog.set_function("open", [](sol::variadic_args va) -> sol::table {
+    sol::state_view lua = va.lua_state();
+    std::string title = "Open File";
+    bool multi = false;
+    std::vector<dialog::Filter> filters;
+    if (va.size() >= 1 && va[0].is<std::string>()) title = va[0].as<std::string>();
+    if (va.size() >= 2 && va[1].is<bool>()) multi = va[1].as<bool>();
+    auto r = dialog::openFile(title, filters, multi);
+    sol::table t = lua.create_table();
+    t["confirmed"] = r.confirmed;
+    t["path"] = r.path;
+    sol::table paths = lua.create_table();
+    for (size_t i = 0; i < r.paths.size(); ++i) paths[i + 1] = r.paths[i];
+    t["paths"] = paths;
+    return t;
+  });
+
+  dialog.set_function("save", [](sol::variadic_args va) -> sol::table {
+    sol::state_view lua = va.lua_state();
+    std::string title = "Save File";
+    std::string defaultName;
+    if (va.size() >= 1 && va[0].is<std::string>()) title = va[0].as<std::string>();
+    if (va.size() >= 2 && va[1].is<std::string>()) defaultName = va[1].as<std::string>();
+    auto r = dialog::saveFile(title, defaultName);
+    sol::table t = lua.create_table();
+    t["confirmed"] = r.confirmed;
+    t["path"] = r.path;
+    return t;
+  });
+
+  coconut["dialog"] = dialog;
 
   runtime->lua_state->set("coconut", coconut);
 }
@@ -126,6 +184,22 @@ void _bindUserType(Runtime *runtime) {
       &CoconutContext::reload, "close", &CoconutContext::close, "bind",
       &CoconutContext::bind);
 
+  // ── CoconutWindowHandle usertype ───────────────────────────────
+  runtime->lua_state->new_usertype<CoconutWindowHandle>(
+      "CoconutWindow",
+      "show",           &CoconutWindowHandle::show,
+      "reload",         &CoconutWindowHandle::reload,
+      "close",          &CoconutWindowHandle::close,
+      "minimize",       &CoconutWindowHandle::minimize,
+      "maximize",       &CoconutWindowHandle::maximize,
+      "setFullscreen",  &CoconutWindowHandle::setFullscreen,
+      "toggleFullscreen", &CoconutWindowHandle::toggleFullscreen,
+      "resize",         &CoconutWindowHandle::resize);
+
+  // ctx.window is set later (after app pointer is wired) via
+  // lua::wireWindowHandle(runtime).
+
+  // Always set the base ctx global so Lua can access CoconutContext methods.
   runtime->lua_state->set("ctx", runtime->context);
 }
 
@@ -194,7 +268,7 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
   {
     std::ifstream probe("main.lua");
     if (!probe.is_open()) {
-      std::cerr << "[debug] no main.lua, skipping entry-point config\n";
+      debug::log("no main.lua, skipping entry-point config");
       return false;
     }
   }
@@ -212,12 +286,12 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
     });
   }
 
-  std::cerr << "[debug] loaded main.lua\n";
+  debug::info("loaded main.lua");
 
   // ── coconut.config(ctx) ────────────────────────────────────────────
   sol::object config_fn = lua["coconut"]["config"];
   if (config_fn.is<sol::function>()) {
-    std::cerr << "[debug]   calling coconut.config(ctx)...\n";
+    debug::info("calling coconut.config(ctx)...");
     // ctx is set as a global by _bindUserType — grab it.
     sol::object ctx_obj = lua["ctx"];
 
@@ -250,6 +324,10 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
       mergeStr("browser",         cfg->browser);
       mergeInt("window_width",    cfg->window_width);
       mergeInt("window_height",   cfg->window_height);
+      mergeInt("window_min_width",  cfg->window_min_width);
+      mergeInt("window_min_height", cfg->window_min_height);
+      mergeInt("window_max_width",  cfg->window_max_width);
+      mergeInt("window_max_height", cfg->window_max_height);
       mergeStr("initial_view",    cfg->initial_view);
       mergeStr("view_root",       cfg->view_root);
       mergeStr("asset_root",      cfg->asset_root);
@@ -272,21 +350,21 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
       }
     }
 
-    std::cerr << "[debug] coconut.config(ctx) applied\n";
+    debug::info("coconut.config(ctx) applied");
   }
 
   // ── coconut.views() ────────────────────────────────────────────────
   // App-level view definitions complement those from the config file.
   // Views with the same name overwrite config-file entries.
-  std::cerr << "[debug]   checking coconut.views()...\n";
+  debug::info("checking coconut.views()...");
   sol::object views_fn = lua["coconut"]["views"];
   if (views_fn.is<sol::function>()) {
-    std::cerr << "[debug]   calling coconut.views()...\n";
+    debug::info("calling coconut.views()...");
     auto views_result = views_fn.as<sol::function>()();
     if (views_result.valid()) {
       sol::object views_obj = views_result;
       if (views_obj.is<sol::table>()) {
-        std::cerr << "[debug]   coconut.views() returned view descriptors\n";
+        debug::info("coconut.views() returned view descriptors");
         sol::table vt = views_obj.as<sol::table>();
         for (auto& [k, v] : vt) {
           if (!v.is<sol::table>()) continue;
@@ -297,8 +375,7 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
           if (kind.empty()) continue;
           cfg->views[name] = ViewEntry{.kind = std::move(kind),
                                         .src = std::move(value)};
-          std::cerr << "[debug]     view '" << name << "' ("
-                    << cfg->views[name].kind << ")\n";
+          debug::info(std::format("view '{}' ({})", name, cfg->views[name].kind));
         }
       }
     }
@@ -307,18 +384,17 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
   // ── coconut.commands(ctx) [manual override] ──────────────────────
   // If the user's main.lua defines coconut.commands(), call it first.
   // This gives explicit control before the auto-loader runs.
-  std::cerr << "[debug]   checking coconut.commands()...\n";
+  debug::info("checking coconut.commands()...");
   sol::object cmds_fn = lua["coconut"]["commands"];
   if (cmds_fn.is<sol::function>()) {
-    std::cerr << "[debug]   calling coconut.commands(ctx)...\n";
+    debug::info("calling coconut.commands(ctx)...");
     sol::object ctx_obj = lua["ctx"];
     auto cmds_result = cmds_fn.as<sol::function>()(ctx_obj);
     if (!cmds_result.valid()) {
       sol::error err = cmds_result;
-      std::cerr << "[warn]    coconut.commands(ctx) failed: " << err.what()
-                << "\n";
+      debug::warn(std::format("coconut.commands(ctx) failed: {}", err.what()));
     } else {
-      std::cerr << "[debug]   coconut.commands(ctx) applied\n";
+      debug::info("coconut.commands(ctx) applied");
     }
   }
 
@@ -328,7 +404,7 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
   // command defined in the corresponding .lua module.
   {
     std::string cmdRoot = cfg ? cfg->command_root : "commands";
-    std::cerr << "[debug]   scanning " << cmdRoot << "/ for .g.lua files...\n";
+    debug::info(std::format("scanning {}/ for .g.lua files...", cmdRoot));
 
     // Add command root to package.path so the .g.lua's require() works.
     std::string pkgPath = cmdRoot + "/?.lua;" + cmdRoot + "/?/init.lua";
@@ -336,7 +412,7 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
 
     sol::object ctx_obj = lua["ctx"];
     if (!ctx_obj.valid()) {
-      std::cerr << "[warn]    ctx not available, skipping command auto-load\n";
+      debug::warn("ctx not available, skipping command auto-load");
     } else {
       int loaded = 0;
       try {
@@ -352,25 +428,24 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
 
           std::string cmdName =
               stem.substr(0, stem.size() - 2);
-          std::cerr << "[debug]     found " << cmdName
-                    << ".g.lua, loading...\n";
+          debug::info(std::format("found {}.g.lua, loading...", cmdName));
 
           // Load the .g.lua file — it returns a register function.
           auto loadResult = lua.script_file(path.string(),
               sol::script_pass_on_error);
           if (!loadResult.valid()) {
             sol::error e = loadResult;
-            std::cerr << "[warn]      failed to load " << path.filename()
-                      << ": " << e.what() << "\n";
+            debug::warn(std::format("failed to load {}: {}",
+                                    path.filename().string(), e.what()));
             continue;
           }
 
           // The returned value should be the register function.
           sol::object ret = loadResult;
           if (!ret.is<sol::function>()) {
-            std::cerr << "[warn]      " << path.filename()
-                      << " did not return a function (returned type "
-                      << static_cast<int>(ret.get_type()) << ")\n";
+            debug::warn(std::format("{} did not return a function (returned type {})",
+                                    path.filename().string(),
+                                    static_cast<int>(ret.get_type())));
             continue;
           }
 
@@ -379,27 +454,37 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
               ret.as<sol::function>()(ctx_obj);
           if (!bindResult.valid()) {
             sol::error e = bindResult;
-            std::cerr << "[warn]      register(" << cmdName
-                      << ") failed: " << e.what() << "\n";
+            debug::warn(std::format("register({}) failed: {}", cmdName, e.what()));
           } else {
             ++loaded;
-            std::cerr << "[debug]     registered " << cmdName
-                      << " commands\n";
+            debug::info(std::format("registered {} commands", cmdName));
           }
         }
       } catch (const std::filesystem::filesystem_error& err) {
-        std::cerr << "[debug]   no " << cmdRoot
-                  << "/ directory or empty\n";
+        debug::info(std::format("no {}/ directory or empty", cmdRoot));
       }
       if (loaded > 0) {
-        std::cerr << "[debug]   loaded " << loaded
-                  << " command module(s)\n";
+        debug::info(std::format("loaded {} command module(s)", loaded));
       }
     }
   }
 
-  std::cerr << "[debug] loadEntryPoint done\n";
+  debug::info("loadEntryPoint done");
   return true;
+}
+
+void wireWindowHandle(Runtime* runtime) {
+  if (runtime == nullptr || runtime->lua_state == nullptr ||
+      runtime->context == nullptr || runtime->context->window_handle == nullptr) {
+    return;
+  }
+  // Wire the app pointer so window operations can access the webview.
+  runtime->context->window_handle->app = runtime->app;
+
+  // Expose as ctx.window in Lua.
+  (*runtime->lua_state)["ctx"]["window"] = runtime->context->window_handle;
+
+  debug::info("wired ctx.window to CoconutWindowHandle");
 }
 
 } // namespace coconut::lua

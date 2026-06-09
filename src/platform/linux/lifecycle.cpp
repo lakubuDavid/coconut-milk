@@ -1,13 +1,14 @@
 /// Linux lifecycle stubs — no window event hooks yet.
 
 #include "lifecycle.h"
+#include "../../debug.h"
 
 #include <iostream>
 
 namespace coconut::lifecycle {
 
 void platformRegisterEvents(App*) {
-  std::cerr << "[lifecycle] Linux lifecycle hooks not yet implemented\n";
+  debug::warn("Linux lifecycle hooks not yet implemented");
 }
 
 void platformUnregisterEvents() {

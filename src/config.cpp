@@ -61,6 +61,56 @@ loadConfigJson(std::string_view config_path) {
       cfg.window_height = j["window_height"].get<int>();
     }
 
+    if (j.contains("window_min_width") && !j["window_min_width"].is_null()) {
+      if (!j["window_min_width"].is_number_integer()) {
+        return std::unexpected(
+            Error{.code = ErrorCode::InvalidConfig,
+                  .message = "config.window_min_width must be an integer",
+                  .details = j["window_min_width"].dump()});
+      }
+      cfg.window_min_width = j["window_min_width"].get<int>();
+    }
+
+    if (j.contains("window_min_height") && !j["window_min_height"].is_null()) {
+      if (!j["window_min_height"].is_number_integer()) {
+        return std::unexpected(
+            Error{.code = ErrorCode::InvalidConfig,
+                  .message = "config.window_min_height must be an integer",
+                  .details = j["window_min_height"].dump()});
+      }
+      cfg.window_min_height = j["window_min_height"].get<int>();
+    }
+
+    if (j.contains("window_max_width") && !j["window_max_width"].is_null()) {
+      if (!j["window_max_width"].is_number_integer()) {
+        return std::unexpected(
+            Error{.code = ErrorCode::InvalidConfig,
+                  .message = "config.window_max_width must be an integer",
+                  .details = j["window_max_width"].dump()});
+      }
+      cfg.window_max_width = j["window_max_width"].get<int>();
+    }
+
+    if (j.contains("window_max_height") && !j["window_max_height"].is_null()) {
+      if (!j["window_max_height"].is_number_integer()) {
+        return std::unexpected(
+            Error{.code = ErrorCode::InvalidConfig,
+                  .message = "config.window_max_height must be an integer",
+                  .details = j["window_max_height"].dump()});
+      }
+      cfg.window_max_height = j["window_max_height"].get<int>();
+    }
+
+    if (j.contains("resizable")) {
+      if (!j["resizable"].is_boolean()) {
+        return std::unexpected(
+            Error{.code = ErrorCode::InvalidConfig,
+                  .message = "config.resizable must be a boolean",
+                  .details = j["resizable"].dump()});
+      }
+      cfg.resizable = j["resizable"].get<bool>();
+    }
+
     if (j.contains("initial_view") && !j["initial_view"].is_null()) {
       if (!j["initial_view"].is_string()) {
         return std::unexpected(
@@ -196,6 +246,11 @@ loadConfigLua(std::string_view config_path) {
     cfg.browser = t["browser"].get_or<std::string>("auto");
     cfg.window_width = t["window_width"].get_or(1280);
     cfg.window_height = t["window_height"].get_or(640);
+    cfg.window_min_width = t["window_min_width"].get_or(0);
+    cfg.window_min_height = t["window_min_height"].get_or(0);
+    cfg.window_max_width = t["window_max_width"].get_or(0);
+    cfg.window_max_height = t["window_max_height"].get_or(0);
+    cfg.resizable = t["resizable"].get_or(true);
     cfg.initial_view = t["initial_view"].get_or<std::string>("home");
     cfg.view_root = t["view_root"].get_or<std::string>("views");
     cfg.asset_root = t["asset_root"].get_or<std::string>("assets");

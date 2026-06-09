@@ -2,6 +2,7 @@
 #include "app.h"
 #include "bridge.h" // for escapeJsSingleQuotedString, toTable, toJson
 #include "commands.h"
+#include "debug.h"
 #include "lua_runtime.h"
 
 #include <nlohmann/json.hpp>
@@ -16,7 +17,7 @@ WebviewTransport::WebviewTransport(webview_t w, coconut::App* app,
                                    const std::string& coconut_js)
     : m_webview(w), m_app(app) {
   if (!w) {
-    std::cerr << "[webview] WebviewTransport: null handle\n";
+    debug::error("WebviewTransport: null handle");
     return;
   }
 
@@ -97,7 +98,8 @@ void WebviewTransport::static_on_rpc(const char* id, const char* req,
     if (args.is_array() && args.size() >= 1 && args[0].is_string()) {
       msgJson = args[0].get<std::string>();
     }
-  } catch (...) {
+  } catch (const std::exception& e) {
+    debug::error(std::format("static_on_rpc: failed to parse JSON: {}", e.what()));
     return;
   }
   if (msgJson.empty()) return;
@@ -119,8 +121,7 @@ void WebviewTransport::static_on_rpc(const char* id, const char* req,
 }
 
 void WebviewTransport::handleCall(const char* id, const rpc::Message& msg) {
-  std::cerr << "[webview] handleCall: name='" << msg.name
-            << "' payload=" << msg.payload.dump() << "\n";
+  debug::info(std::format("handleCall: name='{}' payload={}", msg.name, msg.payload.dump()));
 
   // Build the full envelope so webview's onReply parses it back to an object.
   // The JS shim for __coconut_call re-stringifies it for coconut.call().
@@ -186,8 +187,7 @@ void WebviewTransport::handleCall(const char* id, const rpc::Message& msg) {
 }
 
 void WebviewTransport::handleEvent(const char* id, const rpc::Message& msg) {
-  std::cerr << "[webview] handleEvent: name='" << msg.name
-            << "' payload=" << msg.payload.dump() << "\n";
+  debug::info(std::format("handleEvent: name='{}' payload={}", msg.name, msg.payload.dump()));
 
   // Dispatch to Lua's coconut.events(name, payload, ctx).
   if (m_app && m_app->lua_state && m_app->lua_state->lua_state &&

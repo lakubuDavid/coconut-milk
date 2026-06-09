@@ -1,11 +1,12 @@
 #include "bridge.h"
 #include "app.h"
+#include "debug.h"
 #include "lua_runtime.h"
 #include "webview_transport.h"
 #include "embeds/coconut_embed.h"
 
-#include <algorithm>
 #include <format>
+#include <iostream>
 #include <memory>
 #include <string>
 
@@ -72,7 +73,12 @@ void dispatchEventToLua(coconut::App* app, const std::string& name,
   }
 
   // Call: coconut.events(name, payloadTable, ctx)
-  eventsFn(name, payloadTable, app->lua_state->context);
+  auto result = eventsFn(name, payloadTable, app->lua_state->context);
+  if (!result.valid()) {
+    sol::error err = result;
+    debug::warn(std::format("dispatchEventToLua('{}'): coconut.events() failed: {}",
+                            name, err.what()));
+  }
 }
 
 static void dispatchRpcEventToLua(coconut::App* app, const rpc::Message& msg) {
@@ -151,7 +157,7 @@ void emitToLua(coconut::App *app, std::string eventName,
       R"(if coconut and coconut.events then coconut.events("{}", "{}", ctx) end)",
       luaEventName, luaPayloadJson);
 
-  app->lua_state->lua_state->do_string(script);
+  app->lua_state->lua_state->safe_script(script, sol::script_pass_on_error);
 }
 
 void emitToJS(coconut::App *app, std::string eventName,
@@ -184,7 +190,7 @@ void callLua(coconut::App *app, std::string functionName,
   auto result = fn(arg);
   if (!result.valid()) {
     sol::error err = result;
-    (void)err;
+    debug::warn(std::format("callLua('{}') failed: {}", functionName, err.what()));
   }
 }
 
@@ -236,6 +242,22 @@ globalThis.__coconut_emit = async function(name, payloadJson) {
   var msg = JSON.stringify({ type: "event", name: name, payload: JSON.parse(payloadJson) });
   await globalThis.__coconut_rpc(msg);
 };
+
+// Debug logging bridged to C++ via __coconut_rpc events.
+// These are the JS equivalents of coconut.log/.info/.warn/.error on the Lua side.
+globalThis.coconut.log   = function(...args) { console.log('[coconut]', ...args); };
+globalThis.coconut.info  = function(...args) { console.info('[coconut]', ...args); };
+globalThis.coconut.warn  = function(...args) { console.warn('[coconut]', ...args); };
+globalThis.coconut.error = function(...args) { console.error('[coconut]', ...args); };
+
+// Top-level error handler — logs uncaught JS exceptions to stderr.
+globalThis.addEventListener('error', function(e) {
+  console.error('[coconut:uncaught]', e.message, 'at', e.filename + ':' + e.lineno);
+});
+globalThis.addEventListener('unhandledrejection', function(e) {
+  console.error('[coconut:unhandled]', e.reason);
+});
+
 globalThis.__coconut_bridge_ready();
 )";
 

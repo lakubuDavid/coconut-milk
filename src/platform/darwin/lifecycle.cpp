@@ -5,6 +5,7 @@
 
 #include "app.h"
 #include "bridge.h"
+#include "debug.h"
 #include "lifecycle.h"
 
 #include <webview/webview.h>
@@ -81,7 +82,7 @@ void platformRegisterEvents(App* app) {
 
   id win = getWindow();
   if (!win) {
-    std::cerr << "[lifecycle] no native window handle\n";
+    debug::error("no native window handle");
     return;
   }
 
@@ -115,7 +116,7 @@ void platformRegisterEvents(App* app) {
   addObserver("NSWindowDidResignKeyNotification",
               (IMP)coconut_onBlur, sel_registerName("onBlur:"));
 
-  std::cerr << "[lifecycle] registered resize/focus/blur observers\n";
+  debug::info("registered resize/focus/blur observers");
 }
 
 void platformUnregisterEvents() {

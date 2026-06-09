@@ -53,10 +53,19 @@ View = {}
 ---@class CoconutContext
 ---@field window CoconutWindow
 ---@field props? table
----@field setBrowser fun(self: CoconutContext, mode: string): CoconutContext
 ---@field setWindowSize fun(self: CoconutContext, size: CoconutWindowSize): CoconutContext
 ---@field setInitialView fun(self: CoconutContext, name: string): CoconutContext
 ---@field bind fun(self: CoconutContext, name: string, fn: fun(params: table, ctx: CoconutContext))
+
+---@class CoconutDialogResult
+---@field confirmed boolean
+---@field path string
+---@field paths? string[]
+
+---@class CoconutDialogModule
+---@field message fun(message: string, title?: string, kind?: "info"|"warn"|"error"|"question"): CoconutDialogResult
+---@field open fun(title?: string, multi?: boolean): CoconutDialogResult
+---@field save fun(title?: string, defaultName?: string): CoconutDialogResult
 
 ---@class CoconutModule
 ---@field views fun(): table<string, CoconutViewDescriptor|fun(): CoconutViewDescriptor>
@@ -68,6 +77,11 @@ View = {}
 ---@field on_focus? fun()
 ---@field on_blur? fun()
 ---@field on_resize fun(ctx: CoconutContext, w: integer, h: integer)
+---@field log fun(msg: string)
+---@field info fun(msg: string)
+---@field warn fun(msg: string)
+---@field error fun(msg: string)
+---@field dialog CoconutDialogModule
 
 ---@type CoconutModule
 coconut = {

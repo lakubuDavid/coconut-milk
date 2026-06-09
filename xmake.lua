@@ -92,6 +92,8 @@ target("coconut-milk-tests")
         "src/commands.cpp",
         "src/config.cpp",
         "src/context.cpp",
+        "src/debug.cpp",
+        "src/dialog.cpp",
         "src/error.cpp",
         "src/fs.cpp",
         "src/lifecycle.cpp",
