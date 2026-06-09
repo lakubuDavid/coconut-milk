@@ -27,51 +27,31 @@ void platformApplyWindowStyle(webview_t wv, Config* cfg) {
 
   // ── Frameless ────────────────────────────────────────────────────────
   if (cfg->frameless) {
-    // NSWindowStyleMask bit definitions:
-    //   NSWindowStyleMaskTitled              = 1 << 0
-    //   NSWindowStyleMaskClosable            = 1 << 1
-    //   NSWindowStyleMaskMiniaturizable      = 1 << 2
-    //   NSWindowStyleMaskResizable           = 1 << 3
-    //   NSWindowStyleMaskFullSizeContentView  = 1 << 15
-
-    // Read current style mask
+    // Use the modern Cocoa pattern for frameless windows:
+    //   1. Remove .titled from styleMask (hides titlebar + traffic lights)
+    //   2. Keep other masks (resizable, closable, miniaturizable) so they work
+    //      programmatically even though the buttons are hidden
+    //   3. Set isMovableByWindowBackground for HTML drag handling
+    //
+    // Read current style mask and remove the Titled bit (1 << 0).
     NSUInteger mask = ((NSUInteger(*)(id, SEL))objc_msgSend)(
         win, sel_registerName("styleMask"));
 
-    // Add full-size content view so the webview fills behind the title bar
-    mask |= (1UL << 15); // NSWindowStyleMaskFullSizeContentView
+    mask &= ~(1UL << 0);  // Remove NSWindowStyleMaskTitled
 
-    // Keep titled so traffic lights remain reservable (even if hidden).
-    // Without Titled, closable/miniaturizable/resizable have no effect.
     ((void(*)(id, SEL, NSUInteger))objc_msgSend)(
         win, sel_registerName("setStyleMask:"), mask);
 
-    // Make the title bar background transparent
-    ((void(*)(id, SEL, BOOL))objc_msgSend)(
-        win, sel_registerName("setTitlebarAppearsTransparent:"), YES);
-
-    // Hide the title text string from the titlebar
-    // NSWindowTitleHidden = 1, NSWindowTitleVisible = 0
-    ((void(*)(id, SEL, NSUInteger))objc_msgSend)(
-        win, sel_registerName("setTitleVisibility:"), (NSUInteger)1);
-
-    // Allow dragging the window from the webview content.
+    // Allow dragging the window from webview content (the HTML titlebar
+    // handles grab_start / move / grab_end events → ctx.window:move()).
     ((void(*)(id, SEL, BOOL))objc_msgSend)(
         win, sel_registerName("setMovableByWindowBackground:"), YES);
 
-    // Hide the native traffic-light buttons (close / minimize / zoom)
-    // since the HTML titlebar provides custom window controls.
-    // NSWindowButton enum: CloseButton=0, MiniaturizeButton=1, ZoomButton=2
-    SEL swbSel = sel_registerName("standardWindowButton:");
-    for (NSUInteger btn = 0; btn <= 2; ++btn) {
-      id button = ((id(*)(id, SEL, NSUInteger))objc_msgSend)(win, swbSel, btn);
-      if (button) {
-        ((void(*)(id, SEL, BOOL))objc_msgSend)(
-            button, sel_registerName("setHidden:"), YES);
-      }
-    }
+    // Borderless windows may lose the drop shadow; restore it.
+    ((void(*)(id, SEL, BOOL))objc_msgSend)(
+        win, sel_registerName("setHasShadow:"), YES);
 
-    debug::info("platformApplyWindowStyle: frameless");
+    debug::info("platformApplyWindowStyle: frameless (borderless)");
   }
 
   // ── Transparency ─────────────────────────────────────────────────────
