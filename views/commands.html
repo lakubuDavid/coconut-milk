@@ -12,9 +12,37 @@
       color: #e4e4e7;
       min-height: 100vh;
     }
+    .titlebar {
+      background: #1a1a24;
+      padding: 0.5rem 1rem 0.5rem 4.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      user-select: none;
+      cursor: grab;
+      -webkit-user-select: none;
+    }
+    .titlebar:active { cursor: grabbing; }
+    .titlebar .app-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #a78bfa;
+      letter-spacing: 0.02em;
+    }
+    .titlebar .win-btn {
+      background: none;
+      border: none;
+      color: #71717a;
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      transition: all 0.15s;
+    }
+    .titlebar .win-btn:hover { color: #e4e4e7; background: #2a2a3a; }
     nav {
       background: #1a1a24;
-      padding: 0.75rem 2rem;
+      padding: 0.5rem 2rem 0.75rem;
       display: flex;
       align-items: center;
       gap: 2rem;
@@ -56,9 +84,16 @@
   </style>
 </head>
 <body>
+  <div class="titlebar" id="titlebar">
+    <span class="app-name">🥥 Coconut</span>
+    <button class="win-btn" onclick="doMinimize()">─</button>
+    <button class="win-btn" onclick="doToggleFullscreen()">□</button>
+    <button class="win-btn" onclick="doClose()">✕</button>
+  </div>
   <nav>
     <h1>🥥 Commands Test</h1>
     <a href="#" data-view="home">Home</a>
+    <a href="#" data-view="note">Notes</a>
     <a href="#" data-view="commands" class="active">Commands</a>
   </nav>
   <main>
@@ -69,6 +104,20 @@
   </main>
 
   <script>
+    // --- Window controls (frameless) ---
+    function doMinimize() {
+      if (window.coconut && window.coconut.call)
+        coconut.call('__coconut_window_ctl', { cmd: 'minimize' });
+    }
+    function doToggleFullscreen() {
+      if (window.coconut && window.coconut.call)
+        coconut.call('__coconut_window_ctl', { cmd: 'toggleFullscreen' });
+    }
+    function doClose() {
+      if (window.coconut && window.coconut.call)
+        coconut.call('__coconut_window_ctl', { cmd: 'close' });
+    }
+
     const commands = [
       {
         name: 'ping', desc: 'Returns "pong" — no params needed.',

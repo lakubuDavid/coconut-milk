@@ -41,4 +41,16 @@ function coconut.commands(ctx)
   ctx:bind("ping", function(params, ctx)
     return "pong"
   end)
+
+  -- Window control commands for frameless-titlebar buttons
+  ctx:bind("__coconut_window_ctl", function(params, ctx)
+    local cmd = params.cmd
+    if cmd == "minimize" then
+      ctx.window:minimize()
+    elseif cmd == "toggleFullscreen" then
+      ctx.window:toggleFullscreen()
+    elseif cmd == "close" then
+      ctx.window:close()
+    end
+  end)
 end

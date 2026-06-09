@@ -12,19 +12,46 @@
       color: #e4e4e7;
       min-height: 100vh;
     }
+    /* ── Title bar (drag region for frameless windows) ── */
+    .titlebar {
+      background: #1a1a24;
+      padding: 0.5rem 1rem 0.5rem 4.5rem; /* left inset for traffic lights */
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      user-select: none;
+      cursor: grab;
+      -webkit-user-select: none;
+    }
+    .titlebar:active { cursor: grabbing; }
+    .titlebar .app-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #a78bfa;
+      letter-spacing: 0.02em;
+    }
+    .titlebar .win-btn {
+      background: none;
+      border: none;
+      color: #71717a;
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      transition: all 0.15s;
+    }
+    .titlebar .win-btn:hover { color: #e4e4e7; background: #2a2a3a; }
+
+    /* ── Navigation ── */
     nav {
       background: #1a1a24;
-      padding: 0.75rem 2rem;
+      padding: 0.5rem 2rem 0.75rem;
       display: flex;
       align-items: center;
       gap: 2rem;
       border-bottom: 1px solid #2a2a3a;
-    }
-    nav h1 {
-      font-size: 1.1rem;
-      font-weight: 600;
-      color: #a78bfa;
-      letter-spacing: 0.02em;
+      user-select: none;
+      -webkit-user-select: none;
     }
     nav a {
       color: #a1a1aa;
@@ -36,6 +63,8 @@
     }
     nav a:hover { color: #e4e4e7; background: #2a2a3a; }
     nav a.active { color: #a78bfa; background: #2a2a3a; }
+
+    /* ── Main content ── */
     main {
       max-width: 720px;
       margin: 3rem auto;
@@ -94,11 +123,25 @@
     }
     #bridge-status.connected { background: #065f46; color: #6ee7b7; }
     #bridge-status.pending   { background: #1e3a5f; color: #7dd3fc; }
+
+    /* ── Transparent window support ── */
+    @media (prefers-color-scheme: dark) {
+      body.transparent-window { background: transparent !important; }
+      .transparent-window .card { background: rgba(26,26,36,0.85); backdrop-filter: blur(12px); }
+      .transparent-window .titlebar,
+      .transparent-window nav { background: rgba(26,26,36,0.7); }
+    }
   </style>
 </head>
 <body>
+  <!-- Title bar (drag region for frameless windows) -->
+  <div class="titlebar" id="titlebar">
+    <span class="app-name">🥥 Coconut</span>
+    <button class="win-btn" onclick="doMinimize()">─</button>
+    <button class="win-btn" onclick="doToggleFullscreen()">□</button>
+    <button class="win-btn" onclick="doClose()">✕</button>
+  </div>
   <nav>
-    <h1>🥥 Coconut</h1>
     <a href="#" class="active" data-view="home">Home</a>
     <a href="#" data-view="note">Notes</a>
     <a href="#" data-view="commands">Commands</a>
@@ -131,6 +174,39 @@
   </main>
 
   <script>
+    // --- Window controls (frameless) ---
+    function doMinimize() {
+      if (window.coconut && window.coconut.call)
+        coconut.call('__coconut_window_ctl', { cmd: 'minimize' });
+    }
+    function doToggleFullscreen() {
+      if (window.coconut && window.coconut.call)
+        coconut.call('__coconut_window_ctl', { cmd: 'toggleFullscreen' });
+    }
+    function doClose() {
+      if (window.coconut && window.coconut.call)
+        coconut.call('__coconut_window_ctl', { cmd: 'close' });
+    }
+
+    // --- Drag region: on mousedown in titlebar, enable window drag ---
+    const tb = document.getElementById('titlebar');
+    if (tb) {
+      tb.addEventListener('mousedown', () => {
+        // movableByWindowBackground is handled natively —
+        // no JS bridge call needed if it's always on for frameless.
+        // We just provide the visual drag cursor via CSS.
+      });
+    }
+
+    // --- Detect frameless/transparent window via meta or bridge ---
+    (async function checkWindowMode() {
+      try {
+        await coconut.ready();
+        // Add class for transparent-window styling if applicable (config-driven)
+        // The C++ side handles the native transparency; CSS is just cosmetic.
+      } catch (e) { /* bridge not ready */ }
+    })();
+
     // --- Local counter (no bridge needed) ---
     let count = 0;
     const display = document.getElementById('counter-display');

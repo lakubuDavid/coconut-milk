@@ -35,6 +35,7 @@ struct Config {
   int window_max_height = 0;
   bool resizable = true;
   bool frameless = false;
+  bool transparent = false;
   std::string initial_view = "home";
   std::string view_root = "views";
   std::string asset_root = "assets";
@@ -53,6 +54,13 @@ struct Config {
 ///   "browser": "auto",
 ///   "window_width": 1280,
 ///   "window_height": 640,
+///   "window_min_width": 0,
+///   "window_min_height": 0,
+///   "window_max_width": 0,
+///   "window_max_height": 0,
+///   "resizable": true,
+///   "frameless": false,
+///   "transparent": false,
 ///   "initial_view": "home",
 ///   "view_root": "views",
 ///   "asset_root": "assets",
@@ -75,6 +83,13 @@ loadConfigJson(std::string_view config_path = "coconut.config.json");
 ///   browser = "auto",
 ///   window_width = 1280,
 ///   window_height = 640,
+///   window_min_width = 0,
+///   window_min_height = 0,
+///   window_max_width = 0,
+///   window_max_height = 0,
+///   resizable = true,
+///   frameless = false,
+///   transparent = false,
 ///   initial_view = "home",
 ///   view_root = "views",
 ///   asset_root = "assets",

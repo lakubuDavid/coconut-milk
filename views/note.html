@@ -12,19 +12,43 @@
       color: #e4e4e7;
       min-height: 100vh;
     }
+    /* ── Title bar (drag region for frameless windows) ── */
+    .titlebar {
+      background: #1a1a24;
+      padding: 0.5rem 1rem 0.5rem 4.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      user-select: none;
+      cursor: grab;
+      -webkit-user-select: none;
+    }
+    .titlebar:active { cursor: grabbing; }
+    .titlebar .app-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #a78bfa;
+      letter-spacing: 0.02em;
+    }
+    .titlebar .win-btn {
+      background: none;
+      border: none;
+      color: #71717a;
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      transition: all 0.15s;
+    }
+    .titlebar .win-btn:hover { color: #e4e4e7; background: #2a2a3a; }
+
     nav {
       background: #1a1a24;
-      padding: 0.75rem 2rem;
+      padding: 0.5rem 2rem 0.75rem;
       display: flex;
       align-items: center;
       gap: 2rem;
       border-bottom: 1px solid #2a2a3a;
-    }
-    nav h1 {
-      font-size: 1.1rem;
-      font-weight: 600;
-      color: #a78bfa;
-      letter-spacing: 0.02em;
     }
     nav a {
       color: #a1a1aa;
@@ -115,11 +139,31 @@
       color: #71717a;
       margin-left: auto;
     }
+    .save-status {
+      font-size: 0.8rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      margin-left: 0.5rem;
+    }
+    .save-status.saved { color: #6ee7b7; }
+    .save-status.saving { color: #7dd3fc; }
+    .save-status.error { color: #fca5a5; }
+
+    @media (prefers-color-scheme: dark) {
+      body.transparent-window { background: transparent !important; }
+      .transparent-window .note-item,
+      .transparent-window textarea { background: rgba(26,26,36,0.85); backdrop-filter: blur(12px); }
+    }
   </style>
 </head>
 <body>
+  <div class="titlebar" id="titlebar">
+    <span class="app-name">🥥 Coconut</span>
+    <button class="win-btn" onclick="doMinimize()">─</button>
+    <button class="win-btn" onclick="doToggleFullscreen()">□</button>
+    <button class="win-btn" onclick="doClose()">✕</button>
+  </div>
   <nav>
-    <h1>🥥 Coconut</h1>
     <a href="#" data-view="home">Home</a>
     <a href="#" class="active" data-view="note">Notes</a>
     <a href="#" data-view="commands">Commands</a>
@@ -139,11 +183,53 @@
   </main>
 
   <script>
-    // --- Local notes store (session-based, in-memory) ---
+    // --- Window controls (frameless) ---
+    function doMinimize() {
+      if (window.coconut && window.coconut.call)
+        coconut.call('__coconut_window_ctl', { cmd: 'minimize' });
+    }
+    function doToggleFullscreen() {
+      if (window.coconut && window.coconut.call)
+        coconut.call('__coconut_window_ctl', { cmd: 'toggleFullscreen' });
+    }
+    function doClose() {
+      if (window.coconut && window.coconut.call)
+        coconut.call('__coconut_window_ctl', { cmd: 'close' });
+    }
+
+    // --- Persistent notes store (Lua I/O) ---
     const notes = [];
     const listEl = document.getElementById('note-list');
     const inputEl = document.getElementById('note-input');
     const statEl = document.getElementById('note-stat');
+    let saveTimeout = null;
+
+    async function loadNotes() {
+      try {
+        await coconut.ready();
+        const data = await coconut.call('notes_list', {});
+        if (data && data.ok && data.data && Array.isArray(data.data)) {
+          notes.length = 0;
+          for (const n of data.data) notes.push(n);
+          render();
+        }
+      } catch (e) {
+        // No saved notes yet — start fresh
+      }
+    }
+
+    async function saveNotes() {
+      try {
+        await coconut.call('notes_save', { notes: notes });
+      } catch (e) {
+        console.warn('[coconut] failed to save notes:', e);
+      }
+    }
+
+    function scheduleSave() {
+      if (saveTimeout) clearTimeout(saveTimeout);
+      saveTimeout = setTimeout(saveNotes, 300);
+    }
 
     function render() {
       listEl.innerHTML = '';
@@ -152,14 +238,21 @@
         statEl.textContent = '';
         return;
       }
-      notes.forEach((text, i) => {
+      for (let i = 0; i < notes.length; i++) {
         const li = document.createElement('li');
         li.className = 'note-item';
-        li.innerHTML = `<span class="text">${escapeHtml(text)}</span>
+        li.innerHTML = `<span class="text">${escapeHtml(notes[i])}</span>
                         <button class="del" data-idx="${i}">✕</button>`;
         listEl.appendChild(li);
+      }
+      document.querySelectorAll('.note-item .del').forEach(btn => {
+        btn.onclick = () => {
+          const idx = parseInt(btn.dataset.idx);
+          notes.splice(idx, 1);
+          render();
+          scheduleSave();
+        };
       });
-      li.querySelector('.del').onclick = () => { notes.splice(i, 1); render(); };
       statEl.textContent = `${notes.length} note${notes.length !== 1 ? 's' : ''}`;
     }
 
@@ -175,11 +268,13 @@
       notes.push(text);
       inputEl.value = '';
       render();
+      scheduleSave();
     };
 
     document.getElementById('clear-btn').onclick = () => {
       notes.length = 0;
       render();
+      scheduleSave();
     };
 
     // Enter to add, Shift+Enter for newline
@@ -201,13 +296,8 @@
       });
     });
 
-    // --- Bridge ready signal ---
-    (async () => {
-      if (window.coconut && window.coconut.ready) {
-        await coconut.ready();
-        console.log('[coconut] bridge ready');
-      }
-    })();
+    // --- Load notes on bridge ready ---
+    loadNotes();
   </script>
 </body>
 </html>

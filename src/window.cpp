@@ -211,6 +211,34 @@ void applyWindowStyle(Window *window) {
 
     debug::info("applyWindowStyle: applied frameless style");
   }
+
+  if (cfg->transparent) {
+    using id = struct objc_object*;
+    using SEL = struct objc_selector*;
+
+    id win = (id)webview_get_window(window->webview);
+    if (!win) {
+      debug::warn("applyWindowStyle: no native window handle for transparency");
+      return;
+    }
+
+    // NSWindow setOpaque:NO — allows transparency
+    ((void(*)(id, SEL, BOOL))objc_msgSend)(
+        win, sel_registerName("setOpaque:"), (BOOL)NO);
+
+    // Set clear background color
+    Class colorClass = objc_getClass("NSColor");
+    SEL clearSel = sel_registerName("clearColor");
+    id clearColor = ((id(*)(id, SEL))objc_msgSend)((id)colorClass, clearSel);
+    ((void(*)(id, SEL, id))objc_msgSend)(
+        win, sel_registerName("setBackgroundColor:"), clearColor);
+
+    // Disable window shadow for transparent windows
+    ((void(*)(id, SEL, BOOL))objc_msgSend)(
+        win, sel_registerName("setHasShadow:"), (BOOL)NO);
+
+    debug::info("applyWindowStyle: applied transparent style");
+  }
 }
 
 } // namespace coconut::window

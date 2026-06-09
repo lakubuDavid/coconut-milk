@@ -121,6 +121,16 @@ loadConfigJson(std::string_view config_path) {
       cfg.frameless = j["frameless"].get<bool>();
     }
 
+    if (j.contains("transparent")) {
+      if (!j["transparent"].is_boolean()) {
+        return std::unexpected(
+            Error{.code = ErrorCode::InvalidConfig,
+                  .message = "config.transparent must be a boolean",
+                  .details = j["transparent"].dump()});
+      }
+      cfg.transparent = j["transparent"].get<bool>();
+    }
+
     if (j.contains("initial_view") && !j["initial_view"].is_null()) {
       if (!j["initial_view"].is_string()) {
         return std::unexpected(
@@ -262,6 +272,7 @@ loadConfigLua(std::string_view config_path) {
     cfg.window_max_height = t["window_max_height"].get_or(0);
     cfg.resizable = t["resizable"].get_or(true);
     cfg.frameless = t["frameless"].get_or(false);
+    cfg.transparent = t["transparent"].get_or(false);
     cfg.initial_view = t["initial_view"].get_or<std::string>("home");
     cfg.view_root = t["view_root"].get_or<std::string>("views");
     cfg.asset_root = t["asset_root"].get_or<std::string>("assets");
