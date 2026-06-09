@@ -177,12 +177,26 @@ void _bindUserType(Runtime *runtime) {
     return ctx;
   };
 
+  // Window handle getter — sol::readonly would not work here because
+  // the handle pointer may be null during registration.  A sol::property
+  // getter/setter pair lets C++ control assignment while Lua can read
+  // the current value (even as it changes post-registration).
   runtime->lua_state->new_usertype<CoconutContext>(
-      "CoconutContext", "setBrowser", &CoconutContext::setBrowser,
-      "setWindowSize", std::move(setWindowSize), "setInitialView",
-      &CoconutContext::setInitialView, "show", &CoconutContext::show, "reload",
-      &CoconutContext::reload, "close", &CoconutContext::close, "bind",
-      &CoconutContext::bind);
+      "CoconutContext",
+      "window", sol::property(
+          [](CoconutContext* ctx) -> CoconutWindowHandle* {
+            return ctx ? ctx->window_handle : nullptr;
+          },
+          [](CoconutContext* ctx, CoconutWindowHandle* h) {
+            if (ctx) ctx->window_handle = h;
+          }),
+      "setBrowser", &CoconutContext::setBrowser,
+      "setWindowSize", std::move(setWindowSize),
+      "setInitialView", &CoconutContext::setInitialView,
+      "show",   &CoconutContext::show,
+      "reload", &CoconutContext::reload,
+      "close",  &CoconutContext::close,
+      "bind",   &CoconutContext::bind);
 
   // ── CoconutWindowHandle usertype ───────────────────────────────
   runtime->lua_state->new_usertype<CoconutWindowHandle>(
@@ -330,6 +344,7 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
       mergeInt("window_max_width",  cfg->window_max_width);
       mergeInt("window_max_height", cfg->window_max_height);
       mergeStr("initial_view",    cfg->initial_view);
+      mergeStr("title",            cfg->title);
       mergeStr("view_root",       cfg->view_root);
       mergeStr("asset_root",      cfg->asset_root);
       mergeStr("command_root",    cfg->command_root);
@@ -482,8 +497,9 @@ void wireWindowHandle(Runtime* runtime) {
   // Wire the app pointer so window operations can access the webview.
   runtime->context->window_handle->app = runtime->app;
 
-  // Expose as ctx.window in Lua.
-  (*runtime->lua_state)["ctx"]["window"] = runtime->context->window_handle;
+  // ctx.window is already registered as a sol::property getter on
+  // the CoconutContext usertype (see _bindUserType), so Lua reads it
+  // from C++ via the getter.  No need to set it from Lua side.
 
   debug::info("wired ctx.window to CoconutWindowHandle");
 }

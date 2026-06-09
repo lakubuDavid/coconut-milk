@@ -53,6 +53,11 @@ void showWindow(Window *window) {
     return;
   }
 
+  // Set window title from config.
+  if (window->configs && !window->configs->title.empty()) {
+    webview_set_title(window->webview, window->configs->title.c_str());
+  }
+
   // Guard against null config — use hardcoded defaults as fallback.
   int w = 1280;
   int h = 640;

@@ -40,6 +40,13 @@ View = {}
 ---@field w integer
 ---@field h integer
 
+--- Window size constraints (0 = no constraint).
+---@class CoconutWindowConstraints
+---@field min_width integer
+---@field min_height integer
+---@field max_width integer
+---@field max_height integer
+
 ---@class CoconutWindow
 ---@field show fun(self: CoconutWindow, name: string, props?: table)
 ---@field reload fun(self: CoconutWindow)
@@ -50,12 +57,15 @@ View = {}
 ---@field toggleFullscreen fun(self: CoconutWindow)
 ---@field resize fun(self: CoconutWindow, size: CoconutWindowSize)
 ---@field setMovableByBackground fun(self: CoconutWindow, on: boolean)
+---@field setMinimumSize fun(self: CoconutWindow, min: CoconutWindowConstraints): CoconutWindow
+---@field setMaximumSize fun(self: CoconutWindow, max: CoconutWindowConstraints): CoconutWindow
 
 ---@class CoconutContext
 ---@field window CoconutWindow
 ---@field props? table
 ---@field setWindowSize fun(self: CoconutContext, size: CoconutWindowSize): CoconutContext
 ---@field setInitialView fun(self: CoconutContext, name: string): CoconutContext
+---@field setWindowConstraints fun(self: CoconutContext, constraints: CoconutWindowConstraints): CoconutContext
 ---@field bind fun(self: CoconutContext, name: string, fn: fun(params: table, ctx: CoconutContext))
 
 ---@class CoconutDialogResult

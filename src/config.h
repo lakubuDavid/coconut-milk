@@ -36,6 +36,7 @@ struct Config {
   bool resizable = true;
   bool frameless = false;
   bool transparent = false;
+  std::string title = "Coconut";
   std::string initial_view = "home";
   std::string view_root = "views";
   std::string asset_root = "assets";
@@ -61,6 +62,7 @@ struct Config {
 ///   "resizable": true,
 ///   "frameless": false,
 ///   "transparent": false,
+///   "title": "Coconut",
 ///   "initial_view": "home",
 ///   "view_root": "views",
 ///   "asset_root": "assets",
@@ -90,6 +92,7 @@ loadConfigJson(std::string_view config_path = "coconut.config.json");
 ///   resizable = true,
 ///   frameless = false,
 ///   transparent = false,
+///   title = "Coconut",
 ///   initial_view = "home",
 ///   view_root = "views",
 ///   asset_root = "assets",

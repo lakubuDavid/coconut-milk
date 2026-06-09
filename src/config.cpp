@@ -121,7 +121,7 @@ loadConfigJson(std::string_view config_path) {
       cfg.frameless = j["frameless"].get<bool>();
     }
 
-    if (j.contains("transparent")) {
+    if (j.contains("transparent") && !j["transparent"].is_null()) {
       if (!j["transparent"].is_boolean()) {
         return std::unexpected(
             Error{.code = ErrorCode::InvalidConfig,
@@ -129,6 +129,16 @@ loadConfigJson(std::string_view config_path) {
                   .details = j["transparent"].dump()});
       }
       cfg.transparent = j["transparent"].get<bool>();
+    }
+
+    if (j.contains("title") && !j["title"].is_null()) {
+      if (!j["title"].is_string()) {
+        return std::unexpected(
+            Error{.code = ErrorCode::InvalidConfig,
+                  .message = "config.title must be a string",
+                  .details = j["title"].dump()});
+      }
+      cfg.title = j["title"].get<std::string>();
     }
 
     if (j.contains("initial_view") && !j["initial_view"].is_null()) {
@@ -273,6 +283,7 @@ loadConfigLua(std::string_view config_path) {
     cfg.resizable = t["resizable"].get_or(true);
     cfg.frameless = t["frameless"].get_or(false);
     cfg.transparent = t["transparent"].get_or(false);
+    cfg.title = t["title"].get_or<std::string>("Coconut");
     cfg.initial_view = t["initial_view"].get_or<std::string>("home");
     cfg.view_root = t["view_root"].get_or<std::string>("views");
     cfg.asset_root = t["asset_root"].get_or<std::string>("assets");
