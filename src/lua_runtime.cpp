@@ -12,6 +12,12 @@
 #include <fstream>
 #include <iostream>
 
+// Some system headers (ObjC runtime transitives) define `nil` as a macro
+// which clashes with sol::type::nil and other uses. Undefine it here.
+#ifdef nil
+#undef nil
+#endif
+
 namespace coconut::lua {
 
 std::expected<Runtime *, Error> create(Config *cfg, CoconutContext *ctx) {
@@ -106,6 +112,32 @@ void _bindCoconutLuaApi(Runtime *runtime) {
   });
 
   coconut["dialog"] = dialog;
+
+  // ── JSON utilities: coconut.json ──────────────────────────────
+  // Provides jsonify (Lua table → JSON string) and parse (string → table).
+  // Uses nlohmann::json under the hood via the bridge's conversion helpers.
+  sol::table json_mod = (*runtime->lua_state).create_table();
+
+  json_mod.set_function("jsonify",
+      [](sol::object obj) -> std::string {
+        if (!obj.valid() || obj.get_type() == sol::type::lua_nil) return "null";
+        if (obj.get_type() != sol::type::table) return "{}";
+        auto json = bridge::toJson(obj.as<sol::table>());
+        return json.dump();
+      });
+
+  json_mod.set_function("parse",
+      [runtime](const std::string& str) -> sol::object {
+        sol::state_view lua(*runtime->lua_state);
+        try {
+          auto json = nlohmann::json::parse(str);
+          return bridge::toTable(lua, json);
+        } catch (const std::exception&) {
+          return sol::make_object(lua, sol::lua_nil);
+        }
+      });
+
+  coconut["json"] = json_mod;
 
   runtime->lua_state->set("coconut", coconut);
 }
