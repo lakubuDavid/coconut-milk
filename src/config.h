@@ -34,6 +34,7 @@ struct Config {
   int window_max_width = 0;
   int window_max_height = 0;
   bool resizable = true;
+  bool frameless = false;
   std::string initial_view = "home";
   std::string view_root = "views";
   std::string asset_root = "assets";

@@ -49,6 +49,7 @@ View = {}
 ---@field setFullscreen fun(self: CoconutWindow, on: boolean)
 ---@field toggleFullscreen fun(self: CoconutWindow)
 ---@field resize fun(self: CoconutWindow, size: CoconutWindowSize)
+---@field setMovableByBackground fun(self: CoconutWindow, on: boolean)
 
 ---@class CoconutContext
 ---@field window CoconutWindow

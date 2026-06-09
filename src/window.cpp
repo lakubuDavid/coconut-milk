@@ -1,11 +1,20 @@
 #include "window.h"
 
+#include "debug.h"
+
 #include <exception>
 #include <expected>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
+
+// ObjC runtime for native window style manipulation
+#include <objc/message.h>
+#include <objc/runtime.h>
+
+typedef long NSInteger;
+typedef unsigned long NSUInteger;
 
 namespace coconut::window {
 
@@ -145,6 +154,63 @@ std::expected<View, Error> createView(std::string pathOrCode, ViewKind kind,
   // in the transport layer — no longer per-view injection needed.
 
   return view;
+}
+
+/// Apply native window style based on Config (frameless, etc.).
+/// For frameless windows on macOS, this hides the title bar while keeping
+/// the traffic-light buttons, and makes the content fill the entire window.
+void applyWindowStyle(Window *window) {
+  if (window == nullptr || window->webview == nullptr ||
+      window->configs == nullptr) {
+    return;
+  }
+
+  auto* cfg = window->configs;
+
+  if (cfg->frameless) {
+    using id = struct objc_object*;
+    using SEL = struct objc_selector*;
+
+    id win = (id)webview_get_window(window->webview);
+    if (!win) {
+      debug::warn("applyWindowStyle: no native window handle");
+      return;
+    }
+
+    // NSWindowStyleMask bit definitions:
+    //   NSWindowStyleMaskTitled              = 1 << 0
+    //   NSWindowStyleMaskClosable            = 1 << 1
+    //   NSWindowStyleMaskMiniaturizable      = 1 << 2
+    //   NSWindowStyleMaskResizable           = 1 << 3
+    //   NSWindowStyleMaskFullSizeContentView  = 1 << 15
+
+    // Read current style mask
+    NSUInteger mask = ((NSUInteger(*)(id, SEL))objc_msgSend)(
+        win, sel_registerName("styleMask"));
+
+    // Add full-size content view so the webview fills behind the title bar
+    mask |= (1UL << 15); // NSWindowStyleMaskFullSizeContentView
+
+    // Keep titled so we retain the traffic-light buttons
+    // but the title bar will be made transparent below.
+    ((void(*)(id, SEL, NSUInteger))objc_msgSend)(
+        win, sel_registerName("setStyleMask:"), mask);
+
+    // Make the title bar transparent
+    ((void(*)(id, SEL, BOOL))objc_msgSend)(
+        win, sel_registerName("setTitlebarAppearsTransparent:"), (BOOL)YES);
+
+    // Allow dragging the window from the webview content.
+    // When enabled, clicking and dragging anywhere in the webview
+    // moves the window. The frontend can toggle this via
+    // ctx.window:setMovableByBackground(bool).
+    // We default to YES for frameless windows and let the frontend
+    // disable it on interactive elements (inputs, scroll areas, etc.).
+    ((void(*)(id, SEL, BOOL))objc_msgSend)(
+        win, sel_registerName("setMovableByWindowBackground:"), (BOOL)YES);
+
+    debug::info("applyWindowStyle: applied frameless style");
+  }
 }
 
 } // namespace coconut::window

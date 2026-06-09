@@ -78,6 +78,9 @@ int main() {
   app->window = window;
   app->context->window = window;
 
+  // Apply native window style (frameless, etc.) before showing any view.
+  window::applyWindowStyle(window);
+
   debug::info("main: creating lua runtime...");
   // Step 5: create Lua runtime.
   auto lua_result = coconut::lua::create(&cfg, app->context);

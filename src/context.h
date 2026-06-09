@@ -82,6 +82,7 @@ namespace coconut {
     void setFullscreen(bool on);
     void toggleFullscreen();
     void resize(int w, int h);
+    void setMovableByBackground(bool on);
   };
 
   namespace context {

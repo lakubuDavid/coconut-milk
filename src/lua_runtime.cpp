@@ -194,7 +194,8 @@ void _bindUserType(Runtime *runtime) {
       "maximize",       &CoconutWindowHandle::maximize,
       "setFullscreen",  &CoconutWindowHandle::setFullscreen,
       "toggleFullscreen", &CoconutWindowHandle::toggleFullscreen,
-      "resize",         &CoconutWindowHandle::resize);
+      "resize",         &CoconutWindowHandle::resize,
+      "setMovableByBackground", &CoconutWindowHandle::setMovableByBackground);
 
   // ctx.window is set later (after app pointer is wired) via
   // lua::wireWindowHandle(runtime).

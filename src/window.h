@@ -40,6 +40,11 @@ void showWindow(Window* window);
 
 void showView(Window *window, std::string name);
 void addView(Window *window, std::string name, View *view);
+
+/// Apply native window decorations based on Config (frameless, resizable, etc.).
+/// Must be called once after the webview window exists.
+void applyWindowStyle(Window *window);
+
 std::expected<View, Error> createView( std::string pathOrCode,
                                       ViewKind kind,
                                       std::optional<ViewConfig> configs);

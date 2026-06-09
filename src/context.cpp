@@ -151,6 +151,18 @@ namespace coconut {
     }
   }
 
+  void CoconutWindowHandle::setMovableByBackground(bool on) {
+    if (!app || !app->webview) return;
+    using id = struct objc_object*;
+    using SEL = struct objc_selector*;
+    id win = (id)webview_get_window(app->webview);
+    if (win) {
+      ((void(*)(id, SEL, BOOL))objc_msgSend)(
+          win, sel_registerName("setMovableByWindowBackground:"),
+          on ? (BOOL)YES : (BOOL)NO);
+    }
+  }
+
   // ── Dialog Lua bindings (exposed via coconut.dialog) ──────────────
 
   namespace {
