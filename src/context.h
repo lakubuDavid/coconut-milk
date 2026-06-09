@@ -57,6 +57,19 @@ namespace coconut {
     /// Startup: initial window size. Chainable.
     CoconutContext* setWindowSize(const CoconutWindowSize& size);
 
+    /// Startup: minimum window size. Chainable.
+    CoconutContext* setMinimumWindowSize(const CoconutWindowSize& size);
+    /// Startup: maximum window size. Chainable.
+    CoconutContext* setMaximumWindowSize(const CoconutWindowSize& size);
+    /// Startup: minimum window width. Chainable.
+    CoconutContext* setMinimumWindowWidth(int w);
+    /// Startup: minimum window height. Chainable.
+    CoconutContext* setMinimumWindowHeight(int h);
+    /// Startup: maximum window width. Chainable.
+    CoconutContext* setMaximumWindowWidth(int w);
+    /// Startup: maximum window height. Chainable.
+    CoconutContext* setMaximumWindowHeight(int h);
+
     /// Startup: selects initial view by name. Chainable.
     CoconutContext* setInitialView(const std::string& name);
 

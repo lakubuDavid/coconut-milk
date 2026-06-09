@@ -85,6 +85,42 @@ namespace coconut {
     return this;
   }
 
+  CoconutContext* CoconutContext::setMinimumWindowSize(const CoconutWindowSize& size) {
+    if (configs != nullptr) {
+      configs->window_min_width = size.w;
+      configs->window_min_height = size.h;
+    }
+    return this;
+  }
+
+  CoconutContext* CoconutContext::setMaximumWindowSize(const CoconutWindowSize& size) {
+    if (configs != nullptr) {
+      configs->window_max_width = size.w;
+      configs->window_max_height = size.h;
+    }
+    return this;
+  }
+
+  CoconutContext* CoconutContext::setMinimumWindowWidth(int w) {
+    if (configs != nullptr) configs->window_min_width = w;
+    return this;
+  }
+
+  CoconutContext* CoconutContext::setMinimumWindowHeight(int h) {
+    if (configs != nullptr) configs->window_min_height = h;
+    return this;
+  }
+
+  CoconutContext* CoconutContext::setMaximumWindowWidth(int w) {
+    if (configs != nullptr) configs->window_max_width = w;
+    return this;
+  }
+
+  CoconutContext* CoconutContext::setMaximumWindowHeight(int h) {
+    if (configs != nullptr) configs->window_max_height = h;
+    return this;
+  }
+
   void CoconutContext::show(const std::string& name) {
     if (window != nullptr) {
       window::showView(window, name);

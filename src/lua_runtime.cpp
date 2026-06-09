@@ -209,6 +209,23 @@ void _bindUserType(Runtime *runtime) {
     return ctx;
   };
 
+  // Minimum/maximum window size setters also take { w = ..., h = ... }.
+  auto setMinimumWindowSize = [](CoconutContext* ctx, sol::table t) -> CoconutContext* {
+    if (ctx != nullptr && ctx->configs != nullptr) {
+      ctx->configs->window_min_width = t["w"].get_or(0);
+      ctx->configs->window_min_height = t["h"].get_or(0);
+    }
+    return ctx;
+  };
+
+  auto setMaximumWindowSize = [](CoconutContext* ctx, sol::table t) -> CoconutContext* {
+    if (ctx != nullptr && ctx->configs != nullptr) {
+      ctx->configs->window_max_width = t["w"].get_or(0);
+      ctx->configs->window_max_height = t["h"].get_or(0);
+    }
+    return ctx;
+  };
+
   // Window handle getter — sol::readonly would not work here because
   // the handle pointer may be null during registration.  A sol::property
   // getter/setter pair lets C++ control assignment while Lua can read
@@ -224,6 +241,12 @@ void _bindUserType(Runtime *runtime) {
           }),
       "setBrowser", &CoconutContext::setBrowser,
       "setWindowSize", std::move(setWindowSize),
+      "setMinimumWindowSize", std::move(setMinimumWindowSize),
+      "setMaximumWindowSize", std::move(setMaximumWindowSize),
+      "setMinimumWindowWidth", &CoconutContext::setMinimumWindowWidth,
+      "setMinimumWindowHeight", &CoconutContext::setMinimumWindowHeight,
+      "setMaximumWindowWidth", &CoconutContext::setMaximumWindowWidth,
+      "setMaximumWindowHeight", &CoconutContext::setMaximumWindowHeight,
       "setInitialView", &CoconutContext::setInitialView,
       "show",   &CoconutContext::show,
       "reload", &CoconutContext::reload,
