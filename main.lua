@@ -36,7 +36,9 @@ function coconut.events(name, payload, ctx)
   elseif name == "resize" then
     print(payload.w, payload.h)
   elseif name == "grab_start" then
-    coconut.warn("GRAB: window grab started — movableByBackground enabled")
+    coconut.warn("GRAB: window grab started")
+  elseif name == "move" then
+    ctx.window:move({ x = payload.dx, y = payload.dy })
   elseif name == "grab_end" then
     coconut.warn("GRAB: window grab ended")
   end

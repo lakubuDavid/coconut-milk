@@ -190,18 +190,38 @@
 
     // --- Drag region: on mousedown in titlebar, enable window drag ---
     const tb = document.getElementById('titlebar');
+    let grabbing = false;
+    let lastX = 0, lastY = 0;
+
     if (tb) {
-      tb.addEventListener('mousedown', () => {
+      tb.addEventListener('mousedown', (e) => {
+        grabbing = true;
+        lastX = e.screenX;
+        lastY = e.screenY;
         if (window.coconut && window.coconut.emit) {
           window.coconut.emit('grab_start', {});
         }
       });
-      document.addEventListener('mouseup', () => {
-        if (window.coconut && window.coconut.emit) {
-          window.coconut.emit('grab_end', {});
-        }
-      });
     }
+
+    document.addEventListener('mousemove', (e) => {
+      if (!grabbing) return;
+      const dx = e.screenX - lastX;
+      const dy = e.screenY - lastY;
+      lastX = e.screenX;
+      lastY = e.screenY;
+      if (window.coconut && window.coconut.emit) {
+        window.coconut.emit('move', { dx: dx, dy: dy });
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (!grabbing) return;
+      grabbing = false;
+      if (window.coconut && window.coconut.emit) {
+        window.coconut.emit('grab_end', {});
+      }
+    });
 
     // --- Detect frameless/transparent window via meta or bridge ---
     (async function checkWindowMode() {

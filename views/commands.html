@@ -119,14 +119,30 @@
     }
 
     // --- Drag region: emit grab events ---
+    let grabbing = false;
+    let lastX = 0, lastY = 0;
     const tbCmd = document.getElementById('titlebar');
     if (tbCmd) {
-      tbCmd.addEventListener('mousedown', () => {
+      tbCmd.addEventListener('mousedown', (e) => {
+        grabbing = true;
+        lastX = e.screenX;
+        lastY = e.screenY;
         if (window.coconut && window.coconut.emit)
           window.coconut.emit('grab_start', {});
       });
     }
+    document.addEventListener('mousemove', (e) => {
+      if (!grabbing) return;
+      const dx = e.screenX - lastX;
+      const dy = e.screenY - lastY;
+      lastX = e.screenX;
+      lastY = e.screenY;
+      if (window.coconut && window.coconut.emit)
+        window.coconut.emit('move', { dx: dx, dy: dy });
+    });
     document.addEventListener('mouseup', () => {
+      if (!grabbing) return;
+      grabbing = false;
       if (window.coconut && window.coconut.emit)
         window.coconut.emit('grab_end', {});
     });
