@@ -960,3 +960,105 @@ If a frontend command promise is rejected, the rejection reason should be derive
 - generated command-name union export
 - per-command generated param/return typing
 - transport-level ack serialization for `emit`
+
+---
+
+## 13. Custom URL scheme (`coconut://`)
+
+Coconut registers a custom `coconut://` URL scheme so views can reference
+assets with portable paths that resolve from the app root directory,
+regardless of where the HTML file lives on disk.
+
+### Purpose
+
+Without a custom scheme, file-based views (`View.load()`) served via
+`webview_navigate("file://...")` resolve relative paths from the HTML
+file's directory. This forces HTML authors to use fragile relative paths
+like `../assets/style.css` that break if views are reorganised.
+
+The `coconut://` scheme provides a clean, filesystem-independent path:
+
+```html
+<link rel="stylesheet" href="coconut://assets/style.css">
+<script src="coconut://assets/script.js"></script>
+<img src="coconut://assets/icon.png">
+```
+
+All paths are resolved relative to the **application root directory**
+(the working directory at startup).
+
+### Platform backends
+
+| Platform | Backend | Mechanism |
+|----------|---------|----------|
+| macOS | WKWebView | `WKURLSchemeHandler` (registered on `WKWebViewConfiguration` before webview creation) |
+| Windows | WebView2 | `CoreWebView2.AddWebResourceRequestedFilter()` + `WebResourceRequested` event (stub in v0.1) |
+| Linux | WebKitGTK | `webkit_web_context_register_uri_scheme()` (stub in v0.1) |
+
+### macOS implementation
+
+On macOS (WKWebView), the scheme handler **must** be registered before the
+WKWebView is created, because `WKURLSchemeHandler` is set on the
+`WKWebViewConfiguration` which is read-only after webview construction.
+
+Coconut adds a minimal hook to the webview library's `cocoa_webkit.hh`:
+
+```cpp
+// cocoa_wkwebview_engine.hh (webview third-party library)
+inline static std::function<void(id)> on_configure_config;
+```
+
+This is called inside `window_settings()` right before the WKWebView is
+created, giving Coconut a chance to register its scheme handler:
+
+```mm
+[config setURLSchemeHandler:handler forURLScheme:@"coconut"];
+```
+
+The handler implementation lives in
+`src/platform/darwin/scheme_handler.mm`:
+
+1. A lightweight ObjC class (`CoconutSchemeHandler`) is created at
+   runtime using `objc_allocateClassPair` / `class_addMethod` (no ARC
+   conflicts with the webview library's manual retain/release).
+2. Two protocol methods are implemented:
+   - `webView:startURLSchemeTask:` — resolves the URL path against the
+     app root, reads the file via `coconut::fs::readBytes()`, determines
+     the MIME type from the file extension, and responds with the data.
+   - `webView:stopURLSchemeTask:` — no-op (cancellation not needed).
+3. The handler is registered on the `WKWebViewConfiguration` via
+   `setURLSchemeHandler:forURLScheme:`.
+
+### Startup flow
+
+1. `main.cpp` calls `platform::installSchemeHandlerHook(root_dir)`
+   **before** `app::create()` / `webview_create()`.
+2. On macOS, this sets `cocoa_wkwebview_engine::on_configure_config`.
+3. When `webview_create()` constructs the engine, `window_settings()`
+   calls the hook, which calls `registerHandler(config)`.
+4. `registerHandler()` creates the `CoconutSchemeHandler` ObjC class
+   (lazily, once) and registers it on the WKWebViewConfiguration.
+5. When a view requests `coconut://assets/style.css`, WKWebView calls
+   `startURLSchemeTask`, which reads the file and returns it.
+
+### Path resolution
+
+`coconut://assets/style.css` → strip scheme → `assets/style.css` →
+resolve against app root → `/abs/path/to/app/assets/style.css`
+
+Uses `coconut::fs::resolve()` internally.
+
+### File types and MIME
+
+The handler maps common extensions to MIME types (css, js, html, png,
+jpg, gif, svg, ico, woff, woff2, ttf). Unknown extensions default to
+`application/octet-stream`.
+
+### Future
+
+- **Windows**: Implement via `CoreWebView2.WebResourceRequested` event.
+- **Linux**: Implement via `webkit_web_context_register_uri_scheme()`.
+- **Memory caching**: Optional in-memory cache for frequently-requested
+  assets (CSS, JS bundles).
+- **Virtual filesystem**: Support for embedded assets (e.g. from a
+  compiled-in ZIP or a resource section).

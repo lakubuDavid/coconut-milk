@@ -6,6 +6,10 @@
 #include "lua_runtime.h"
 #include "window.h"
 
+// Custom URL scheme handler for coconut:// assets.
+#include "platform/scheme_handler.h"
+
+#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <print>
@@ -28,6 +32,13 @@ int main() {
                             err.message, err.details));
     debug::info("Place coconut.config.lua (or coconut.config.json) in the working directory.");
   }
+
+  // Install custom URL scheme handler (coconut://) before webview_create().
+  // On macOS this sets the pre-WKWebView-configuration hook.
+  // On other platforms this stores the root dir for later registration.
+  debug::info("main: installing coconut:// scheme handler...");
+  auto app_root = std::filesystem::absolute(".").string();
+  platform::installSchemeHandlerHook(app_root);
 
   debug::info("main: creating app...");
   // Step 2: create app (App core owns WebUI window id + context).
@@ -102,6 +113,12 @@ int main() {
   // Create the bridge transport and bind JS entry points.
   // Must happen after runtime->app is set (transport needs the App*).
   bridge::createTransport(app);
+
+  // Finalize the coconut:// scheme handler after the transport / webview
+  // is fully initialized.  On macOS this is a no-op (done via pre-webview
+  // hook).  On Windows/Linux this registers the handler now.
+  debug::info("main: finalizing coconut:// scheme handler...");
+  platform::finalizeSchemeHandler(app->webview);
 
   // Register Cocoa NSWindow lifecycle observers (resize, focus, blur).
   // These emit bridge events so the frontend can listen with coconut.on().

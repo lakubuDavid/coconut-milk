@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Coconut — Commands Test</title>
-  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="coconut://assets/style.css">
   <style>
     .cmd-card .params { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
     .cmd-card .params input, .cmd-card .params select { width: auto; flex: 1; min-width: 120px; }
@@ -32,7 +32,7 @@
     <div id="cards"></div>
   </main>
 
-  <script src="assets/script.js"></script>
+  <script src="coconut://assets/script.js"></script>
   <script>
     const commands = [
       { name: 'ping', desc: 'Returns "pong" — no params needed.', params: [], call: () => ({}) },

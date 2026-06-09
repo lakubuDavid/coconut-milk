@@ -54,6 +54,7 @@ target("coconut-milk")
     add_includedirs("thirdparty/webview/core/include")
     add_frameworks("Cocoa", "WebKit", "Foundation")
     add_files("src/*.cpp")
+    add_files("src/platform/scheme_handler.cpp")
     if is_plat("macosx") then
         add_files("src/platform/darwin/*.cpp")
         add_files("src/platform/darwin/*.mm")
@@ -100,7 +101,8 @@ target("coconut-milk-tests")
         "src/lifecycle.cpp",
         "src/lua_runtime.cpp",
         "src/window.cpp",
-        "src/webview_transport.cpp"
+        "src/webview_transport.cpp",
+        "src/platform/scheme_handler.cpp"
     )
     if is_plat("macosx") then
         add_files("src/platform/darwin/*.cpp")
