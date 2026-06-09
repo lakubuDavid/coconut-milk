@@ -197,6 +197,19 @@
         coconut.call('__coconut_window_ctl', { cmd: 'close' });
     }
 
+    // --- Drag region: emit grab events ---
+    const tbNote = document.getElementById('titlebar');
+    if (tbNote) {
+      tbNote.addEventListener('mousedown', () => {
+        if (window.coconut && window.coconut.emit)
+          window.coconut.emit('grab_start', {});
+      });
+    }
+    document.addEventListener('mouseup', () => {
+      if (window.coconut && window.coconut.emit)
+        window.coconut.emit('grab_end', {});
+    });
+
     // --- Persistent notes store (Lua I/O) ---
     const notes = [];
     const listEl = document.getElementById('note-list');

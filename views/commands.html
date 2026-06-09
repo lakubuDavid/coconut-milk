@@ -118,6 +118,19 @@
         coconut.call('__coconut_window_ctl', { cmd: 'close' });
     }
 
+    // --- Drag region: emit grab events ---
+    const tbCmd = document.getElementById('titlebar');
+    if (tbCmd) {
+      tbCmd.addEventListener('mousedown', () => {
+        if (window.coconut && window.coconut.emit)
+          window.coconut.emit('grab_start', {});
+      });
+    }
+    document.addEventListener('mouseup', () => {
+      if (window.coconut && window.coconut.emit)
+        window.coconut.emit('grab_end', {});
+    });
+
     const commands = [
       {
         name: 'ping', desc: 'Returns "pong" — no params needed.',

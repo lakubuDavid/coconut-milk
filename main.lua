@@ -29,10 +29,16 @@ end
 
 --- Love2D-like dispatcher for frontend → Lua events.
 function coconut.events(name, payload, ctx)
+  coconut.info("event: " .. name .. " " .. vjson.encode(payload))
+
   if name == "navigate" then
     ctx:show(payload.view)
   elseif name == "resize" then
     print(payload.w, payload.h)
+  elseif name == "grab_start" then
+    coconut.warn("GRAB: window grab started — movableByBackground enabled")
+  elseif name == "grab_end" then
+    coconut.warn("GRAB: window grab ended")
   end
 end
 
@@ -45,6 +51,7 @@ function coconut.commands(ctx)
   -- Window control commands for frameless-titlebar buttons
   ctx:bind("__coconut_window_ctl", function(params, ctx)
     local cmd = params.cmd
+    coconut.info("window_ctl: " .. cmd)
     if cmd == "minimize" then
       ctx.window:minimize()
     elseif cmd == "toggleFullscreen" then

@@ -192,9 +192,14 @@
     const tb = document.getElementById('titlebar');
     if (tb) {
       tb.addEventListener('mousedown', () => {
-        // movableByWindowBackground is handled natively —
-        // no JS bridge call needed if it's always on for frameless.
-        // We just provide the visual drag cursor via CSS.
+        if (window.coconut && window.coconut.emit) {
+          window.coconut.emit('grab_start', {});
+        }
+      });
+      document.addEventListener('mouseup', () => {
+        if (window.coconut && window.coconut.emit) {
+          window.coconut.emit('grab_end', {});
+        }
       });
     }
 
