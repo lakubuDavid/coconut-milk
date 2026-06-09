@@ -54,6 +54,13 @@ target("coconut-milk")
     add_includedirs("thirdparty/webview/core/include")
     add_frameworks("Cocoa", "WebKit", "Foundation")
     add_files("src/*.cpp")
+    if is_plat("macosx") then
+        add_files("src/platform/darwin/*.cpp")
+    elseif is_plat("windows") then
+        add_files("src/platform/win/*.cpp")
+    elseif is_plat("linux") then
+        add_files("src/platform/linux/*.cpp")
+    end
     add_packages("sol2")
     add_packages("luajit")
     add_packages("lua")
@@ -92,6 +99,13 @@ target("coconut-milk-tests")
         "src/window.cpp",
         "src/webview_transport.cpp"
     )
+    if is_plat("macosx") then
+        add_files("src/platform/darwin/*.cpp")
+    elseif is_plat("windows") then
+        add_files("src/platform/win/*.cpp")
+    elseif is_plat("linux") then
+        add_files("src/platform/linux/*.cpp")
+    end
     add_packages("sol2")
     add_packages("luajit")
     add_packages("lua")
