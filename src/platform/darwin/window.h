@@ -7,8 +7,9 @@ namespace coconut {
   struct Config;
 
   namespace window {
-    /// Apply macOS-native window style (frameless, transparent, etc.)
-    /// using the raw Objective-C runtime.
+    /// Apply macOS-native window style (frameless, transparent, etc.).
+    /// Forward declaration — implementation lives in window_style.mm
+    /// for correct ObjC++ calling conventions.
     void platformApplyWindowStyle(webview_t wv, Config* cfg);
   }
 }
