@@ -9,12 +9,16 @@
 #include <sstream>
 #include <string>
 
-// ObjC runtime for native window style manipulation
-#include <objc/message.h>
-#include <objc/runtime.h>
-
-typedef long NSInteger;
-typedef unsigned long NSUInteger;
+// Platform selector — compile-time dispatch for window style
+#if defined(__APPLE__)
+  #include "platform/darwin/window.h"
+#elif defined(_WIN32)
+  #include "platform/win/window.h"
+#elif defined(__linux__)
+  #include "platform/linux/window.h"
+#else
+  #error "Unsupported platform — no window implementation available"
+#endif
 
 namespace coconut::window {
 
@@ -156,89 +160,15 @@ std::expected<View, Error> createView(std::string pathOrCode, ViewKind kind,
   return view;
 }
 
-/// Apply native window style based on Config (frameless, etc.).
-/// For frameless windows on macOS, this hides the title bar while keeping
-/// the traffic-light buttons, and makes the content fill the entire window.
+/// Apply native window style based on Config (frameless, transparent, etc.).
+/// Dispatches to the platform-specific implementation.
 void applyWindowStyle(Window *window) {
   if (window == nullptr || window->webview == nullptr ||
       window->configs == nullptr) {
     return;
   }
 
-  auto* cfg = window->configs;
-
-  if (cfg->frameless) {
-    using id = struct objc_object*;
-    using SEL = struct objc_selector*;
-
-    id win = (id)webview_get_window(window->webview);
-    if (!win) {
-      debug::warn("applyWindowStyle: no native window handle");
-      return;
-    }
-
-    // NSWindowStyleMask bit definitions:
-    //   NSWindowStyleMaskTitled              = 1 << 0
-    //   NSWindowStyleMaskClosable            = 1 << 1
-    //   NSWindowStyleMaskMiniaturizable      = 1 << 2
-    //   NSWindowStyleMaskResizable           = 1 << 3
-    //   NSWindowStyleMaskFullSizeContentView  = 1 << 15
-
-    // Read current style mask
-    NSUInteger mask = ((NSUInteger(*)(id, SEL))objc_msgSend)(
-        win, sel_registerName("styleMask"));
-
-    // Add full-size content view so the webview fills behind the title bar
-    mask |= (1UL << 15); // NSWindowStyleMaskFullSizeContentView
-
-    // Keep titled so we retain the traffic-light buttons
-    // but the title bar will be made transparent below.
-    ((void(*)(id, SEL, NSUInteger))objc_msgSend)(
-        win, sel_registerName("setStyleMask:"), mask);
-
-    // Make the title bar transparent
-    ((void(*)(id, SEL, BOOL))objc_msgSend)(
-        win, sel_registerName("setTitlebarAppearsTransparent:"), (BOOL)YES);
-
-    // Allow dragging the window from the webview content.
-    // When enabled, clicking and dragging anywhere in the webview
-    // moves the window. The frontend can toggle this via
-    // ctx.window:setMovableByBackground(bool).
-    // We default to YES for frameless windows and let the frontend
-    // disable it on interactive elements (inputs, scroll areas, etc.).
-    ((void(*)(id, SEL, BOOL))objc_msgSend)(
-        win, sel_registerName("setMovableByWindowBackground:"), (BOOL)YES);
-
-    debug::info("applyWindowStyle: applied frameless style");
-  }
-
-  if (cfg->transparent) {
-    using id = struct objc_object*;
-    using SEL = struct objc_selector*;
-
-    id win = (id)webview_get_window(window->webview);
-    if (!win) {
-      debug::warn("applyWindowStyle: no native window handle for transparency");
-      return;
-    }
-
-    // NSWindow setOpaque:NO — allows transparency
-    ((void(*)(id, SEL, BOOL))objc_msgSend)(
-        win, sel_registerName("setOpaque:"), (BOOL)NO);
-
-    // Set clear background color
-    Class colorClass = objc_getClass("NSColor");
-    SEL clearSel = sel_registerName("clearColor");
-    id clearColor = ((id(*)(id, SEL))objc_msgSend)((id)colorClass, clearSel);
-    ((void(*)(id, SEL, id))objc_msgSend)(
-        win, sel_registerName("setBackgroundColor:"), clearColor);
-
-    // Disable window shadow for transparent windows
-    ((void(*)(id, SEL, BOOL))objc_msgSend)(
-        win, sel_registerName("setHasShadow:"), (BOOL)NO);
-
-    debug::info("applyWindowStyle: applied transparent style");
-  }
+  platformApplyWindowStyle(window->webview, window->configs);
 }
 
 } // namespace coconut::window
