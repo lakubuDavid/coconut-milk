@@ -16,6 +16,11 @@ function coconut.config(ctx)
   ctx
       :setBrowser("auto")
       :setWindowSize({ w = 1280, h = 640 })
+      :setTitle("Coconut Milk")
+      :setResizable(true)
+      :setMinimumWindowSize({ w = 640, h = 320 })
+      :setMaximumWindowSize({ w = 2560, h = 1440 })
+      :setFrameless(true)
       :setInitialView("home")
 
   return ctx
@@ -38,7 +43,7 @@ function coconut.events(name, payload, ctx)
   elseif name == "grab_start" then
     coconut.warn("GRAB: window grab started")
   elseif name == "move" then
-    ctx.window:move({ x = payload.dx, y = payload.dy })
+    ctx.window:move({ x = payload.dx, y = -payload.dy })
   elseif name == "grab_end" then
     coconut.warn("GRAB: window grab ended")
   end

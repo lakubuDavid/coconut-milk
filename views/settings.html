@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coconut — Settings</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f0f13;
+      color: #e4e4e7;
+      min-height: 100vh;
+    }
+    .titlebar {
+      background: #1a1a24;
+      padding: 0.5rem 1rem 0.5rem 4.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      user-select: none;
+      cursor: grab;
+      -webkit-user-select: none;
+    }
+    .titlebar:active { cursor: grabbing; }
+    .titlebar .app-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #a78bfa;
+      letter-spacing: 0.02em;
+    }
+    .titlebar .win-btn {
+      background: none;
+      border: none;
+      color: #71717a;
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      transition: all 0.15s;
+    }
+    .titlebar .win-btn:hover { color: #e4e4e7; background: #2a2a3a; }
+    nav {
+      background: #1a1a24;
+      padding: 0.5rem 2rem 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      border-bottom: 1px solid #2a2a3a;
+    }
+    nav h1 { font-size: 1.1rem; font-weight: 600; color: #a78bfa; }
+    nav a {
+      color: #a1a1aa; text-decoration: none; font-size: 0.9rem;
+      padding: 0.25rem 0.5rem; border-radius: 4px;
+    }
+    nav a:hover { color: #e4e4e7; background: #2a2a3a; }
+    main { max-width: 800px; margin: 2rem auto; padding: 0 1.5rem; }
+    .setting-card {
+      background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 8px;
+      padding: 1.25rem; margin-bottom: 1rem;
+    }
+    .setting-card h3 {
+      color: #c4b5fd; margin-bottom: 0.5rem; font-size: 1rem;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .setting-card .desc {
+      color: #a1a1aa; font-size: 0.85rem; margin-bottom: 0.75rem;
+    }
+    .setting-row {
+      display: flex; align-items: center; gap: 0.75rem;
+      margin-bottom: 0.5rem; flex-wrap: wrap;
+    }
+    .setting-row label {
+      color: #a1a1aa; font-size: 0.85rem; min-width: 7rem;
+    }
+    .setting-row input[type="text"],
+    .setting-row input[type="number"] {
+      background: #2a2a3a; border: 1px solid #3a3a4a; border-radius: 4px;
+      padding: 0.4rem 0.6rem; color: #e4e4e7; font-size: 0.85rem;
+      width: 140px;
+    }
+    .setting-row input[type="checkbox"] {
+      accent-color: #a78bfa;
+    }
+    .setting-row button {
+      background: #3a3a4a; border: 1px solid #a78bfa; color: #c4b5fd;
+      padding: 0.4rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;
+    }
+    .setting-row button:hover { background: #4a4a5a; }
+    .setting-row button.primary { background: #4a3a7a; border-color: #7c5cfa; }
+    .setting-row button.primary:hover { background: #5a4a8a; }
+    .status-badge {
+      font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 3px;
+      background: #2a2a3a; color: #a1a1aa;
+    }
+    .status-badge.on { background: #065f46; color: #6ee7b7; }
+    .status-badge.off { background: #5f1e1e; color: #fca5a5; }
+    .result-msg {
+      margin-top: 0.4rem; padding: 0.4rem 0.6rem;
+      background: #12121a; border-radius: 4px;
+      font-family: monospace; font-size: 0.8rem; color: #6ee7b7;
+    }
+    .result-msg.error { color: #fca5a5; }
+    #bridge-status {
+      font-size: 0.85rem; padding: 0.25rem 0.75rem; border-radius: 4px; display: inline-block;
+    }
+    #bridge-status.connected { background: #065f46; color: #6ee7b7; }
+    #bridge-status.pending   { background: #1e3a5f; color: #7dd3fc; }
+  </style>
+</head>
+<body>
+  <div class="titlebar" id="titlebar">
+    <span class="app-name">🥥 Coconut</span>
+    <button class="win-btn" onclick="doMinimize()">─</button>
+    <button class="win-btn" onclick="doToggleFullscreen()">□</button>
+    <button class="win-btn" onclick="doClose()">✕</button>
+  </div>
+  <nav>
+    <h1>🥥 Settings</h1>
+    <a href="#" data-view="home">Home</a>
+    <a href="#" data-view="note">Notes</a>
+    <a href="#" data-view="commands">Commands</a>
+    <a href="#" data-view="settings" class="active">Settings</a>
+  </nav>
+  <main>
+    <p style="margin-bottom:1rem;color:#a1a1aa;">Window properties. Changes take effect on the fly where supported.</p>
+    <div id="bridge-status" class="pending">waiting for bridge…</div>
+
+    <!-- Title -->
+    <div class="setting-card">
+      <h3>✏️ Title</h3>
+      <div class="desc">Set the window title bar text.</div>
+      <div class="setting-row">
+        <label for="win-title">Window title</label>
+        <input type="text" id="win-title" value="Coconut Milk" />
+        <button onclick="setTitle()">Set</button>
+      </div>
+      <div id="title-result" class="result-msg" style="display:none"></div>
+    </div>
+
+    <!-- Resizable -->
+    <div class="setting-card">
+      <h3>📐 Resizable</h3>
+      <div class="desc">Toggle whether the window can be resized by the user.</div>
+      <div class="setting-row">
+        <label for="win-resizable">Resizable</label>
+        <input type="checkbox" id="win-resizable" checked />
+        <button onclick="setResizable()">Apply</button>
+        <span id="resizable-status" class="status-badge on">ON</span>
+      </div>
+      <div id="resizable-result" class="result-msg" style="display:none"></div>
+    </div>
+
+    <!-- Minimum size -->
+    <div class="setting-card">
+      <h3>🔽 Minimum Size</h3>
+      <div class="desc">Smallest allowed window dimensions (0 = no limit).</div>
+      <div class="setting-row">
+        <label for="min-w">Min width</label>
+        <input type="number" id="min-w" value="400" min="0" />
+        <label for="min-h">Min height</label>
+        <input type="number" id="min-h" value="300" min="0" />
+      </div>
+      <div class="setting-row">
+        <button class="primary" onclick="setMinSize()">Set Both</button>
+        <button onclick="setMinW()">Set Width Only</button>
+        <button onclick="setMinH()">Set Height Only</button>
+      </div>
+      <div id="minsize-result" class="result-msg" style="display:none"></div>
+    </div>
+
+    <!-- Maximum size -->
+    <div class="setting-card">
+      <h3>🔼 Maximum Size</h3>
+      <div class="desc">Largest allowed window dimensions (0 = no limit).</div>
+      <div class="setting-row">
+        <label for="max-w">Max width</label>
+        <input type="number" id="max-w" value="2560" min="0" />
+        <label for="max-h">Max height</label>
+        <input type="number" id="max-h" value="1440" min="0" />
+      </div>
+      <div class="setting-row">
+        <button class="primary" onclick="setMaxSize()">Set Both</button>
+        <button onclick="setMaxW()">Set Width Only</button>
+        <button onclick="setMaxH()">Set Height Only</button>
+      </div>
+      <div id="maxsize-result" class="result-msg" style="display:none"></div>
+    </div>
+
+    <!-- Position -->
+    <div class="setting-card">
+      <h3>📍 Position</h3>
+      <div class="desc">Move the window to a screen position (top-left coordinates).</div>
+      <div class="setting-row">
+        <label for="pos-x">X</label>
+        <input type="number" id="pos-x" value="100" />
+        <label for="pos-y">Y</label>
+        <input type="number" id="pos-y" value="100" />
+        <button onclick="setPosition()">Set Position</button>
+        <button onclick="getPosition()">Get Position</button>
+      </div>
+      <div id="position-result" class="result-msg" style="display:none"></div>
+    </div>
+
+  </main>
+
+  <script>
+    // --- Window controls (frameless) ---
+    function doMinimize() {
+      if (window.coconut && window.coconut.call)
+        coconut.call('__coconut_window_ctl', { cmd: 'minimize' });
+    }
+    function doToggleFullscreen() {
+      if (window.coconut && window.coconut.call)
+        coconut.call('__coconut_window_ctl', { cmd: 'toggleFullscreen' });
+    }
+    function doClose() {
+      if (window.coconut && window.coconut.call)
+        coconut.call('__coconut_window_ctl', { cmd: 'close' });
+    }
+
+    // --- Drag region ---
+    let grabbing = false, lastX = 0, lastY = 0;
+    const tb = document.getElementById('titlebar');
+    if (tb) {
+      tb.addEventListener('mousedown', (e) => {
+        grabbing = true; lastX = e.screenX; lastY = e.screenY;
+        if (window.coconut && window.coconut.emit)
+          window.coconut.emit('grab_start', {});
+      });
+    }
+    document.addEventListener('mousemove', (e) => {
+      if (!grabbing) return;
+      const dx = e.screenX - lastX, dy = e.screenY - lastY;
+      lastX = e.screenX; lastY = e.screenY;
+      if (window.coconut && window.coconut.emit)
+        window.coconut.emit('move', { dx, dy });
+    });
+    document.addEventListener('mouseup', () => {
+      if (!grabbing) return;
+      grabbing = false;
+      if (window.coconut && window.coconut.emit)
+        window.coconut.emit('grab_end', {});
+    });
+
+    function showResult(id, msg, isError) {
+      const el = document.getElementById(id);
+      el.style.display = 'block';
+      el.textContent = msg;
+      el.className = 'result-msg' + (isError ? ' error' : '');
+    }
+
+    // --- Title ---
+    async function setTitle() {
+      const title = document.getElementById('win-title').value;
+      try {
+        const r = await coconut.call('set_window_title', { title });
+        showResult('title-result', '→ ' + JSON.stringify(r));
+      } catch (e) {
+        showResult('title-result', '✗ ' + (e.message || JSON.stringify(e)), true);
+      }
+    }
+
+    // --- Resizable ---
+    async function setResizable() {
+      const on = document.getElementById('win-resizable').checked;
+      try {
+        const r = await coconut.call('set_window_resizable', { resizable: on });
+        document.getElementById('resizable-status').textContent = on ? 'ON' : 'OFF';
+        document.getElementById('resizable-status').className = 'status-badge ' + (on ? 'on' : 'off');
+        showResult('resizable-result', '→ ' + JSON.stringify(r));
+      } catch (e) {
+        showResult('resizable-result', '✗ ' + (e.message || JSON.stringify(e)), true);
+      }
+    }
+
+    // --- Minimum size ---
+    async function setMinSize() {
+      const w = parseInt(document.getElementById('min-w').value) || 0;
+      const h = parseInt(document.getElementById('min-h').value) || 0;
+      try {
+        const r = await coconut.call('set_window_min_size', { w, h });
+        showResult('minsize-result', '→ ' + JSON.stringify(r));
+      } catch (e) {
+        showResult('minsize-result', '✗ ' + (e.message || JSON.stringify(e)), true);
+      }
+    }
+    async function setMinW() {
+      const w = parseInt(document.getElementById('min-w').value) || 0;
+      try {
+        const r = await coconut.call('set_window_min_width', { width: w });
+        showResult('minsize-result', '→ ' + JSON.stringify(r));
+      } catch (e) {
+        showResult('minsize-result', '✗ ' + (e.message || JSON.stringify(e)), true);
+      }
+    }
+    async function setMinH() {
+      const h = parseInt(document.getElementById('min-h').value) || 0;
+      try {
+        const r = await coconut.call('set_window_min_height', { height: h });
+        showResult('minsize-result', '→ ' + JSON.stringify(r));
+      } catch (e) {
+        showResult('minsize-result', '✗ ' + (e.message || JSON.stringify(e)), true);
+      }
+    }
+
+    // --- Maximum size ---
+    async function setMaxSize() {
+      const w = parseInt(document.getElementById('max-w').value) || 0;
+      const h = parseInt(document.getElementById('max-h').value) || 0;
+      try {
+        const r = await coconut.call('set_window_max_size', { w, h });
+        showResult('maxsize-result', '→ ' + JSON.stringify(r));
+      } catch (e) {
+        showResult('maxsize-result', '✗ ' + (e.message || JSON.stringify(e)), true);
+      }
+    }
+    async function setMaxW() {
+      const w = parseInt(document.getElementById('max-w').value) || 0;
+      try {
+        const r = await coconut.call('set_window_max_width', { width: w });
+        showResult('maxsize-result', '→ ' + JSON.stringify(r));
+      } catch (e) {
+        showResult('maxsize-result', '✗ ' + (e.message || JSON.stringify(e)), true);
+      }
+    }
+    async function setMaxH() {
+      const h = parseInt(document.getElementById('max-h').value) || 0;
+      try {
+        const r = await coconut.call('set_window_max_height', { height: h });
+        showResult('maxsize-result', '→ ' + JSON.stringify(r));
+      } catch (e) {
+        showResult('maxsize-result', '✗ ' + (e.message || JSON.stringify(e)), true);
+      }
+    }
+
+    // --- Position ---
+    async function setPosition() {
+      const x = parseInt(document.getElementById('pos-x').value) || 0;
+      const y = parseInt(document.getElementById('pos-y').value) || 0;
+      try {
+        const r = await coconut.call('set_window_position', { x, y });
+        showResult('position-result', '→ ' + JSON.stringify(r));
+      } catch (e) {
+        showResult('position-result', '✗ ' + (e.message || JSON.stringify(e)), true);
+      }
+    }
+    async function getPosition() {
+      try {
+        const r = await coconut.call('get_window_position', {});
+        showResult('position-result', '→ ' + JSON.stringify(r));
+      } catch (e) {
+        showResult('position-result', '✗ ' + (e.message || JSON.stringify(e)), true);
+      }
+    }
+
+    // --- Bootstrap ---
+    (async () => {
+      await coconut.ready();
+      document.getElementById('bridge-status').textContent = 'connected';
+      document.getElementById('bridge-status').className = 'connected';
+    })();
+
+    document.querySelectorAll('nav a').forEach(a => {
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        const view = a.dataset.view;
+        if (window.coconut && window.coconut.emit)
+          window.coconut.emit('navigate', { view });
+      });
+    });
+  </script>
+</body>
+</html>

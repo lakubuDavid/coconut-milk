@@ -131,6 +131,11 @@ namespace coconut {
     return this;
   }
 
+  CoconutContext* CoconutContext::setFrameless(bool on) {
+    if (configs != nullptr) configs->frameless = on;
+    return this;
+  }
+
   void CoconutContext::show(const std::string& name) {
     if (window != nullptr) {
       window::showView(window, name);
