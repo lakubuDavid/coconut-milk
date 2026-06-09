@@ -4,6 +4,7 @@
 #include "bridge.h"
 #include "debug.h"
 #include "dialog.h"
+#include "fs.h"
 
 #include <sol/state.hpp>
 #include <sol/table.hpp>
@@ -138,6 +139,65 @@ void _bindCoconutLuaApi(Runtime *runtime) {
       });
 
   coconut["json"] = json_mod;
+
+  // ── Filesystem: coconut.fs ─────────────────────────────────────
+  // Exposes readText, readBytes, writeText, writeBytes, exists, resolve.
+  sol::table fs_mod = (*runtime->lua_state).create_table();
+
+  fs_mod.set_function("readText",
+      [](const std::string& path) -> std::string {
+        auto result = fs::readText(path);
+        if (result) return std::move(*result);
+        debug::warn(std::format("fs.readText: {} ({})",
+                     result.error().message, path));
+        return {};
+      });
+
+  // Lua strings are byte-safe, so readBytes returns a Lua string too.
+  fs_mod.set_function("readBytes",
+      [](const std::string& path) -> std::string {
+        auto result = fs::readBytes(path);
+        if (result) {
+          auto& vec = *result;
+          return std::string(
+              reinterpret_cast<const char*>(vec.data()), vec.size());
+        }
+        debug::warn(std::format("fs.readBytes: {} ({})",
+                     result.error().message, path));
+        return {};
+      });
+
+  fs_mod.set_function("writeText",
+      [](const std::string& path,
+         const std::string& content) -> bool {
+        auto result = fs::writeText(path, content);
+        if (result) return true;
+        debug::warn(std::format("fs.writeText: {} ({})",
+                     result.error().message, path));
+        return false;
+      });
+
+  fs_mod.set_function("writeBytes",
+      [](const std::string& path,
+         const std::string& data) -> bool {
+        std::vector<uint8_t> vec(data.begin(), data.end());
+        auto result = fs::writeBytes(path, vec);
+        if (result) return true;
+        debug::warn(std::format("fs.writeBytes: {} ({})",
+                     result.error().message, path));
+        return false;
+      });
+
+  fs_mod.set_function("exists", [](const std::string& path) -> bool {
+    return fs::exists(path);
+  });
+
+  fs_mod.set_function("resolve", [](const std::string& root,
+                                      const std::string& relpath) -> std::string {
+    return fs::resolve(root, relpath);
+  });
+
+  coconut["fs"] = fs_mod;
 
   runtime->lua_state->set("coconut", coconut);
 }

@@ -21,6 +21,7 @@ namespace coconut {
     BridgeError,
     WebUiError,
     ParseError,
+    IoError,
     NotImplementedYet
   };
 

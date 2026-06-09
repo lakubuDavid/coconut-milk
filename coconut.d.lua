@@ -89,6 +89,14 @@ View = {}
 ---@field jsonify fun(obj: table): string
 ---@field parse fun(str: string): table
 
+---@class CoconutFsModule
+---@field readText fun(path: string): string
+---@field readBytes fun(path: string): string
+---@field writeText fun(path: string, content: string): boolean
+---@field writeBytes fun(path: string, data: string): boolean
+---@field exists fun(path: string): boolean
+---@field resolve fun(root: string, relpath: string): string
+
 ---@class CoconutModule
 ---@field views fun(): table<string, CoconutViewDescriptor|fun(): CoconutViewDescriptor>
 ---@field config fun(ctx: CoconutContext): CoconutContext
@@ -105,6 +113,7 @@ View = {}
 ---@field error fun(msg: string)
 ---@field dialog CoconutDialogModule
 ---@field json CoconutJsonModule
+---@field fs CoconutFsModule
 
 ---@type CoconutModule
 coconut = {

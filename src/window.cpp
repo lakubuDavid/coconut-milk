@@ -4,6 +4,7 @@
 
 #include <exception>
 #include <expected>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -104,7 +105,26 @@ void showWindow(Window *window) {
     return;
   }
 
-  webview_set_html(window->webview, it->second->html.c_str());
+  // Dispatch based on view kind:
+  //   FILE → navigate to file:// URL (relative CSS/JS paths resolve)
+  //   HTML → set_html directly (inline content, no base URL)
+  //   URL  → navigate to URL (once implemented)
+  auto* view = it->second;
+  switch (view->kind) {
+    case VIEW_KIND_FILE:
+      if (!view->path.empty()) {
+        webview_navigate(window->webview, ("file://" + view->path).c_str());
+      } else {
+        webview_set_html(window->webview, "<h1>File view: missing path</h1>");
+      }
+      break;
+    case VIEW_KIND_HTML:
+      webview_set_html(window->webview, view->html.c_str());
+      break;
+    case VIEW_KIND_URL:
+      webview_set_html(window->webview, "<h1>URL views not yet implemented</h1>");
+      break;
+  }
 }
 
 void showView(Window *window, std::string name) {
@@ -131,24 +151,14 @@ std::expected<View, Error> createView(std::string pathOrCode, ViewKind kind,
 
   switch (kind) {
   case VIEW_KIND_FILE: {
-    try {
-      std::stringstream text_content;
-      std::ifstream file(pathOrCode);
-      if (!file.is_open()) {
-        return std::unexpected(
-            Error{.code = ErrorCode::MissingFile,
-                  .message = "could not open file: " + pathOrCode});
-      }
-      std::string line;
-      while (std::getline(file, line)) {
-        text_content << line << '\n';
-      }
-      view.html = text_content.str();
-    } catch (const std::exception &e) {
+    // Store the file path — webview will serve it via file:// URL.
+    // The file must exist; verify here so we fail early.
+    if (!std::filesystem::exists(pathOrCode)) {
       return std::unexpected(
           Error{.code = ErrorCode::MissingFile,
-                .message = std::string("file read error: ") + e.what()});
+                .message = "file not found: " + pathOrCode});
     }
+    view.path = std::filesystem::absolute(pathOrCode).lexically_normal().string();
     break;
   }
   case VIEW_KIND_HTML:

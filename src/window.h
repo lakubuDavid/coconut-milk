@@ -25,6 +25,7 @@ struct ViewConfig {};
 struct View {
   ViewKind kind = VIEW_KIND_FILE;
   std::string html;
+  std::string path;   ///< filesystem path (for VIEW_KIND_FILE)
 };
 
 struct Window {
