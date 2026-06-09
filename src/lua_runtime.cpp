@@ -199,6 +199,16 @@ void _bindUserType(Runtime *runtime) {
       "bind",   &CoconutContext::bind);
 
   // ── CoconutWindowHandle usertype ───────────────────────────────
+  // move takes a table { x = dx, y = dy } — sol3 can't auto-convert
+  // CoconutPoint from a Lua table, so we use a lambda.
+  auto moveHandle = [](CoconutWindowHandle* h, sol::table t) {
+    if (!h) return;
+    CoconutPoint pt{};
+    pt.x = t["x"].get_or(0);
+    pt.y = t["y"].get_or(0);
+    h->move(pt);
+  };
+
   runtime->lua_state->new_usertype<CoconutWindowHandle>(
       "CoconutWindow",
       "show",           &CoconutWindowHandle::show,
@@ -209,7 +219,10 @@ void _bindUserType(Runtime *runtime) {
       "setFullscreen",  &CoconutWindowHandle::setFullscreen,
       "toggleFullscreen", &CoconutWindowHandle::toggleFullscreen,
       "resize",         &CoconutWindowHandle::resize,
-      "setMovableByBackground", &CoconutWindowHandle::setMovableByBackground);
+      "setMovableByBackground", &CoconutWindowHandle::setMovableByBackground,
+      "setPosition",    &CoconutWindowHandle::setPosition,
+      "getPosition",    &CoconutWindowHandle::getPosition,
+      "move",           std::move(moveHandle));
 
   // ctx.window is set later (after app pointer is wired) via
   // lua::wireWindowHandle(runtime).

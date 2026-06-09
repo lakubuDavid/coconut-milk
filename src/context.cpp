@@ -163,6 +163,57 @@ namespace coconut {
     }
   }
 
+  void CoconutWindowHandle::setPosition(int x, int y) {
+    if (!app || !app->webview) return;
+    using id = struct objc_object*;
+    using SEL = struct objc_selector*;
+    id win = (id)webview_get_window(app->webview);
+    if (!win) return;
+
+    // setFrameTopLeftPoint: positions using top-left screen coordinates.
+    struct CGPoint { double x; double y; };
+    CGPoint pt = {(double)x, (double)y};
+    SEL sel = sel_registerName("setFrameTopLeftPoint:");
+    ((void(*)(id, SEL, CGPoint))objc_msgSend)(win, sel, pt);
+  }
+
+  void CoconutWindowHandle::move(const CoconutPoint& offset) {
+    if (!app || !app->webview) return;
+    using id = struct objc_object*;
+    using SEL = struct objc_selector*;
+    id win = (id)webview_get_window(app->webview);
+    if (!win) return;
+
+    // NSRect is 32 bytes → must use objc_msgSend_stret on all architectures.
+    union NSRect { double d[4]; struct { double x, y, w, h; } r; };
+    NSRect frame;
+    SEL frameSel = sel_registerName("frame");
+    frame = ((NSRect(*)(id, SEL))objc_msgSend_stret)(win, frameSel);
+
+    struct CGPoint { double x; double y; };
+    CGPoint pt = {frame.r.x + offset.x, frame.r.y + offset.y};
+    SEL setSel = sel_registerName("setFrameOrigin:");
+    ((void(*)(id, SEL, CGPoint))objc_msgSend)(win, setSel, pt);
+  }
+
+  CoconutPoint CoconutWindowHandle::getPosition() {
+    CoconutPoint result{};
+    if (!app || !app->webview) return result;
+    using id = struct objc_object*;
+    using SEL = struct objc_selector*;
+    id win = (id)webview_get_window(app->webview);
+    if (!win) return result;
+
+    union NSRect { double d[4]; struct { double x, y, w, h; } r; };
+    NSRect frame;
+    SEL frameSel = sel_registerName("frame");
+    frame = ((NSRect(*)(id, SEL))objc_msgSend_stret)(win, frameSel);
+
+    result.x = static_cast<int>(frame.r.x);
+    result.y = static_cast<int>(frame.r.y);
+    return result;
+  }
+
   // ── Dialog Lua bindings (exposed via coconut.dialog) ──────────────
 
   namespace {

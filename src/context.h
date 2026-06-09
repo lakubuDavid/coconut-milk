@@ -32,6 +32,12 @@ namespace coconut {
     int h = 0;
   };
 
+  /// Screen position / offset used for window positioning.
+  struct CoconutPoint {
+    int x = 0;
+    int y = 0;
+  };
+
   /// Forward declaration — defined below.
   struct CoconutWindowHandle;
 
@@ -83,6 +89,12 @@ namespace coconut {
     void toggleFullscreen();
     void resize(int w, int h);
     void setMovableByBackground(bool on);
+    /// Set absolute screen position (bottom-left origin — macOS native).
+    void setPosition(int x, int y);
+    /// Move window by offset (dx = right, dy = up in screen coords).
+    void move(const CoconutPoint& offset);
+    /// Get current screen position {x, y}.
+    CoconutPoint getPosition();
   };
 
   namespace context {

@@ -40,6 +40,11 @@ View = {}
 ---@field w integer
 ---@field h integer
 
+--- Screen position / offset for window operations.
+---@class CoconutPoint
+---@field x integer
+---@field y integer
+
 --- Window size constraints (0 = no constraint).
 ---@class CoconutWindowConstraints
 ---@field min_width integer
@@ -57,8 +62,9 @@ View = {}
 ---@field toggleFullscreen fun(self: CoconutWindow)
 ---@field resize fun(self: CoconutWindow, size: CoconutWindowSize)
 ---@field setMovableByBackground fun(self: CoconutWindow, on: boolean)
----@field setMinimumSize fun(self: CoconutWindow, min: CoconutWindowConstraints): CoconutWindow
----@field setMaximumSize fun(self: CoconutWindow, max: CoconutWindowConstraints): CoconutWindow
+---@field setPosition fun(self: CoconutWindow, x: integer, y: integer)
+---@field move fun(self: CoconutWindow, offset: CoconutPoint)
+---@field getPosition fun(self: CoconutWindow): CoconutPoint
 
 ---@class CoconutContext
 ---@field window CoconutWindow
