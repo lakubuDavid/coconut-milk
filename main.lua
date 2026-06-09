@@ -29,7 +29,7 @@ end
 
 --- Love2D-like dispatcher for frontend → Lua events.
 function coconut.events(name, payload, ctx)
-  coconut.info("event: " .. name .. " " .. vjson.encode(payload))
+  coconut.info("event: " .. name)
 
   if name == "navigate" then
     ctx:show(payload.view)
