@@ -4,83 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Coconut — Commands Test</title>
+  <link rel="stylesheet" href="assets/style.css">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0f0f13;
-      color: #e4e4e7;
-      min-height: 100vh;
-    }
-    .titlebar {
-      background: #1a1a24;
-      padding: 0.5rem 1rem 0.5rem 4.5rem;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      user-select: none;
-      cursor: grab;
-      -webkit-user-select: none;
-    }
-    .titlebar:active { cursor: grabbing; }
-    .titlebar .app-name {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: #a78bfa;
-      letter-spacing: 0.02em;
-    }
-    .titlebar .win-btn {
-      background: none;
-      border: none;
-      color: #71717a;
-      cursor: pointer;
-      font-size: 0.85rem;
-      padding: 0.15rem 0.4rem;
-      border-radius: 3px;
-      transition: all 0.15s;
-    }
-    .titlebar .win-btn:hover { color: #e4e4e7; background: #2a2a3a; }
-    nav {
-      background: #1a1a24;
-      padding: 0.5rem 2rem 0.75rem;
-      display: flex;
-      align-items: center;
-      gap: 2rem;
-      border-bottom: 1px solid #2a2a3a;
-    }
-    nav h1 { font-size: 1.1rem; font-weight: 600; color: #a78bfa; }
-    nav a {
-      color: #a1a1aa; text-decoration: none; font-size: 0.9rem;
-      padding: 0.25rem 0.5rem; border-radius: 4px;
-    }
-    nav a:hover { color: #e4e4e7; background: #2a2a3a; }
-    main { max-width: 800px; margin: 2rem auto; padding: 0 1.5rem; }
-    .cmd-card {
-      background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 8px;
-      padding: 1.25rem; margin-bottom: 1rem;
-    }
-    .cmd-card h3 { color: #c4b5fd; margin-bottom: 0.5rem; font-size: 1rem; }
-    .cmd-card .desc { color: #a1a1aa; font-size: 0.85rem; margin-bottom: 0.75rem; }
     .cmd-card .params { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
-    .cmd-card .params input, .cmd-card .params select {
-      background: #2a2a3a; border: 1px solid #3a3a4a; border-radius: 4px;
-      padding: 0.4rem 0.6rem; color: #e4e4e7; font-size: 0.85rem; flex: 1; min-width: 120px;
-    }
-    .cmd-card button {
-      background: #3a3a4a; border: 1px solid #a78bfa; color: #c4b5fd;
-      padding: 0.4rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;
-    }
-    .cmd-card button:hover { background: #4a4a5a; }
-    .cmd-card .result {
-      margin-top: 0.5rem; padding: 0.5rem; background: #12121a; border-radius: 4px;
-      font-family: monospace; font-size: 0.8rem; color: #6ee7b7; white-space: pre-wrap;
-    }
-    .cmd-card .result.error { color: #fca5a5; }
-    #bridge-status {
-      font-size: 0.85rem; padding: 0.25rem 0.75rem; border-radius: 4px; display: inline-block;
-    }
-    #bridge-status.connected { background: #065f46; color: #6ee7b7; }
-    #bridge-status.pending   { background: #1e3a5f; color: #7dd3fc; }
+    .cmd-card .params input, .cmd-card .params select { width: auto; flex: 1; min-width: 120px; }
+    .cmd-card .params label { display: flex; align-items: center; gap: 0.3rem; color: #a1a1aa; font-size: 0.85rem; }
+    p code { background: #2a2a3a; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85rem; }
   </style>
 </head>
 <body>
@@ -91,160 +20,48 @@
     <button class="win-btn" onclick="doClose()">✕</button>
   </div>
   <nav>
-    <h1>🥥 Commands Test</h1>
+    <h1>🥥 Commands</h1>
     <a href="#" data-view="home">Home</a>
     <a href="#" data-view="note">Notes</a>
     <a href="#" data-view="commands" class="active">Commands</a>
+    <a href="#" data-view="settings">Settings</a>
   </nav>
   <main>
     <p style="margin-bottom:1rem;color:#a1a1aa;">Test all registered Lua commands. Each card calls <code>coconut.call(name, params)</code>.</p>
     <div id="bridge-status" class="pending">waiting for bridge…</div>
-
     <div id="cards"></div>
   </main>
 
+  <script src="assets/script.js"></script>
   <script>
-    // --- Window controls (frameless) ---
-    function doMinimize() {
-      if (window.coconut && window.coconut.call)
-        coconut.call('__coconut_window_ctl', { cmd: 'minimize' });
-    }
-    function doToggleFullscreen() {
-      if (window.coconut && window.coconut.call)
-        coconut.call('__coconut_window_ctl', { cmd: 'toggleFullscreen' });
-    }
-    function doClose() {
-      if (window.coconut && window.coconut.call)
-        coconut.call('__coconut_window_ctl', { cmd: 'close' });
-    }
-
-    // --- Drag region: emit grab events ---
-    let grabbing = false;
-    let lastX = 0, lastY = 0;
-    const tbCmd = document.getElementById('titlebar');
-    if (tbCmd) {
-      tbCmd.addEventListener('mousedown', (e) => {
-        grabbing = true;
-        lastX = e.screenX;
-        lastY = e.screenY;
-        if (window.coconut && window.coconut.emit)
-          window.coconut.emit('grab_start', {});
-      });
-    }
-    document.addEventListener('mousemove', (e) => {
-      if (!grabbing) return;
-      const dx = e.screenX - lastX;
-      const dy = e.screenY - lastY;
-      lastX = e.screenX;
-      lastY = e.screenY;
-      if (window.coconut && window.coconut.emit)
-        window.coconut.emit('move', { dx: dx, dy: dy });
-    });
-    document.addEventListener('mouseup', () => {
-      if (!grabbing) return;
-      grabbing = false;
-      if (window.coconut && window.coconut.emit)
-        window.coconut.emit('grab_end', {});
-    });
-
     const commands = [
-      {
-        name: 'ping', desc: 'Returns "pong" — no params needed.',
-        params: [], call: () => ({})
-      },
-      {
-        name: 'noop', desc: 'Does nothing, returns true.',
-        params: [], call: () => ({})
-      },
-      {
-        name: 'greet', desc: 'Say hello.',
-        params: [{ key: 'name', type: 'text', placeholder: 'name' }],
-        call: (vals) => ({ name: vals.name || "world" })
-      },
-      {
-        name: 'sum', desc: 'Add two numbers.',
-        params: [
-          { key: 'a', type: 'number', placeholder: 'first', default: 1 },
-          { key: 'b', type: 'number', placeholder: 'second', default: 2 }
-        ],
-        call: (vals) => ({ a: Number(vals.a || 0), b: Number(vals.b || 0) })
-      },
-      {
-        name: 'login', desc: 'Authenticate (mock).',
-        params: [
-          { key: 'username', type: 'text', placeholder: 'username' },
-          { key: 'password', type: 'password', placeholder: 'password' },
-          { key: 'remember', type: 'checkbox', label: 'Remember me' }
-        ],
-        call: (vals) => ({ username: vals.username || "test", password: vals.password || "pass", remember: !!vals.remember })
-      },
-      {
-        name: 'search', desc: 'Full-text search.',
-        params: [
-          { key: 'query', type: 'text', placeholder: 'query' },
-          { key: 'limit', type: 'number', placeholder: 'limit', default: 10 },
-          { key: 'offset', type: 'number', placeholder: 'offset', default: 0 }
-        ],
-        call: (vals) => ({ query: vals.query || "", options: { limit: Number(vals.limit || 10), offset: Number(vals.offset || 0) } })
-      },
-      {
-        name: 'merge', desc: 'Deep-merge two tables.',
-        params: [
-          { key: 'base', type: 'text', placeholder: 'base e.g. {"name":"a"}', default: '{"name":"a"}' },
-          { key: 'overrides', type: 'text', placeholder: 'overrides e.g. {"meta":{"x":1}}', default: '{"meta":{"x":1}}' }
-        ],
-        call: (vals) => {
-          try { return { base: JSON.parse(vals.base || '{}'), overrides: JSON.parse(vals.overrides || '{}') }; }
-          catch(e) { throw new Error('Invalid JSON: ' + e.message); }
-        }
-      },
-      {
-        name: 'evaluate', desc: 'Evaluate expression.',
-        params: [
-          { key: 'expr', type: 'text', placeholder: 'expr (string/number/bool)' },
-          { key: 'validate', type: 'checkbox', label: 'Valid?' }
-        ],
-        call: (vals) => {
-          let expr = vals.expr || "hello";
-          let num = Number(expr);
-          return { expr: isNaN(num) ? expr : num, validate: function(v) { return true; } };
-        }
-      }
+      { name: 'ping', desc: 'Returns "pong" — no params needed.', params: [], call: () => ({}) },
+      { name: 'noop', desc: 'Does nothing, returns true.', params: [], call: () => ({}) },
+      { name: 'greet', desc: 'Say hello.', params: [{ key: 'name', type: 'text', placeholder: 'name' }], call: (vals) => ({ name: vals.name || "world" }) },
+      { name: 'sum', desc: 'Add two numbers.', params: [{ key: 'a', type: 'number', placeholder: 'first', default: 1 }, { key: 'b', type: 'number', placeholder: 'second', default: 2 }], call: (vals) => ({ a: Number(vals.a || 0), b: Number(vals.b || 0) }) },
+      { name: 'login', desc: 'Authenticate (mock).', params: [{ key: 'username', type: 'text', placeholder: 'username' }, { key: 'password', type: 'password', placeholder: 'password' }, { key: 'remember', type: 'checkbox', label: 'Remember me' }], call: (vals) => ({ username: vals.username || "test", password: vals.password || "pass", remember: !!vals.remember }) },
+      { name: 'search', desc: 'Full-text search.', params: [{ key: 'query', type: 'text', placeholder: 'query' }, { key: 'limit', type: 'number', placeholder: 'limit', default: 10 }, { key: 'offset', type: 'number', placeholder: 'offset', default: 0 }], call: (vals) => ({ query: vals.query || "", options: { limit: Number(vals.limit || 10), offset: Number(vals.offset || 0) } }) },
+      { name: 'merge', desc: 'Deep-merge two tables.', params: [{ key: 'base', type: 'text', placeholder: 'base e.g. {"name":"a"}', default: '{"name":"a"}' }, { key: 'overrides', type: 'text', placeholder: 'overrides e.g. {"meta":{"x":1}}', default: '{"meta":{"x":1}}' }], call: (vals) => { try { return { base: JSON.parse(vals.base || '{}'), overrides: JSON.parse(vals.overrides || '{}') }; } catch(e) { throw new Error('Invalid JSON: ' + e.message); } } },
+      { name: 'evaluate', desc: 'Evaluate expression.', params: [{ key: 'expr', type: 'text', placeholder: 'expr (string/number/bool)' }, { key: 'validate', type: 'checkbox', label: 'Valid?' }], call: (vals) => { let expr = vals.expr || "hello"; let num = Number(expr); return { expr: isNaN(num) ? expr : num, validate: function(v) { return true; } }; } }
     ];
 
     function buildCard(cmd) {
-      const card = document.createElement('div');
-      card.className = 'cmd-card';
-
-      let title = document.createElement('h3');
-      title.textContent = cmd.name;
-      card.appendChild(title);
-
-      if (cmd.desc) {
-        let d = document.createElement('div');
-        d.className = 'desc'; d.textContent = cmd.desc;
-        card.appendChild(d);
-      }
-
+      const card = document.createElement('div'); card.className = 'card cmd-card';
+      const title = document.createElement('h3'); title.textContent = cmd.name; card.appendChild(title);
+      if (cmd.desc) { const d = document.createElement('div'); d.className = 'desc'; d.textContent = cmd.desc; card.appendChild(d); }
       const valStore = {};
       if (cmd.params.length > 0) {
-        const paramsDiv = document.createElement('div');
-        paramsDiv.className = 'params';
-
+        const paramsDiv = document.createElement('div'); paramsDiv.className = 'params';
         cmd.params.forEach(p => {
           if (p.type === 'checkbox') {
             const label = document.createElement('label');
-            label.style.cssText = 'display:flex;align-items:center;gap:0.3rem;color:#a1a1aa;font-size:0.85rem;';
-            const cb = document.createElement('input');
-            cb.type = 'checkbox';
+            const cb = document.createElement('input'); cb.type = 'checkbox';
             cb.onchange = () => { valStore[p.key] = cb.checked; };
-            label.appendChild(cb);
-            label.appendChild(document.createTextNode(p.label || p.key));
+            label.appendChild(cb); label.appendChild(document.createTextNode(p.label || p.key));
             paramsDiv.appendChild(label);
           } else {
             const input = document.createElement('input');
-            input.type = p.type || 'text';
-            input.placeholder = p.placeholder || p.key;
+            input.type = p.type || 'text'; input.placeholder = p.placeholder || p.key;
             if (p.default !== undefined) input.value = p.default;
             input.oninput = () => { valStore[p.key] = input.value; };
             paramsDiv.appendChild(input);
@@ -252,52 +69,29 @@
         });
         card.appendChild(paramsDiv);
       }
-
-      const btn = document.createElement('button');
-      btn.textContent = `▶ ${cmd.name}`;
-      card.appendChild(btn);
-
-      const result = document.createElement('div');
-      result.className = 'result';
-      result.style.display = 'none';
-      card.appendChild(result);
-
+      const btn = document.createElement('button'); btn.textContent = `▶ ${cmd.name}`; card.appendChild(btn);
+      const result = document.createElement('div'); result.className = 'result-msg'; result.style.display = 'none'; card.appendChild(result);
       btn.onclick = async () => {
-        result.style.display = 'block';
-        result.textContent = 'calling...';
-        result.className = 'result';
+        result.style.display = 'block'; result.textContent = 'calling...'; result.className = 'result-msg';
         try {
           const params = cmd.call(valStore);
           const data = await coconut.call(cmd.name, params);
           result.textContent = '→ ' + JSON.stringify(data, null, 2);
-          result.className = 'result';
         } catch (err) {
           result.textContent = '✗ ' + (err.message || JSON.stringify(err));
-          result.className = 'result error';
+          result.className = 'result-msg error';
         }
       };
-
       return card;
     }
 
     (async () => {
       await coconut.ready();
-      document.getElementById('bridge-status').textContent = 'connected';
-      document.getElementById('bridge-status').className = 'connected';
-
+      const status = document.getElementById('bridge-status');
+      status.textContent = 'connected'; status.className = 'connected';
       const container = document.getElementById('cards');
       commands.forEach(cmd => container.appendChild(buildCard(cmd)));
     })();
-
-    document.querySelectorAll('nav a').forEach(a => {
-      a.addEventListener('click', e => {
-        e.preventDefault();
-        const view = a.dataset.view;
-        if (window.coconut && window.coconut.emit) {
-          window.coconut.emit('navigate', { view });
-        }
-      });
-    });
   </script>
 </body>
 </html>

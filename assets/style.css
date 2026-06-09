@@ -1,0 +1,150 @@
+/* Coconut Milk — Shared Styles */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #0f0f13;
+  color: #e4e4e7;
+  min-height: 100vh;
+}
+
+/* ── Title bar (drag region for frameless windows) ── */
+.titlebar {
+  background: #1a1a24;
+  padding: 0.5rem 1rem 0.5rem 4.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  user-select: none;
+  cursor: grab;
+  -webkit-user-select: none;
+}
+.titlebar:active { cursor: grabbing; }
+.titlebar .app-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #a78bfa;
+  letter-spacing: 0.02em;
+}
+.titlebar .win-btn {
+  background: none;
+  border: none;
+  color: #71717a;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  transition: all 0.15s;
+}
+.titlebar .win-btn:hover { color: #e4e4e7; background: #2a2a3a; }
+
+/* ── Navigation ── */
+nav {
+  background: #1a1a24;
+  padding: 0.5rem 2rem 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  border-bottom: 1px solid #2a2a3a;
+  user-select: none;
+  -webkit-user-select: none;
+}
+nav h1 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #a78bfa;
+}
+nav a {
+  color: #a1a1aa;
+  text-decoration: none;
+  font-size: 0.9rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+nav a:hover { color: #e4e4e7; background: #2a2a3a; }
+nav a.active { color: #a78bfa; background: #2a2a3a; }
+
+/* ── Main content ── */
+main {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 0 1.5rem;
+}
+
+/* ── Cards ── */
+.card {
+  background: #1a1a24;
+  border: 1px solid #2a2a3a;
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+.card h3 {
+  color: #c4b5fd;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+}
+.card .desc {
+  color: #a1a1aa;
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
+/* ── Buttons ── */
+button {
+  background: #2a2a3a;
+  color: #e4e4e7;
+  border: 1px solid #3a3a4a;
+  padding: 0.5rem 1.25rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+button:hover { background: #3a3a4a; border-color: #a78bfa; }
+button.primary { background: #3a3a4a; border-color: #a78bfa; color: #c4b5fd; }
+button.primary:hover { background: #4a4a5a; }
+
+/* ── Inputs ── */
+input, select {
+  background: #2a2a3a;
+  border: 1px solid #3a3a4a;
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+  color: #e4e4e7;
+  font-size: 0.85rem;
+}
+input[type="checkbox"] { accent-color: #a78bfa; }
+
+/* ── Bridge status ── */
+#bridge-status {
+  font-size: 0.85rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  display: inline-block;
+}
+#bridge-status.connected { background: #065f46; color: #6ee7b7; }
+#bridge-status.pending   { background: #1e3a5f; color: #7dd3fc; }
+
+/* ── Result message ── */
+.result-msg {
+  margin-top: 0.4rem;
+  padding: 0.4rem 0.6rem;
+  background: #12121a;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: #6ee7b7;
+  white-space: pre-wrap;
+}
+.result-msg.error { color: #fca5a5; }
+
+/* ── Transparent window support ── */
+@media (prefers-color-scheme: dark) {
+  body.transparent-window { background: transparent !important; }
+  .transparent-window .card { background: rgba(26,26,36,0.85); backdrop-filter: blur(12px); }
+  .transparent-window .titlebar,
+  .transparent-window nav { background: rgba(26,26,36,0.7); }
+}

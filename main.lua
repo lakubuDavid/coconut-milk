@@ -55,4 +55,18 @@ function coconut.commands(ctx)
       ctx.window:close()
     end
   end)
+
+  -- Filesystem demo: read a text file
+  ctx:bind("fs_read_text", function(params, ctx)
+    local path = params.path
+    if not path or path == "" then
+      return { ok = false, error = "no path provided" }
+    end
+    local ok, content = pcall(coconut.fs.readText, path)
+    if ok then
+      return { ok = true, data = content }
+    else
+      return { ok = false, error = tostring(content) }
+    end
+  end)
 end

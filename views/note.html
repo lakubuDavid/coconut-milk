@@ -4,68 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Coconut — Notes</title>
+  <link rel="stylesheet" href="assets/style.css">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0f0f13;
-      color: #e4e4e7;
-      min-height: 100vh;
-    }
-    /* ── Title bar (drag region for frameless windows) ── */
-    .titlebar {
-      background: #1a1a24;
-      padding: 0.5rem 1rem 0.5rem 4.5rem;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      user-select: none;
-      cursor: grab;
-      -webkit-user-select: none;
-    }
-    .titlebar:active { cursor: grabbing; }
-    .titlebar .app-name {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: #a78bfa;
-      letter-spacing: 0.02em;
-    }
-    .titlebar .win-btn {
-      background: none;
-      border: none;
-      color: #71717a;
-      cursor: pointer;
-      font-size: 0.85rem;
-      padding: 0.15rem 0.4rem;
-      border-radius: 3px;
-      transition: all 0.15s;
-    }
-    .titlebar .win-btn:hover { color: #e4e4e7; background: #2a2a3a; }
-
-    nav {
-      background: #1a1a24;
-      padding: 0.5rem 2rem 0.75rem;
-      display: flex;
-      align-items: center;
-      gap: 2rem;
-      border-bottom: 1px solid #2a2a3a;
-    }
-    nav a {
-      color: #a1a1aa;
-      text-decoration: none;
-      font-size: 0.9rem;
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-      transition: all 0.15s;
-    }
-    nav a:hover { color: #e4e4e7; background: #2a2a3a; }
-    nav a.active { color: #a78bfa; background: #2a2a3a; }
-    main {
-      max-width: 640px;
-      margin: 2rem auto;
-      padding: 0 1.5rem;
-    }
-    h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 1.5rem; }
+    main { max-width: 640px; }
     textarea {
       width: 100%;
       min-height: 120px;
@@ -86,22 +27,6 @@
       gap: 0.5rem;
       margin: 0.75rem 0 1.5rem;
     }
-    button {
-      background: #2a2a3a;
-      color: #e4e4e7;
-      border: 1px solid #3a3a4a;
-      padding: 0.5rem 1.25rem;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    button:hover { background: #3a3a4a; border-color: #a78bfa; }
-    button.primary {
-      background: #6d28d9;
-      border-color: #7c3aed;
-    }
-    button.primary:hover { background: #7c3aed; }
     .note-list { list-style: none; }
     .note-item {
       background: #1a1a24;
@@ -139,16 +64,6 @@
       color: #71717a;
       margin-left: auto;
     }
-    .save-status {
-      font-size: 0.8rem;
-      padding: 0.2rem 0.6rem;
-      border-radius: 4px;
-      margin-left: 0.5rem;
-    }
-    .save-status.saved { color: #6ee7b7; }
-    .save-status.saving { color: #7dd3fc; }
-    .save-status.error { color: #fca5a5; }
-
     @media (prefers-color-scheme: dark) {
       body.transparent-window { background: transparent !important; }
       .transparent-window .note-item,
@@ -169,7 +84,7 @@
     <a href="#" data-view="commands">Commands</a>
   </nav>
   <main>
-    <h2>📝 Notes <span id="note-stat"></span></h2>
+    <h2 style="font-size:1.5rem;font-weight:600;margin-bottom:1.5rem;">📝 Notes <span id="note-stat"></span></h2>
 
     <textarea id="note-input" placeholder="Write a note…"></textarea>
     <div class="toolbar">
@@ -182,50 +97,8 @@
     </ul>
   </main>
 
+  <script src="assets/script.js"></script>
   <script>
-    // --- Window controls (frameless) ---
-    function doMinimize() {
-      if (window.coconut && window.coconut.call)
-        coconut.call('__coconut_window_ctl', { cmd: 'minimize' });
-    }
-    function doToggleFullscreen() {
-      if (window.coconut && window.coconut.call)
-        coconut.call('__coconut_window_ctl', { cmd: 'toggleFullscreen' });
-    }
-    function doClose() {
-      if (window.coconut && window.coconut.call)
-        coconut.call('__coconut_window_ctl', { cmd: 'close' });
-    }
-
-    // --- Drag region: emit grab events ---
-    let grabbing = false;
-    let lastX = 0, lastY = 0;
-    const tbNote = document.getElementById('titlebar');
-    if (tbNote) {
-      tbNote.addEventListener('mousedown', (e) => {
-        grabbing = true;
-        lastX = e.screenX;
-        lastY = e.screenY;
-        if (window.coconut && window.coconut.emit)
-          window.coconut.emit('grab_start', {});
-      });
-    }
-    document.addEventListener('mousemove', (e) => {
-      if (!grabbing) return;
-      const dx = e.screenX - lastX;
-      const dy = e.screenY - lastY;
-      lastX = e.screenX;
-      lastY = e.screenY;
-      if (window.coconut && window.coconut.emit)
-        window.coconut.emit('move', { dx: dx, dy: dy });
-    });
-    document.addEventListener('mouseup', () => {
-      if (!grabbing) return;
-      grabbing = false;
-      if (window.coconut && window.coconut.emit)
-        window.coconut.emit('grab_end', {});
-    });
-
     // --- Persistent notes store (Lua I/O) ---
     const notes = [];
     const listEl = document.getElementById('note-list');
@@ -306,23 +179,11 @@
       scheduleSave();
     };
 
-    // Enter to add, Shift+Enter for newline
     inputEl.addEventListener('keydown', e => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         document.getElementById('add-btn').click();
       }
-    });
-
-    // --- Nav links ---
-    document.querySelectorAll('nav a').forEach(a => {
-      a.addEventListener('click', e => {
-        e.preventDefault();
-        const view = a.dataset.view;
-        if (window.coconut && window.coconut.emit) {
-          window.coconut.emit('navigate', { view });
-        }
-      });
     });
 
     // --- Load notes on bridge ready ---

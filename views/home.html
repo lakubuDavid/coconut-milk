@@ -4,134 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Coconut — Home</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0f0f13;
-      color: #e4e4e7;
-      min-height: 100vh;
-    }
-    /* ── Title bar (drag region for frameless windows) ── */
-    .titlebar {
-      background: #1a1a24;
-      padding: 0.5rem 1rem 0.5rem 4.5rem; /* left inset for traffic lights */
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      user-select: none;
-      cursor: grab;
-      -webkit-user-select: none;
-    }
-    .titlebar:active { cursor: grabbing; }
-    .titlebar .app-name {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: #a78bfa;
-      letter-spacing: 0.02em;
-    }
-    .titlebar .win-btn {
-      background: none;
-      border: none;
-      color: #71717a;
-      cursor: pointer;
-      font-size: 0.85rem;
-      padding: 0.15rem 0.4rem;
-      border-radius: 3px;
-      transition: all 0.15s;
-    }
-    .titlebar .win-btn:hover { color: #e4e4e7; background: #2a2a3a; }
-
-    /* ── Navigation ── */
-    nav {
-      background: #1a1a24;
-      padding: 0.5rem 2rem 0.75rem;
-      display: flex;
-      align-items: center;
-      gap: 2rem;
-      border-bottom: 1px solid #2a2a3a;
-      user-select: none;
-      -webkit-user-select: none;
-    }
-    nav a {
-      color: #a1a1aa;
-      text-decoration: none;
-      font-size: 0.9rem;
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-      transition: all 0.15s;
-    }
-    nav a:hover { color: #e4e4e7; background: #2a2a3a; }
-    nav a.active { color: #a78bfa; background: #2a2a3a; }
-
-    /* ── Main content ── */
-    main {
-      max-width: 720px;
-      margin: 3rem auto;
-      padding: 0 1.5rem;
-    }
-    .hero h2 {
-      font-size: 2rem;
-      font-weight: 700;
-      margin-bottom: 0.5rem;
-    }
-    .hero p {
-      color: #a1a1aa;
-      line-height: 1.6;
-      margin-bottom: 2rem;
-    }
-    .card {
-      background: #1a1a24;
-      border: 1px solid #2a2a3a;
-      border-radius: 8px;
-      padding: 1.5rem;
-      margin-bottom: 1rem;
-    }
-    .card h3 { margin-bottom: 0.75rem; color: #c4b5fd; }
-    .card p  { font-size: 0.9rem; color: #a1a1aa; }
-    #counter-display {
-      font-size: 2.5rem;
-      font-weight: 700;
-      color: #a78bfa;
-      text-align: center;
-      margin: 1rem 0;
-    }
-    .btn-group {
-      display: flex;
-      gap: 0.5rem;
-      justify-content: center;
-    }
-    button {
-      background: #2a2a3a;
-      color: #e4e4e7;
-      border: 1px solid #3a3a4a;
-      padding: 0.5rem 1.25rem;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    button:hover {
-      background: #3a3a4a;
-      border-color: #a78bfa;
-    }
-    #bridge-status {
-      font-size: 0.85rem;
-      padding: 0.25rem 0.75rem;
-      border-radius: 4px;
-      display: inline-block;
-    }
-    #bridge-status.connected { background: #065f46; color: #6ee7b7; }
-    #bridge-status.pending   { background: #1e3a5f; color: #7dd3fc; }
-
-    /* ── Transparent window support ── */
-    @media (prefers-color-scheme: dark) {
-      body.transparent-window { background: transparent !important; }
-      .transparent-window .card { background: rgba(26,26,36,0.85); backdrop-filter: blur(12px); }
-      .transparent-window .titlebar,
-      .transparent-window nav { background: rgba(26,26,36,0.7); }
-    }
-  </style>
+  <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
   <!-- Title bar (drag region for frameless windows) -->
@@ -147,18 +20,18 @@
     <a href="#" data-view="commands">Commands</a>
   </nav>
   <main>
-    <section class="hero">
-      <h2>Welcome to Coconut</h2>
-      <p>
-        A minimal Lua desktop UI framework — inspired by Tauri, powered by WebUI.
+    <section class="hero" style="margin-bottom:2rem;">
+      <h2 style="font-size:2rem;font-weight:700;margin-bottom:0.5rem;">Welcome to Coconut</h2>
+      <p style="color:#a1a1aa;line-height:1.6;">
+        A minimal Lua desktop UI framework — inspired by Tauri, powered by WKWebView.
         This is the built-in home view loaded from <code>views/home.html</code>.
       </p>
     </section>
 
     <div class="card">
       <h3>🧮 Counter</h3>
-      <div id="counter-display">0</div>
-      <div class="btn-group">
+      <div id="counter-display" style="font-size:2.5rem;font-weight:700;color:#a78bfa;text-align:center;margin:1rem 0;">0</div>
+      <div style="display:flex;gap:0.5rem;justify-content:center;">
         <button id="dec-btn">− Decrement</button>
         <button id="inc-btn">+ Increment</button>
         <button id="reset-btn">↺ Reset</button>
@@ -167,88 +40,20 @@
 
     <div class="card">
       <h3>🔗 Bridge Status</h3>
-      <p>Frontend-to-Lua bridge:</p>
+      <p style="margin-bottom:0.5rem;">Frontend-to-Lua bridge:</p>
       <p><span id="bridge-status" class="pending">waiting…</span></p>
-      <button id="ping-btn">📡 Ping Lua</button>
+      <button id="ping-btn" style="margin-top:0.5rem;">📡 Ping Lua</button>
     </div>
   </main>
 
+  <script src="assets/script.js"></script>
   <script>
-    // --- Window controls (frameless) ---
-    function doMinimize() {
-      if (window.coconut && window.coconut.call)
-        coconut.call('__coconut_window_ctl', { cmd: 'minimize' });
-    }
-    function doToggleFullscreen() {
-      if (window.coconut && window.coconut.call)
-        coconut.call('__coconut_window_ctl', { cmd: 'toggleFullscreen' });
-    }
-    function doClose() {
-      if (window.coconut && window.coconut.call)
-        coconut.call('__coconut_window_ctl', { cmd: 'close' });
-    }
-
-    // --- Drag region: on mousedown in titlebar, enable window drag ---
-    const tb = document.getElementById('titlebar');
-    let grabbing = false;
-    let lastX = 0, lastY = 0;
-
-    if (tb) {
-      tb.addEventListener('mousedown', (e) => {
-        grabbing = true;
-        lastX = e.screenX;
-        lastY = e.screenY;
-        if (window.coconut && window.coconut.emit) {
-          window.coconut.emit('grab_start', {});
-        }
-      });
-    }
-
-    document.addEventListener('mousemove', (e) => {
-      if (!grabbing) return;
-      const dx = e.screenX - lastX;
-      const dy = e.screenY - lastY;
-      lastX = e.screenX;
-      lastY = e.screenY;
-      if (window.coconut && window.coconut.emit) {
-        window.coconut.emit('move', { dx: dx, dy: dy });
-      }
-    });
-
-    document.addEventListener('mouseup', () => {
-      if (!grabbing) return;
-      grabbing = false;
-      if (window.coconut && window.coconut.emit) {
-        window.coconut.emit('grab_end', {});
-      }
-    });
-
-    // --- Detect frameless/transparent window via meta or bridge ---
-    (async function checkWindowMode() {
-      try {
-        await coconut.ready();
-        // Add class for transparent-window styling if applicable (config-driven)
-        // The C++ side handles the native transparency; CSS is just cosmetic.
-      } catch (e) { /* bridge not ready */ }
-    })();
-
     // --- Local counter (no bridge needed) ---
     let count = 0;
     const display = document.getElementById('counter-display');
     document.getElementById('inc-btn').onclick = () => { display.textContent = ++count; };
     document.getElementById('dec-btn').onclick = () => { display.textContent = --count; };
     document.getElementById('reset-btn').onclick = () => { count = 0; display.textContent = count; };
-
-    // --- Navigation (emits view-switch event) ---
-    document.querySelectorAll('nav a').forEach(a => {
-      a.addEventListener('click', e => {
-        e.preventDefault();
-        const view = a.dataset.view;
-        if (window.coconut && window.coconut.emit) {
-          window.coconut.emit('navigate', { view });
-        }
-      });
-    });
 
     // --- Bridge ping ---
     document.getElementById('ping-btn').onclick = async () => {
@@ -262,15 +67,6 @@
         status.className = 'pending';
       }
     };
-
-    // --- Bridge ready handshake ---
-    (async () => {
-      await coconut.ready();
-      const status = document.getElementById('bridge-status');
-      status.textContent = 'connected';
-      status.className = 'connected';
-      console.log('[coconut] bridge ready — coconut.call() available');
-    })();
   </script>
 </body>
 </html>
