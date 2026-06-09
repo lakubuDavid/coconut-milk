@@ -121,6 +121,16 @@ namespace coconut {
     return this;
   }
 
+  CoconutContext* CoconutContext::setTitle(const std::string& t) {
+    if (configs != nullptr) configs->title = t;
+    return this;
+  }
+
+  CoconutContext* CoconutContext::setResizable(bool on) {
+    if (configs != nullptr) configs->resizable = on;
+    return this;
+  }
+
   void CoconutContext::show(const std::string& name) {
     if (window != nullptr) {
       window::showView(window, name);

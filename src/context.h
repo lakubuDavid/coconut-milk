@@ -70,6 +70,12 @@ namespace coconut {
     /// Startup: maximum window height. Chainable.
     CoconutContext* setMaximumWindowHeight(int h);
 
+    /// Startup: window title. Chainable.
+    CoconutContext* setTitle(const std::string& t);
+
+    /// Startup: whether the window is resizable by the user. Chainable.
+    CoconutContext* setResizable(bool on);
+
     /// Startup: selects initial view by name. Chainable.
     CoconutContext* setInitialView(const std::string& name);
 

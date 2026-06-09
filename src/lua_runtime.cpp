@@ -247,6 +247,8 @@ void _bindUserType(Runtime *runtime) {
       "setMinimumWindowHeight", &CoconutContext::setMinimumWindowHeight,
       "setMaximumWindowWidth", &CoconutContext::setMaximumWindowWidth,
       "setMaximumWindowHeight", &CoconutContext::setMaximumWindowHeight,
+      "setTitle", &CoconutContext::setTitle,
+      "setResizable", &CoconutContext::setResizable,
       "setInitialView", &CoconutContext::setInitialView,
       "show",   &CoconutContext::show,
       "reload", &CoconutContext::reload,
