@@ -14,7 +14,6 @@
 #include <vector>
 
 #import <objc/runtime.h>
-#import <objc/message.h>
 #import <WebKit/WebKit.h>
 
 namespace coconut::platform {
@@ -26,26 +25,6 @@ static Class g_handler_class = nil;
 /// Store the root directory (called from installSchemeHandlerHook).
 void setSchemeHandlerRoot(const std::string& root_dir) {
   g_root_dir = root_dir;
-}
-
-// ── Helper: typed objc_msgSend wrappers ───────────────────────────
-// Modern Xcode declares objc_msgSend as returning void. Use explicit
-// function pointer casts for methods that return ObjC objects.
-
-static id msgSend_id(id self, SEL op, ...) {
-  auto fn = (id (*)(id, SEL, ...))objc_msgSend;
-  return fn(self, op);
-}
-
-static void msgSend_void(id self, SEL op, ...) {
-  auto fn = (void (*)(id, SEL, ...))objc_msgSend;
-  fn(self, op);
-}
-
-/// Send a message that returns const char* (e.g. UTF8String).
-static const char* msgSend_cstr(id self, SEL op) {
-  auto fn = (const char* (*)(id, SEL))objc_msgSend;
-  return fn(self, op);
 }
 
 // ── WKURLSchemeHandler implementation ────────────────────────────
@@ -76,25 +55,6 @@ static std::string stripScheme(const std::string& url) {
   return url;
 }
 
-/// Helper: create an NSString from a C string without ARC issues.
-static id nsstr(const char* cstr) {
-  SEL alloc = sel_getUid("alloc");
-  SEL initWithUTF8 = sel_getUid("initWithUTF8String:");
-  id cls = (id)objc_getClass("NSString");
-  id str = msgSend_id(cls, alloc);
-  return msgSend_id(str, initWithUTF8, cstr);
-}
-
-/// Helper: create an NSHTTPURLResponse.
-static id makeResponse(id urlObj, NSInteger statusCode) {
-  id cls = (id)objc_getClass("NSHTTPURLResponse");
-  SEL alloc = sel_getUid("alloc");
-  SEL init = sel_getUid("initWithURL:statusCode:HTTPVersion:headerFields:");
-  id resp = msgSend_id(cls, alloc);
-  return msgSend_id(resp, init, urlObj, statusCode,
-                     nsstr("HTTP/1.1"), nil);
-}
-
 /// webView:startURLSchemeTask: — reads file and responds.
 static id startURLSchemeTask(id self, SEL _cmd, id webView, id task) {
   (void)self;
@@ -102,16 +62,19 @@ static id startURLSchemeTask(id self, SEL _cmd, id webView, id task) {
   (void)webView;
 
   @autoreleasepool {
-    id request = msgSend_id(task, sel_getUid("request"));
-    id urlObj = msgSend_id(request, sel_getUid("URL"));
-    id urlStr = msgSend_id(urlObj, sel_getUid("absoluteString"));
+    id<WKURLSchemeTask> taskObj = (id<WKURLSchemeTask>)task;
+    NSURLRequest* request = [taskObj request];
+    NSURL* urlObj = [request URL];
+    NSString* urlStr = [urlObj absoluteString];
 
-    const char* urlCStr = msgSend_cstr(urlStr, sel_getUid("UTF8String"));
+    const char* urlCStr = [urlStr UTF8String];
     if (!urlCStr) {
       debug::error("scheme_handler: nil URL");
-      id resp = makeResponse(urlObj, 404);
-      msgSend_void(task, sel_getUid("didReceiveResponse:"), resp);
-      msgSend_void(task, sel_getUid("didFinish"));
+      NSHTTPURLResponse* resp = [[NSHTTPURLResponse alloc]
+          initWithURL:urlObj statusCode:404
+          HTTPVersion:@"HTTP/1.1" headerFields:nil];
+      [taskObj didReceiveResponse:resp];
+      [taskObj didFinish];
       return nil;
     }
 
@@ -124,9 +87,11 @@ static id startURLSchemeTask(id self, SEL _cmd, id webView, id task) {
     auto result = fs::readBytes(filePath);
     if (!result) {
       debug::warn(std::format("scheme_handler: 404 {}", filePath));
-      id resp = makeResponse(urlObj, 404);
-      msgSend_void(task, sel_getUid("didReceiveResponse:"), resp);
-      msgSend_void(task, sel_getUid("didFinish"));
+      NSHTTPURLResponse* resp = [[NSHTTPURLResponse alloc]
+          initWithURL:urlObj statusCode:404
+          HTTPVersion:@"HTTP/1.1" headerFields:nil];
+      [taskObj didReceiveResponse:resp];
+      [taskObj didFinish];
       return nil;
     }
 
@@ -138,39 +103,23 @@ static id startURLSchemeTask(id self, SEL _cmd, id webView, id task) {
     }
 
     // Build NSDictionary header: { @"Content-Type": mime_str }
-    id contentTypeKey = nsstr("Content-Type");
-    id contentTypeVal = nsstr(mime.c_str());
-    id keys = msgSend_id(
-        msgSend_id((id)objc_getClass("NSArray"), sel_getUid("alloc")),
-        sel_getUid("initWithObjects:count:"),
-        &contentTypeKey, (NSUInteger)1);
-    id values = msgSend_id(
-        msgSend_id((id)objc_getClass("NSArray"), sel_getUid("alloc")),
-        sel_getUid("initWithObjects:count:"),
-        &contentTypeVal, (NSUInteger)1);
-
-    id headers = msgSend_id(
-        msgSend_id((id)objc_getClass("NSDictionary"), sel_getUid("alloc")),
-        sel_getUid("initWithObjects:forKeys:count:"),
-        values, keys, (NSUInteger)1);
+    NSDictionary* headers = @{
+      @"Content-Type": [NSString stringWithUTF8String:mime.c_str()]
+    };
 
     // Response with 200
-    id response = msgSend_id(
-        msgSend_id((id)objc_getClass("NSHTTPURLResponse"),
-                   sel_getUid("alloc")),
-        sel_getUid("initWithURL:statusCode:HTTPVersion:headerFields:"),
-        urlObj, (NSInteger)200, nsstr("HTTP/1.1"), headers);
+    NSHTTPURLResponse* response = [[NSHTTPURLResponse alloc]
+        initWithURL:urlObj statusCode:200
+        HTTPVersion:@"HTTP/1.1" headerFields:headers];
 
-    msgSend_void(task, sel_getUid("didReceiveResponse:"), response);
+    [taskObj didReceiveResponse:response];
 
     // Data
-    id nsData = msgSend_id(
-        msgSend_id((id)objc_getClass("NSData"), sel_getUid("alloc")),
-        sel_getUid("initWithBytes:length:"),
-        data.data(), (NSUInteger)data.size());
+    NSData* nsData = [[NSData alloc]
+        initWithBytes:data.data() length:(NSUInteger)data.size()];
 
-    msgSend_void(task, sel_getUid("didReceiveData:"), nsData);
-    msgSend_void(task, sel_getUid("didFinish"));
+    [taskObj didReceiveData:nsData];
+    [taskObj didFinish];
   }
 
   return nil;
@@ -217,9 +166,10 @@ void registerWKURLSchemeHandler(void* configPtr) {
     debug::info("scheme_handler: created CoconutSchemeHandler class");
   }
 
-  id handler = msgSend_id(
-      msgSend_id((id)g_handler_class, sel_getUid("alloc")),
-      sel_getUid("init"));
+  debug::info("scheme_handler: about to alloc handler...");
+
+  // Use standard ObjC syntax for alloc/init so ARC handles memory properly.
+  id handler = [[(id)g_handler_class alloc] init];
 
   if (!handler) {
     debug::error("scheme_handler: failed to create handler instance");
@@ -233,8 +183,7 @@ void registerWKURLSchemeHandler(void* configPtr) {
     return;
   }
 
-  id schemeStr = nsstr("coconut");
-  msgSend_void(config, setHandlerSel, handler, schemeStr);
+  [(WKWebViewConfiguration*)config setURLSchemeHandler:handler forURLScheme:@"coconut"];
 
   debug::info("scheme_handler: registered coconut:// scheme handler");
 }

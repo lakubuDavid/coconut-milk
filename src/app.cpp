@@ -19,7 +19,7 @@ std::expected<App *, Error> create(Config *configs) {
     return std::unexpected(ctx.error());
   }
 
-  // Create the native webview window.
+  debug::info("app::create: context created, creating webview...");
   // TODO: wire Config::debug when the field is added to Config.
   webview_t wv = webview_create(0, NULL);
   if (wv == nullptr) {
