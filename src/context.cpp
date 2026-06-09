@@ -6,13 +6,36 @@
 #include "dialog.h"
 #include "window.h"
 
-// ObjC runtime for native window operations
-#include <objc/message.h>
-#include <objc/runtime.h>
-
-// NSInteger/NSUInteger not available from raw ObjC headers alone
-typedef long NSInteger;
-typedef unsigned long NSUInteger;
+// Platform dispatch for native window handle operations
+#if defined(__APPLE__)
+  #include "platform/darwin/window_handle.h"
+#elif defined(_WIN32)
+  // Win32 stubs for window handle ops (inline nops)
+  namespace coconut::window {
+    inline void platformMoveWindow(webview_t, int, int) {}
+    inline void platformSetWindowPosition(webview_t, int, int) {}
+    inline void platformGetWindowPosition(webview_t, int& x, int& y) { x=y=0; }
+    inline void platformMinimizeWindow(webview_t) {}
+    inline void platformMaximizeWindow(webview_t) {}
+    inline void platformToggleFullscreen(webview_t) {}
+    inline void platformSetFullscreen(webview_t, bool) {}
+    inline void platformSetMovableByBackground(webview_t, bool) {}
+  }
+#elif defined(__linux__)
+  // Linux stubs
+  namespace coconut::window {
+    inline void platformMoveWindow(webview_t, int, int) {}
+    inline void platformSetWindowPosition(webview_t, int, int) {}
+    inline void platformGetWindowPosition(webview_t, int& x, int& y) { x=y=0; }
+    inline void platformMinimizeWindow(webview_t) {}
+    inline void platformMaximizeWindow(webview_t) {}
+    inline void platformToggleFullscreen(webview_t) {}
+    inline void platformSetFullscreen(webview_t, bool) {}
+    inline void platformSetMovableByBackground(webview_t, bool) {}
+  }
+#else
+  #error "Unsupported platform"
+#endif
 
 namespace coconut {
 
@@ -102,46 +125,26 @@ namespace coconut {
   }
 
   void CoconutWindowHandle::minimize() {
-    if (!app || !app->webview) return;
-    using id = struct objc_object*;
-    using SEL = struct objc_selector*;
-    id win = (id)webview_get_window(app->webview);
-    if (win) {
-      ((void(*)(id, SEL, id))objc_msgSend)(win, sel_registerName("miniaturize:"), (id)nullptr);
+    if (app && app->webview) {
+      window::platformMinimizeWindow(app->webview);
     }
   }
 
   void CoconutWindowHandle::maximize() {
-    if (!app || !app->webview) return;
-    using id = struct objc_object*;
-    using SEL = struct objc_selector*;
-    id win = (id)webview_get_window(app->webview);
-    if (win) {
-      ((void(*)(id, SEL, id))objc_msgSend)(win, sel_registerName("performZoom:"), (id)nullptr);
+    if (app && app->webview) {
+      window::platformMaximizeWindow(app->webview);
     }
   }
 
   void CoconutWindowHandle::setFullscreen(bool on) {
-    if (!app || !app->webview) return;
-    using id = struct objc_object*;
-    using SEL = struct objc_selector*;
-    id win = (id)webview_get_window(app->webview);
-    if (win) {
-      NSUInteger mask = ((NSUInteger(*)(id, SEL))objc_msgSend)(win, sel_registerName("styleMask"));
-      bool isFull = (mask & (1 << 14)) != 0;
-      if (isFull != on) {
-        ((void(*)(id, SEL, id))objc_msgSend)(win, sel_registerName("toggleFullScreen:"), (id)nullptr);
-      }
+    if (app && app->webview) {
+      window::platformSetFullscreen(app->webview, on);
     }
   }
 
   void CoconutWindowHandle::toggleFullscreen() {
-    if (!app || !app->webview) return;
-    using id = struct objc_object*;
-    using SEL = struct objc_selector*;
-    id win = (id)webview_get_window(app->webview);
-    if (win) {
-      ((void(*)(id, SEL, id))objc_msgSend)(win, sel_registerName("toggleFullScreen:"), (id)nullptr);
+    if (app && app->webview) {
+      window::platformToggleFullscreen(app->webview);
     }
   }
 
@@ -152,65 +155,28 @@ namespace coconut {
   }
 
   void CoconutWindowHandle::setMovableByBackground(bool on) {
-    if (!app || !app->webview) return;
-    using id = struct objc_object*;
-    using SEL = struct objc_selector*;
-    id win = (id)webview_get_window(app->webview);
-    if (win) {
-      ((void(*)(id, SEL, BOOL))objc_msgSend)(
-          win, sel_registerName("setMovableByWindowBackground:"),
-          on ? (BOOL)YES : (BOOL)NO);
+    if (app && app->webview) {
+      window::platformSetMovableByBackground(app->webview, on);
     }
   }
 
   void CoconutWindowHandle::setPosition(int x, int y) {
-    if (!app || !app->webview) return;
-    using id = struct objc_object*;
-    using SEL = struct objc_selector*;
-    id win = (id)webview_get_window(app->webview);
-    if (!win) return;
-
-    // setFrameTopLeftPoint: positions using top-left screen coordinates.
-    struct CGPoint { double x; double y; };
-    CGPoint pt = {(double)x, (double)y};
-    SEL sel = sel_registerName("setFrameTopLeftPoint:");
-    ((void(*)(id, SEL, CGPoint))objc_msgSend)(win, sel, pt);
+    if (app && app->webview) {
+      window::platformSetWindowPosition(app->webview, x, y);
+    }
   }
 
   void CoconutWindowHandle::move(const CoconutPoint& offset) {
-    if (!app || !app->webview) return;
-    using id = struct objc_object*;
-    using SEL = struct objc_selector*;
-    id win = (id)webview_get_window(app->webview);
-    if (!win) return;
-
-    // NSRect is 32 bytes → must use objc_msgSend_stret on all architectures.
-    union NSRect { double d[4]; struct { double x, y, w, h; } r; };
-    NSRect frame;
-    SEL frameSel = sel_registerName("frame");
-    frame = ((NSRect(*)(id, SEL))objc_msgSend_stret)(win, frameSel);
-
-    struct CGPoint { double x; double y; };
-    CGPoint pt = {frame.r.x + offset.x, frame.r.y + offset.y};
-    SEL setSel = sel_registerName("setFrameOrigin:");
-    ((void(*)(id, SEL, CGPoint))objc_msgSend)(win, setSel, pt);
+    if (app && app->webview) {
+      window::platformMoveWindow(app->webview, offset.x, offset.y);
+    }
   }
 
   CoconutPoint CoconutWindowHandle::getPosition() {
     CoconutPoint result{};
-    if (!app || !app->webview) return result;
-    using id = struct objc_object*;
-    using SEL = struct objc_selector*;
-    id win = (id)webview_get_window(app->webview);
-    if (!win) return result;
-
-    union NSRect { double d[4]; struct { double x, y, w, h; } r; };
-    NSRect frame;
-    SEL frameSel = sel_registerName("frame");
-    frame = ((NSRect(*)(id, SEL))objc_msgSend_stret)(win, frameSel);
-
-    result.x = static_cast<int>(frame.r.x);
-    result.y = static_cast<int>(frame.r.y);
+    if (app && app->webview) {
+      window::platformGetWindowPosition(app->webview, result.x, result.y);
+    }
     return result;
   }
 

@@ -56,6 +56,7 @@ target("coconut-milk")
     add_files("src/*.cpp")
     if is_plat("macosx") then
         add_files("src/platform/darwin/*.cpp")
+        add_files("src/platform/darwin/*.mm")
     elseif is_plat("windows") then
         add_files("src/platform/win/*.cpp")
     elseif is_plat("linux") then
@@ -103,6 +104,7 @@ target("coconut-milk-tests")
     )
     if is_plat("macosx") then
         add_files("src/platform/darwin/*.cpp")
+        add_files("src/platform/darwin/*.mm")
     elseif is_plat("windows") then
         add_files("src/platform/win/*.cpp")
     elseif is_plat("linux") then
