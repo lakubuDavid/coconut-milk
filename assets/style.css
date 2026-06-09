@@ -8,7 +8,7 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #0f0f13dd;
+  background: #0f0f13;
   color: #e4e4e7;
   min-height: 100vh;
 }
@@ -194,21 +194,4 @@ input[type="checkbox"] {
 
 .result-msg.error {
   color: #fca5a5;
-}
-
-/* ── Transparent window support ── */
-@media (prefers-color-scheme: dark) {
-  body.transparent-window {
-    background: transparent !important;
-  }
-
-  .transparent-window .card {
-    background: rgba(26, 26, 36, 0.85);
-    backdrop-filter: blur(12px);
-  }
-
-  .transparent-window .titlebar,
-  .transparent-window nav {
-    background: rgba(26, 26, 36, 0.7);
-  }
 }

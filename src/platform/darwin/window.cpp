@@ -41,16 +41,35 @@ void platformApplyWindowStyle(webview_t wv, Config* cfg) {
     // Add full-size content view so the webview fills behind the title bar
     mask |= (1UL << 15); // NSWindowStyleMaskFullSizeContentView
 
+    // Keep titled so traffic lights remain reservable (even if hidden).
+    // Without Titled, closable/miniaturizable/resizable have no effect.
     ((void(*)(id, SEL, NSUInteger))objc_msgSend)(
         win, sel_registerName("setStyleMask:"), mask);
 
-    // Make the title bar transparent
+    // Make the title bar background transparent
     ((void(*)(id, SEL, BOOL))objc_msgSend)(
         win, sel_registerName("setTitlebarAppearsTransparent:"), YES);
+
+    // Hide the title text string from the titlebar
+    // NSWindowTitleHidden = 1, NSWindowTitleVisible = 0
+    ((void(*)(id, SEL, NSUInteger))objc_msgSend)(
+        win, sel_registerName("setTitleVisibility:"), (NSUInteger)1);
 
     // Allow dragging the window from the webview content.
     ((void(*)(id, SEL, BOOL))objc_msgSend)(
         win, sel_registerName("setMovableByWindowBackground:"), YES);
+
+    // Hide the native traffic-light buttons (close / minimize / zoom)
+    // since the HTML titlebar provides custom window controls.
+    // NSWindowButton enum: CloseButton=0, MiniaturizeButton=1, ZoomButton=2
+    SEL swbSel = sel_registerName("standardWindowButton:");
+    for (NSUInteger btn = 0; btn <= 2; ++btn) {
+      id button = ((id(*)(id, SEL, NSUInteger))objc_msgSend)(win, swbSel, btn);
+      if (button) {
+        ((void(*)(id, SEL, BOOL))objc_msgSend)(
+            button, sel_registerName("setHidden:"), YES);
+      }
+    }
 
     debug::info("platformApplyWindowStyle: frameless");
   }
