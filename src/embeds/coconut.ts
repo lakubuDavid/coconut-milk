@@ -26,6 +26,14 @@ declare function __coconut_call(name: string, payloadJson: string): Promise<stri
 
 /**
  * Bound by C++.
+ * Used by `coconut.views()`.
+ *
+ * @returns A JSON string array of registered view names.
+ */
+declare function __coconut_list_views(): Promise<string>
+
+/**
+ * Bound by C++.
  * Used by `coconut.emit(...)`.
  *
  * Success may return empty/undefined. If it returns JSON, it must be an error envelope.
@@ -168,6 +176,20 @@ const coconut = {
       message: 'Invalid response envelope from __coconut_call',
       details: env,
     } satisfies CoconutError
+  },
+
+  /**
+   * Return the list of registered view names.
+   */
+  views: async (): Promise<string[]> => {
+    await coconut.ready()
+    const resJson = await __coconut_list_views()
+    try {
+      const arr = JSON.parse(resJson)
+      return Array.isArray(arr) ? arr : []
+    } catch {
+      return []
+    }
   },
 }
 

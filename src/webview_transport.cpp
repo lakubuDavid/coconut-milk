@@ -33,6 +33,11 @@ WebviewTransport::WebviewTransport(webview_t w, coconut::App* app,
   // webview:   req = JSON.stringify([msgJson])
   //            promise resolved by webview_return() called from handler
   webview_bind(w, "__coconut_rpc", &WebviewTransport::static_on_rpc, this);
+
+  // Bind the list-views query — returns view names as a JSON string array.
+  // JS calls:  let names = await window.__coconut_list_views()
+  webview_bind(w, "__coconut_list_views",
+               &WebviewTransport::static_list_views, this);
 }
 
 WebviewTransport::~WebviewTransport() {
@@ -118,6 +123,25 @@ void WebviewTransport::static_on_rpc(const char* id, const char* req,
       webview_return(self->m_webview, id, 0, "");
       break;
   }
+}
+
+// static
+void WebviewTransport::static_list_views(const char* id, const char* req,
+                                          void* arg) {
+  auto* self = static_cast<WebviewTransport*>(arg);
+  if (!self || !self->m_webview) {
+    return;
+  }
+
+  nlohmann::json names = nlohmann::json::array();
+  if (self->m_app && self->m_app->window) {
+    for (const auto& [name, _] : self->m_app->window->views) {
+      names.push_back(name);
+    }
+  }
+
+  // Return the array — webview expects a JSON string.
+  webview_return(self->m_webview, id, 0, names.dump().c_str());
 }
 
 void WebviewTransport::handleCall(const char* id, const rpc::Message& msg) {

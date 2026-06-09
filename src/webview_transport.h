@@ -53,6 +53,9 @@ private:
   /// Static webview bind callback — dispatches to instance.
   static void static_on_rpc(const char* id, const char* req, void* arg);
 
+  /// Static webview bind callback — returns view names as JSON array.
+  static void static_list_views(const char* id, const char* req, void* arg);
+
   /// Handle an inbound kCall: invoke Lua command, respond via webview_return.
   void handleCall(const char* id, const rpc::Message& msg);
 

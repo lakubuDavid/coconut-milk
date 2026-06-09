@@ -6,6 +6,7 @@ function coconut.views()
     home = View.load("views/home.html"),
     note = View.load("views/note.html"),
     commands=View.load("views/commands.html"),
+    settings=View.load("views/settings.html"),
   }
 end
 
@@ -14,7 +15,6 @@ end
 --- overrides on top of the defaults from coconut.config.lua.
 function coconut.config(ctx)
   ctx
-      :setBrowser("auto")
       :setWindowSize({ w = 1280, h = 640 })
       :setTitle("Coconut Milk")
       :setResizable(true)
@@ -26,26 +26,14 @@ function coconut.config(ctx)
   return ctx
 end
 
---- Called when the window is resized.
-function coconut.onResize(ctx, w, h)
-  -- coconut.emit("on_resize", { w = w, h = h })
-  print(w, h)
-end
-
 --- Love2D-like dispatcher for frontend → Lua events.
 function coconut.events(name, payload, ctx)
   coconut.info("event: " .. name)
 
   if name == "navigate" then
     ctx:show(payload.view)
-  elseif name == "resize" then
-    print(payload.w, payload.h)
-  elseif name == "grab_start" then
-    coconut.warn("GRAB: window grab started")
   elseif name == "move" then
     ctx.window:move({ x = payload.dx, y = -payload.dy })
-  elseif name == "grab_end" then
-    coconut.warn("GRAB: window grab ended")
   end
 end
 

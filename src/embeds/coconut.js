@@ -84,6 +84,16 @@ var coconut = {
       message: "Invalid response envelope from __coconut_call",
       details: env
     };
+  },
+  views: async () => {
+    await coconut.ready();
+    const resJson = await __coconut_list_views();
+    try {
+      const arr = JSON.parse(resJson);
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
   }
 };
 globalThis.coconut = coconut;
