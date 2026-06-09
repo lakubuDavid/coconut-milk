@@ -2,6 +2,7 @@ return {
   browser = "webview",
   window_width = 1280,
   window_height = 720,
+  frameless = true,
   initial_view = "home",
   view_root = "views",
   asset_root = "assets",

@@ -9,6 +9,11 @@
 // Custom URL scheme handler for coconut:// assets.
 #include "platform/scheme_handler.h"
 
+// Platform window creation
+#if defined(__APPLE__)
+#include "platform/darwin/create_window.h"
+#endif
+
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -26,6 +31,7 @@ int main() {
   auto cfg_result = coconut::loadConfig();
   if (cfg_result) {
     cfg = cfg_result.value();
+    debug::info(std::format("config loaded: frameless={}", cfg.frameless));
   } else {
     const auto err = cfg_result.error();
     debug::warn(std::format("Config load failed (keeping defaults): {} ({})",
@@ -42,7 +48,30 @@ int main() {
 
   debug::info("main: creating app...");
   // Step 2: create app (App core owns WebUI window id + context).
-  auto app_result = coconut::app::create(&cfg);
+  // On macOS, if frameless mode is enabled, create a frameless NSWindow
+  // BEFORE calling app::create() so the webview uses our frameless window.
+  void* nativeWindow = nullptr;
+#if defined(__APPLE__)
+  if (cfg.frameless) {
+    debug::info("main: frameless=true, creating frameless NSWindow...");
+    int w = cfg.window_width > 0 ? cfg.window_width : 1280;
+    int h = cfg.window_height > 0 ? cfg.window_height : 720;
+    nativeWindow = coconut::platform::createFramelessWindow(100, 100, w, h);
+    if (nativeWindow) {
+      debug::info("main: frameless NSWindow created successfully");
+    } else {
+      debug::warn("main: failed to create frameless window, using default");
+    }
+  } else {
+    debug::info("main: frameless=false, using default window");
+  }
+  // For now, don't pass the window to webview_create to avoid crashes
+  // TODO: fix the crash when passing native window
+  nativeWindow = nullptr;
+#else
+  (void)nativeWindow;
+#endif
+  auto app_result = coconut::app::create(&cfg, nativeWindow);
   if (!app_result) {
     debug::error(std::format("Failed to create app: {}", app_result.error().message));
     return 1;

@@ -38,7 +38,8 @@ namespace coconut {
   namespace app {
 
     /// Allocate an App. Does not own/destroy the shared Config.
-    std::expected<App*, Error> create(Config* configs);
+    /// If nativeWindow is provided (non-null), uses that window instead of creating a new one.
+    std::expected<App*, Error> create(Config* configs, void* nativeWindow = nullptr);
 
     /// Destroy the App and owned runtime submodules.
     /// Does not destroy the shared Config.

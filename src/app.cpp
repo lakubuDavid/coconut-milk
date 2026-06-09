@@ -7,7 +7,7 @@
 
 namespace coconut::app {
 
-std::expected<App *, Error> create(Config *configs) {
+std::expected<App *, Error> create(Config *configs, void* nativeWindow) {
   if (configs == nullptr) {
     return std::unexpected(
         Error{.code = ErrorCode::InvalidConfig,
@@ -21,7 +21,7 @@ std::expected<App *, Error> create(Config *configs) {
 
   debug::info("app::create: context created, creating webview...");
   // TODO: wire Config::debug when the field is added to Config.
-  webview_t wv = webview_create(0, NULL);
+  webview_t wv = webview_create(0, nativeWindow);
   if (wv == nullptr) {
     context::destroy(ctx.value());
     return std::unexpected(Error{.code = ErrorCode::WebUiError,

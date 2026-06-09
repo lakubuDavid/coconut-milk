@@ -61,6 +61,34 @@ static void hideAllButtonsInView(NSView* view) {
   }
 }
 
+/// Hide traffic lights and title by traversing the view hierarchy.
+/// The webview-created window doesn't have standardWindowButton:, so
+/// we need to find the buttons through the titlebar view hierarchy.
+static void hideTrafficLights(NSWindow* win) {
+  debug::info("hiding traffic lights via titlebar view hierarchy...");
+  
+  NSView* contentView = win.contentView;
+  if (!contentView) {
+    debug::warn("no contentView found");
+    return;
+  }
+  
+  // Navigate: contentView -> NSThemeFrame -> NSTitlebarContainerView -> NSTitlebarView
+  NSView* themeFrame = contentView.superview;
+  if (!themeFrame) {
+    debug::warn("no NSThemeFrame found");
+    return;
+  }
+  
+  debug::info("found NSThemeFrame, logging hierarchy...");
+  logAllSubviews(themeFrame, 0);
+  
+  // Recursively hide titlebar elements (NSTitlebarView contains traffic lights)
+  hideTitlebarElements(themeFrame);
+  
+  debug::info("traffic lights hidden");
+}
+
 void platformApplyWindowStyle(webview_t wv, Config* cfg) {
   if (wv == nullptr || cfg == nullptr) return;
 
@@ -70,53 +98,41 @@ void platformApplyWindowStyle(webview_t wv, Config* cfg) {
     return;
   }
 
-  // ── Hide traffic lights ───────────────────────────────────────────────
-  // The webview-created window may not have standardWindowButton:, so
-  // we access the buttons through the titlebar view hierarchy.
-  debug::info("hiding traffic lights via titlebar view...");
-  
-  NSView* contentView = win.contentView;
-  NSView* titlebarView = contentView.superview;
-  
-  debug::info("contentView = " + std::to_string((NSInteger)contentView));
-  debug::info("titlebarView = " + std::to_string((NSInteger)titlebarView));
-  
-  if (titlebarView) {
-    debug::info("titlebarView exists, logging full hierarchy...");
-    
-    // Log all views to find where traffic lights are
-    logAllSubviews(titlebarView, 0);
-    
-    // Recursively hide titlebar elements
-    hideTitlebarElements(titlebarView);
-    
-    debug::info("traffic lights hidden");
-  } else {
-    debug::warn("no titlebarView found");
-  }
-
   // ── Frameless ────────────────────────────────────────────────────────
   if (cfg->frameless) {
-    // Remove Titled bit from styleMask — hides titlebar.
-    // Keep other bits (resizable, closable, miniaturizable) for programmatic use.
+    // Approach from Stack Overflow: Use NSFullSizeContentViewWindowMask
+    // with titlebarAppearsTransparent and titleVisibility = hidden.
+    // This allows content to extend under titlebar area without removing
+    // the Titled bit (which can't be removed after window is displayed).
+    
     NSWindowStyleMask mask = win.styleMask;
     debug::info("frameless: before styleMask=" + std::to_string((NSUInteger)mask));
 
-    mask &= ~NSWindowStyleMaskTitled;
+    // Add full-size content view mask (allows content to extend under titlebar)
+    mask |= NSWindowStyleMaskFullSizeContentView;
+    
+    // Set titlebar properties to hide it
+    win.titlebarAppearsTransparent = YES;
+    win.titleVisibility = (NSWindowTitleVisibility)1;  // hidden
+    
     win.styleMask = mask;
 
-    // Force the window to recalculate its layout after style change.
-    [win setFrame:win.frame display:YES animate:NO];
+    // Hide traffic lights via view hierarchy traversal
+    hideTrafficLights(win);
+
+    // Try orderOut/orderFront to refresh appearance
+    [win orderOut:nil];
+    [win makeKeyAndOrderFront:nil];
+    [win display];
 
     debug::info("frameless: after styleMask=" + std::to_string((NSUInteger)win.styleMask));
 
     // Enable drag-from-content for HTML titlebar handling.
     win.movableByWindowBackground = YES;
-
-    // Restore drop shadow (borderless removes it by default).
+    // Restore drop shadow.
     win.hasShadow = YES;
 
-    debug::info("platformApplyWindowStyle: frameless");
+    debug::info("platformApplyWindowStyle: frameless (NSFullSizeContentView)");
   }
 
   // ── Transparency ─────────────────────────────────────────────────────
