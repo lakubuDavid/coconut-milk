@@ -1,0 +1,569 @@
+#!/usr/bin/env luajit
+--- create-coconut-app - Scaffold a new Coconut Milk project.
+---
+--- Usage:
+---   create-coconut-app [project-name] [options]
+---
+--- Options:
+---   -t, --template <bare|bare-ts|vite>   Template type (default: bare)
+---   -f, --framework <react|vue|solid>     Framework for vite template (default: vue)
+---   -y, --yes                            Skip prompts, use defaults
+---   -h, --help                           Show this help
+---
+--- Templates:
+---   bare      Coconut + raw HTML + CSS/JS
+---   bare-ts   bare + TypeScript + tsconfig
+---   vite      Coconut + Vite + framework (react/vue/solid)
+---
+
+local TEMPLATES = { bare = true, ["bare-ts"] = true, vite = true }
+local FRAMEWORKS = { react = true, vue = true, solid = true }
+
+-- ── Helpers ──────────────────────────────────────────────────────────────
+
+local function die(msg)
+  io.stderr:write("Error: " .. msg .. "\n")
+  os.exit(1)
+end
+
+local function log(msg)
+  io.write("* " .. msg .. "\n")
+end
+
+local function read_stdin()
+  return io.stdin:read("*l") or ""
+end
+
+local function prompt(label, default)
+  local dflt = default and (" [" .. default .. "]") or ""
+  io.write(label .. dflt .. ": ")
+  io.flush()
+  local val = read_stdin()
+  if val == "" and default then return default end
+  return val
+end
+
+local function prompt_select(label, options, default)
+  io.write(label .. ":\n")
+  for i, opt in ipairs(options) do
+    local marker = (opt == default) and " (default)" or ""
+    io.write(string.format("  %d) %s%s\n", i, opt, marker))
+  end
+  io.write("Choice" .. (default and (" [" .. default .. "]") or "") .. ": ")
+  io.flush()
+  local val = read_stdin()
+  if val == "" and default then return default end
+  for _, opt in ipairs(options) do
+    if val:lower() == opt:lower() then return opt end
+  end
+  local n = tonumber(val)
+  if n and n >= 1 and n <= #options then return options[n] end
+  return default or options[1]
+end
+
+local function shell(cmd)
+  local ok = os.execute(cmd)
+  if not ok then
+    die("command failed: " .. cmd)
+  end
+end
+
+local function mkdir(path)
+  os.execute("mkdir -p " .. path)
+end
+
+local function write_file(path, content)
+  local f, err = io.open(path, "w")
+  if not f then die("cannot write " .. path .. ": " .. (err or "unknown")) end
+  f:write(content)
+  f:close()
+end
+
+local function path_join(...)
+  return table.concat({ ... }, "/")
+end
+
+-- ── File generators ──────────────────────────────────────────────────────
+
+local GENERATORS = {}
+
+--- Generate coconut.config.lua
+function GENERATORS.coconut_config(project_name, template, framework)
+  local extra = {}
+  if template == "vite" then
+    extra = {
+      'local dev = os.getenv("COCONUT_DEV") == "1',
+      "",
+      'return {',
+      '  browser = "webview",',
+      '  initial_view = dev and "dev" or "app",',
+      '  view_root = "views",',
+      '  command_root = "commands",',
+      '  views = {',
+      '    app = { kind = "file", src = "dist/index.html" },',
+      '    dev = { kind = "url", src = "http://localhost:5173" },',
+      '  },',
+      '}',
+    }
+  else
+    extra = {
+      'return {',
+      '  browser = "webview",',
+      '  initial_view = "app",',
+      '  view_root = "views",',
+      '  command_root = "commands",',
+      '  views = {',
+      '    app = { kind = "file", src = "views/index.html" },',
+      '  },',
+      '}',
+    }
+  end
+  return table.concat(extra, "\n") .. "\n"
+end
+
+--- Generate main.lua
+function GENERATORS.main(project_name, template, framework)
+  local lines = {
+    '--- ' .. project_name .. ' - Coconut Milk entry point.',
+    '',
+    'function coconut.config(ctx)',
+    '  ctx',
+    '    :setWindowSize({ w = 960, h = 640 })',
+    '    :setTitle("' .. project_name .. '")',
+    '    :setResizable(true)',
+    '    :setInitialView("app")',
+    '  return ctx',
+    'end',
+    '',
+  }
+  if template == "vite" then
+    lines[#lines + 1] = 'local dev = os.getenv("COCONUT_DEV") == "1"'
+    lines[#lines + 1] = ''
+    lines[#lines + 1] = 'function coconut.views()'
+    lines[#lines + 1] = '  return {'
+    lines[#lines + 1] = '    app = View.load("dist/index.html"),'
+    lines[#lines + 1] = '    dev = View.url("http://localhost:5173"),'
+    lines[#lines + 1] = '  }'
+    lines[#lines + 1] = 'end'
+  else
+    lines[#lines + 1] = 'function coconut.views()'
+    lines[#lines + 1] = '  return {'
+    lines[#lines + 1] = '    app = View.load("views/index.html"),'
+    lines[#lines + 1] = '  }'
+    lines[#lines + 1] = 'end'
+  end
+  lines[#lines + 1] = ''
+  return table.concat(lines, "\n")
+end
+
+--- Generate index.html (bare / bare-ts)
+function GENERATORS.index_html(project_name)
+  return [[<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>]] .. project_name .. [[</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>]] .. project_name .. [[</h1>
+  <p>Powered by Coconut Milk.</p>
+  <script src="app.js"></script>
+</body>
+</html>
+]]
+end
+
+--- Generate style.css (bare / bare-ts)
+function GENERATORS.style_css()
+  return [[* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #121c1a;
+  color: #e8f4f0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+h1 { font-size: 2.5rem; margin-bottom: 1rem; }
+p  { font-size: 1.2rem; color: #90a9a2; }
+]]
+end
+
+--- Generate app.js (bare)
+function GENERATORS.app_js()
+  return [[// Coconut Milk app.
+// Use coconut.call(), coconut.emit(), coconut.on() to talk to Lua.
+
+console.log('Hello from Coconut Milk!');
+]]
+end
+
+--- Generate app.ts (bare-ts)
+function GENERATORS.app_ts()
+  return [[/// <reference lib="dom" />
+
+// Coconut Milk app with TypeScript.
+// Use coconut.call(), coconut.emit(), coconut.on() to talk to Lua.
+
+const app = document.querySelector<HTMLHeadingElement>('h1')
+if (app) {
+  app.textContent = 'Ready'
+}
+
+console.log('Hello from Coconut Milk (TypeScript)!')
+]]
+end
+
+--- Generate tsconfig.json (bare-ts)
+function GENERATORS.tsconfig()
+  return [[{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "strict": true,
+    "esModuleInterop": true,
+    "moduleResolution": "bundler",
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": true,
+    "sourceMap": true
+  },
+  "include": ["src"]
+}
+]]
+end
+
+--- Generate commands/example.lua
+function GENERATORS.example_command()
+  return [[--- Example command for the Coconut Milk app.
+--- Demonstrates @command annotations used by the code generator.
+
+local json = coconut.json
+local fs = coconut.fs
+
+---@command ping
+---@return { message: string }
+local function ping(params, ctx)
+  return { message = "pong" }
+end
+
+---@command greet
+---@param params { name: string }
+---@return { greeting: string }
+local function greet(params, ctx)
+  local name = params.name or "world"
+  return { greeting = "Hello, " .. name .. "!" }
+end
+
+return {
+  ping = ping,
+  greet = greet,
+}
+]]
+end
+
+--- Generate commands/example.g.js (for frontend consumption)
+function GENERATORS.example_g_js()
+  return [[// Auto-generated command wrappers. Do not edit.
+// @ts-check
+
+/**
+ * @returns {Promise<{message: string}>}
+ */
+export async function ping() {
+  return __coconut_call("ping", {});
+}
+
+/**
+ * @param {{name?: string}} params
+ * @returns {Promise<{greeting: string}>}
+ */
+export async function greet(params) {
+  return __coconut_call("greet", {params});
+}
+]]
+end
+
+--- Generate README.md
+function GENERATORS.readme(project_name, template, framework)
+  local lines = {
+    '# ' .. project_name,
+    '',
+    'A Coconut Milk project.',
+    '',
+    '## Getting Started',
+    '',
+  }
+  if template == "vite" then
+    lines[#lines + 1] = '### Dev mode (hot reload)'
+    lines[#lines + 1] = ''
+    lines[#lines + 1] = '```bash'
+    lines[#lines + 1] = '# Terminal 1: start Vite dev server'
+    lines[#lines + 1] = 'bun run dev'
+    lines[#lines + 1] = ''
+    lines[#lines + 1] = '# Terminal 2: run Coconut with env flag'
+    lines[#lines + 1] = 'COCONUT_DEV=1 /path/to/coconut-milk'
+    lines[#lines + 1] = '```'
+    lines[#lines + 1] = ''
+    lines[#lines + 1] = '### Production mode'
+    lines[#lines + 1] = ''
+    lines[#lines + 1] = '```bash'
+    lines[#lines + 1] = 'bun run build'
+    lines[#lines + 1] = '/path/to/coconut-milk'
+    lines[#lines + 1] = '```'
+  else
+    lines[#lines + 1] = '```bash'
+    lines[#lines + 1] = '/path/to/coconut-milk'
+    lines[#lines + 1] = '```'
+  end
+  lines[#lines + 1] = ''
+  lines[#lines + 1] = '## Structure'
+  lines[#lines + 1] = ''
+  lines[#lines + 1] = '```'
+  lines[#lines + 1] = project_name .. '/'
+  lines[#lines + 1] = '├── coconut.config.lua'
+  lines[#lines + 1] = '├── main.lua'
+  lines[#lines + 1] = '├── commands/'
+  lines[#lines + 1] = '│   ├── example.lua'
+  lines[#lines + 1] = '│   └── example.g.js'
+  lines[#lines + 1] = '└── views/'
+  if template == "bare-ts" then
+    lines[#lines + 1] = '    ├── index.html'
+    lines[#lines + 1] = '    ├── style.css'
+    lines[#lines + 1] = '    ├── app.ts'
+    lines[#lines + 1] = '    └── tsconfig.json'
+  elseif template == "vite" then
+    lines[#lines + 1] = '    └── (Vite project files)'
+  else
+    lines[#lines + 1] = '    ├── index.html'
+    lines[#lines + 1] = '    ├── style.css'
+    lines[#lines + 1] = '    └── app.js'
+  end
+  lines[#lines + 1] = '```'
+  lines[#lines + 1] = ''
+  return table.concat(lines, "\n")
+end
+
+-- ── Scaffold functions ────────────────────────────────────────────────────
+
+local function scaffold_bare(project_dir, project_name)
+  log("Scaffolding bare project...")
+
+  mkdir(path_join(project_dir, "commands"))
+  mkdir(path_join(project_dir, "views"))
+
+  write_file(path_join(project_dir, "coconut.config.lua"),
+    GENERATORS.coconut_config(project_name, "bare"))
+  write_file(path_join(project_dir, "main.lua"),
+    GENERATORS.main(project_name, "bare"))
+  write_file(path_join(project_dir, "views/index.html"),
+    GENERATORS.index_html(project_name))
+  write_file(path_join(project_dir, "views/style.css"),
+    GENERATORS.style_css())
+  write_file(path_join(project_dir, "views/app.js"),
+    GENERATORS.app_js())
+  write_file(path_join(project_dir, "commands/example.lua"),
+    GENERATORS.example_command())
+  write_file(path_join(project_dir, "commands/example.g.js"),
+    GENERATORS.example_g_js())
+  write_file(path_join(project_dir, "README.md"),
+    GENERATORS.readme(project_name, "bare"))
+end
+
+local function scaffold_bare_ts(project_dir, project_name)
+  log("Scaffolding bare-ts project...")
+
+  mkdir(path_join(project_dir, "commands"))
+  mkdir(path_join(project_dir, "views"))
+  mkdir(path_join(project_dir, "src"))
+
+  write_file(path_join(project_dir, "coconut.config.lua"),
+    GENERATORS.coconut_config(project_name, "bare-ts"))
+  write_file(path_join(project_dir, "main.lua"),
+    GENERATORS.main(project_name, "bare-ts"))
+  write_file(path_join(project_dir, "views/index.html"),
+    GENERATORS.index_html(project_name))
+  write_file(path_join(project_dir, "views/style.css"),
+    GENERATORS.style_css())
+  write_file(path_join(project_dir, "src/app.ts"),
+    GENERATORS.app_ts())
+  write_file(path_join(project_dir, "tsconfig.json"),
+    GENERATORS.tsconfig())
+  write_file(path_join(project_dir, "commands/example.lua"),
+    GENERATORS.example_command())
+  write_file(path_join(project_dir, "commands/example.g.js"),
+    GENERATORS.example_g_js())
+  write_file(path_join(project_dir, "README.md"),
+    GENERATORS.readme(project_name, "bare-ts"))
+end
+
+local function scaffold_vite(project_dir, project_name, framework)
+  log("Scaffolding vite + " .. framework .. " project...")
+
+  -- Create Vite project in a temp location
+  local tmp_cmd = io.popen("mktemp -d 2>/dev/null || echo /tmp/_coconut_vite_$$")
+  local tmp_dir = tmp_cmd:read("*l")
+  tmp_cmd:close()
+  os.execute("rm -rf " .. tmp_dir)
+  os.execute("mkdir -p " .. tmp_dir)
+
+  local cmd = "cd '" .. tmp_dir .. "' && bunx --yes create-vite@latest . --template " .. framework .. " --no-interactive 2>&1 </dev/null"
+  log("Running: bun create vite . --template " .. framework)
+  local ok = os.execute(cmd)
+  if not ok then
+    die("Failed to create Vite project. Is bun installed?")
+  end
+
+  -- Move Vite files into project dir (without nested subdirectory)
+  ok = os.execute("cp -r '" .. tmp_dir .. "'/. '" .. project_dir .. "' 2>/dev/null")
+  os.execute("rm -rf '" .. tmp_dir .. "'")
+
+  -- Upgrade to latest Vite + framework plugin
+  log("Upgrading to latest Vite...")
+  os.execute("cd " .. project_dir .. " && bun add vite@latest 2>&1 </dev/null")
+
+  -- Update vite.config for relative base
+  local vc_path = path_join(project_dir, "vite.config.js")
+  local vc = io.open(vc_path, "r")
+  if vc then
+    local content = vc:read("*a")
+    vc:close()
+    -- Add base: './' after plugins line
+    if not content:find("base:") then
+      content = content:gsub("(plugins:%s*%[.-%])", "%1,\n  base: './'")
+      write_file(vc_path, content)
+    end
+  end
+
+  -- Create coconut structure
+  mkdir(path_join(project_dir, "commands"))
+
+  write_file(path_join(project_dir, "coconut.config.lua"),
+    GENERATORS.coconut_config(project_name, "vite"))
+  write_file(path_join(project_dir, "main.lua"),
+    GENERATORS.main(project_name, "vite"))
+  write_file(path_join(project_dir, "commands/example.lua"),
+    GENERATORS.example_command())
+  write_file(path_join(project_dir, "commands/example.g.js"),
+    GENERATORS.example_g_js())
+  write_file(path_join(project_dir, "README.md"),
+    GENERATORS.readme(project_name, "vite", framework))
+
+  -- Install dependencies
+  log("Installing dependencies...")
+  os.execute("cd " .. project_dir .. " && bun install 2>&1 </dev/null")
+end
+
+-- ── Main ──────────────────────────────────────────────────────────────────
+
+local function parse_args()
+  local args = { name = nil, template = "bare", framework = "vue", yes = false }
+  local i = 1
+  while i <= #arg do
+    local a = arg[i]
+    if a == "-h" or a == "--help" then
+      -- Show help by re-reading this file's header
+      local f = io.open(arg[0] or "scripts/create-coconut-app")
+      if f then
+        local content = f:read("*a")
+        f:close()
+        -- Print lines starting with ---
+        for line in content:gmatch("(%-%-%-[^\n]*)\n") do
+          io.write(line:gsub("^%-%-%- ?", "") .. "\n")
+        end
+      end
+      os.exit(0)
+    elseif a == "-t" or a == "--template" then
+      i = i + 1
+      args.template = arg[i] or "bare"
+    elseif a == "-f" or a == "--framework" then
+      i = i + 1
+      args.framework = arg[i] or "vue"
+    elseif a == "-y" or a == "--yes" then
+      args.yes = true
+    elseif a:sub(1, 1) ~= "-" and not args.name then
+      args.name = a
+    end
+    i = i + 1
+  end
+  if not TEMPLATES[args.template] then args.template = "bare" end
+  if not FRAMEWORKS[args.framework] then args.framework = "vue" end
+  return args
+end
+
+-- ── CLI entry point ───────────────────────────────────────────────────────
+
+local function main()
+  local opts = parse_args()
+
+  -- Collect project name
+  local project_name = opts.name
+  if not project_name or project_name == "" then
+    project_name = prompt("Project name", "my-coconut-app")
+  end
+  if not project_name or project_name == "" then
+    die("Project name is required")
+  end
+
+  -- Collect template
+  local template = opts.template
+  if not opts.yes then
+    local templates_list = { "bare", "bare-ts", "vite" }
+    template = prompt_select("Template", templates_list, template)
+  end
+
+  -- Collect framework for vite
+  local framework = opts.framework
+  if template == "vite" and not opts.yes then
+    local frameworks_list = { "vue", "react", "solid" }
+    framework = prompt_select("Framework", frameworks_list, framework)
+  end
+
+  local project_dir = path_join(os.getenv("PWD") or ".", project_name)
+
+  -- Check if directory exists
+  local f = io.open(project_dir, "r")
+  if f then
+    f:close()
+    if not opts.yes then
+      io.write("Directory '" .. project_dir .. "' exists. Overwrite? [y/N]: ")
+      io.flush()
+      local ans = read_stdin()
+      if ans:lower() ~= "y" then
+        die("Aborted")
+      end
+    end
+    os.execute("rm -rf " .. project_dir)
+  end
+
+  mkdir(project_dir)
+
+  if template == "bare" then
+    scaffold_bare(project_dir, project_name)
+  elseif template == "bare-ts" then
+    scaffold_bare_ts(project_dir, project_name)
+  elseif template == "vite" then
+    scaffold_vite(project_dir, project_name, framework)
+  end
+
+  log("Done! Created project in " .. project_dir)
+  io.write("\nTo get started:\n")
+  io.write("  cd " .. project_name .. "\n")
+  io.write("  /path/to/coconut-milk\n")
+  if template == "vite" then
+    io.write("\nDev mode (with hot reload):\n")
+    io.write("  # Terminal 1: bun run dev\n")
+    io.write("  # Terminal 2: COCONUT_DEV=1 /path/to/coconut-milk\n")
+  end
+  io.write("\n")
+end
+
+main()
