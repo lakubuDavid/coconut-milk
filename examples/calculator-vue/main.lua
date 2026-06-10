@@ -1,9 +1,8 @@
---- Calculator Vue app entry point.
+local dev = os.getenv("COCONUT_DEV") == "1"
 
 function coconut.views()
-  local dev = os.getenv("COCONUT_DEV") == "1"
   return {
-    app = View.load("views/app.html"),
+    app = View.load("dist/index.html"),
     dev = View.url("http://localhost:5173"),
   }
 end
@@ -14,10 +13,6 @@ function coconut.config(ctx)
     :setTitle("Calculator")
     :setResizable(false)
     :setFrameless(true)
-    :setInitialView((os.getenv("COCONUT_DEV") == "1") and "dev" or "app")
+    :setInitialView(dev and "dev" or "app")
   return ctx
-end
-
-function coconut.events(name, payload, ctx)
-  -- no runtime events needed
 end
