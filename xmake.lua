@@ -4,9 +4,7 @@ add_rules("mode.debug", "mode.release")
 add_requires("luajit 2.*", "sol2 ~3.3.*")
 add_requires("nlohmann_json 3.12.0")
 
-add_includedirs("thirdparty/webui-2.5.0-beta.3/include")
 add_includedirs("thirdparty/webview/core/include")
-add_linkdirs("thirdparty/webui-2.5.0-beta.3/dist")
 
 set_languages("c11", "c++23")
 
@@ -67,7 +65,6 @@ target("coconut-milk")
     add_packages("luajit")
     add_packages("nlohmann_json")
     add_deps("webview")
-    add_links("webui-2-static")
 
 target("calculator-vue")
     set_kind("binary")
@@ -93,7 +90,6 @@ target("calculator-vue")
     add_packages("luajit")
     add_packages("nlohmann_json")
     add_deps("webview")
-    add_links("webui-2-static")
 
 -- Generators experiment target
 
@@ -140,7 +136,6 @@ target("coconut-milk-tests")
     add_packages("sol2")
     add_packages("luajit")
     add_packages("nlohmann_json")
-    add_links("webui-2-static")
 
 --
 -- If you want to known more usage about xmake, please see https://xmake.io
