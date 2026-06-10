@@ -42,15 +42,10 @@ static std::string configStringField(const std::string& text,
 }
 
 static std::string deriveModulePath(const std::string& filePath) {
-  std::string stem = filePath;
-  if (stem.size() >= 4 && stem.substr(stem.size() - 4) == ".lua")
-    stem = stem.substr(0, stem.size() - 4);
-  size_t slash = stem.find('/');
-  if (slash != std::string::npos)
-    stem = stem.substr(slash + 1);
-  for (auto& c : stem)
-    if (c == '/')
-      c = '.';
+  // Extract just the stem (filename without extension, no directory prefix).
+  // The .g.lua file is in the command_root, and that directory is added to
+  // package.path, so require("example") resolves to command_root/example.lua.
+  std::string stem = fs::path(filePath).stem().string();
   return stem;
 }
 

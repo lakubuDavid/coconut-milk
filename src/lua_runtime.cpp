@@ -566,7 +566,9 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
     debug::info(std::format("scanning {}/ for .g.lua files...", cmdRoot));
 
     // Add command root to package.path so the .g.lua's require() works.
-    std::string pkgPath = cmdRoot + "/?.lua;" + cmdRoot + "/?/init.lua";
+    // The leading ; ensures proper path separation (Lua's package.path
+    // doesn't always end with ;).
+    std::string pkgPath = ";" + cmdRoot + "/?.lua;" + cmdRoot + "/?/init.lua";
     lua.script("package.path = package.path .. '" + pkgPath + "'");
 
     sol::object ctx_obj = lua["ctx"];

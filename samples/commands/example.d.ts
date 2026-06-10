@@ -10,11 +10,10 @@
 declare function __coconut_call<T >(name: string, payload: Record<string, unknown>): Promise<T>;
 
 /**
-@description My command description
-Somthing
+@description 
 */
-declare function hello(arg0:{name?: string},) : Promise<[string]>;
+declare function hello(params:{name?: string},) : Promise<[string]>;
 /**
-@description My command description
+@description 
 */
-declare function hi(name:string,ctx:{name?: string},) : Promise<[string]>;
+declare function goodbye(params:{name?: string},) : Promise<[string]>;

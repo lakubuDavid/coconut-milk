@@ -31,6 +31,15 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
       return;
     }
 
+    // Only intercept user-initiated navigations (link clicks, form submits).
+    // Always allow sub-resource loads (CSS, JS, images, AJAX, initial page load).
+    WKNavigationType navType = [navigationAction navigationType];
+    if (navType != WKNavigationTypeLinkActivated &&
+        navType != WKNavigationTypeFormSubmitted) {
+      decisionHandler(WKNavigationActionPolicyAllow);
+      return;
+    }
+
     NSString* scheme = [nsURL scheme];
     NSString* host = [nsURL host];
 
@@ -175,7 +184,8 @@ void installNavDelegate(NSWindow* win) {
   }
   
   CoconutNavDelegate* delegate = [[CoconutNavDelegate alloc] init];
-  [wkWebView setValue:delegate forKey:@"navigationDelegate"];
+  // Use the direct property setter instead of KVC to avoid issues
+  [(WKWebView*)wkWebView setNavigationDelegate:delegate];
   
   _navDelegateInstalled = YES;
   debug::info("installNavDelegate: WKNavigationDelegate installed");
@@ -191,7 +201,8 @@ void platformApplyWindowStyle(webview_t wv, Config* cfg) {
   }
 
   // Install WKNavigationDelegate to intercept external URLs.
-  installNavDelegate(win);
+  // Disabled: causes white screen on first load
+  // installNavDelegate(win);
 
   // ── Frameless ────────────────────────────────────────────────────────
   if (cfg->frameless) {
