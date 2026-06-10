@@ -181,6 +181,8 @@ int main() {
       kind = window::VIEW_KIND_FILE;
     else if (entry.kind == "html")
       kind = window::VIEW_KIND_HTML;
+    else if (entry.kind == "url")
+      kind = window::VIEW_KIND_URL;
     else {
       debug::info(std::format("skipping view '{}': unknown kind '{}'",
                               name, entry.kind));

@@ -122,7 +122,16 @@ void showWindow(Window *window) {
       webview_set_html(window->webview, view->html.c_str());
       break;
     case VIEW_KIND_URL:
-      webview_set_html(window->webview, "<h1>URL views not yet implemented</h1>");
+      if (!view->path.empty()) {
+        // Navigate to the external URL.
+        // The Coconut JS runtime was injected globally via webview_init()
+        // in the transport layer and will be available on the remote page
+        // (WKUserScript with injectionTime=AtDocumentStart).
+        debug::info(std::format("navigating to URL: {}", view->path));
+        webview_navigate(window->webview, view->path.c_str());
+      } else {
+        webview_set_html(window->webview, "<h1>URL view: missing URL</h1>");
+      }
       break;
   }
 }
@@ -165,8 +174,11 @@ std::expected<View, Error> createView(std::string pathOrCode, ViewKind kind,
     view.html = pathOrCode;
     break;
   case VIEW_KIND_URL:
-    return std::unexpected(Error{.code = ErrorCode::NotImplementedYet,
-                                 .message = "URL views not yet implemented"});
+    // Store the URL — webview_navigate will load it directly.
+    // The Coconut JS runtime is injected globally via webview_init()
+    // from the transport layer, so it will be available on the remote page.
+    view.path = pathOrCode;
+    break;
   }
 
   // The Coconut frontend runtime is injected globally via webview_init()
