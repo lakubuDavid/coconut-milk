@@ -78,11 +78,8 @@
     <button class="win-btn" onclick="doToggleFullscreen()">□</button>
     <button class="win-btn" onclick="doClose()">✕</button>
   </div>
-  <nav>
-    <a href="#" data-view="home">Home</a>
-    <a href="#" class="active" data-view="note">Notes</a>
-    <a href="#" data-view="commands">Commands</a>
-  </nav>
+  <nav></nav>
+  <script>document.body.dataset.view = 'note';</script>
   <main>
     <h2 style="font-size:1.5rem;font-weight:600;margin-bottom:1.5rem;">📝 Notes <span id="note-stat"></span></h2>
 

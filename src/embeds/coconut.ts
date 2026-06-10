@@ -26,14 +26,6 @@ declare function __coconut_call(name: string, payloadJson: string): Promise<stri
 
 /**
  * Bound by C++.
- * Used by `coconut.views()`.
- *
- * @returns A JSON string array of registered view names.
- */
-declare function __coconut_list_views(): Promise<string>
-
-/**
- * Bound by C++.
  * Used by `coconut.emit(...)`.
  *
  * Success may return empty/undefined. If it returns JSON, it must be an error envelope.
@@ -131,9 +123,9 @@ const coconut = {
     }
   },
 
-  emit: async (event: string, params: CoconutPayload) : Promise<void> => {
+  emit: async (event: string, params?: CoconutPayload) : Promise<void> => {
     await coconut.ready()
-    const payloadJson = _stringifyPayload(params)
+    const payloadJson = _stringifyPayload(params ?? {})
 
     // ack envelope is optional; if you return a JSON envelope string from C++, we parse it.
     const ack = await __coconut_emit(event, payloadJson)
@@ -154,10 +146,10 @@ const coconut = {
 
   call: async <TResponse = unknown>(
     name: string,
-    params: CoconutPayload,
+    params?: CoconutPayload,
   ): Promise<TResponse> => {
     await coconut.ready()
-    const payloadJson = _stringifyPayload(params)
+    const payloadJson = _stringifyPayload(params ?? {})
 
     const resJson = await __coconut_call(name, payloadJson)
     const env = JSON.parse(resJson) as CoconutCallWireEnvelope
@@ -183,13 +175,45 @@ const coconut = {
    */
   views: async (): Promise<string[]> => {
     await coconut.ready()
-    const resJson = await __coconut_list_views()
     try {
-      const arr = JSON.parse(resJson)
-      return Array.isArray(arr) ? arr : []
+      const names = await coconut.call<string[]>("getViews", {})
+      return Array.isArray(names) ? names : []
     } catch {
       return []
     }
+  },
+
+  /**
+   * Ping the Lua bridge for connectivity.
+   */
+  ping: async (): Promise<string> => {
+    return coconut.call<string>("ping", {})
+  },
+
+  /**
+   * Window control helpers.
+   * Usage: coconut.window.minimize(), coconut.window.toggleFullscreen(), coconut.window.close()
+   */
+  window: {
+    minimize: async (): Promise<void> => {
+      await coconut.call("__coconut_window_ctl", { cmd: "minimize" })
+    },
+    toggleFullscreen: async (): Promise<void> => {
+      await coconut.call("__coconut_window_ctl", { cmd: "toggleFullscreen" })
+    },
+    close: async (): Promise<void> => {
+      await coconut.call("__coconut_window_ctl", { cmd: "close" })
+    },
+  },
+
+  /**
+   * Filesystem helpers.
+   * Usage: await coconut.fs.readText("/path/to/file")
+   */
+  fs: {
+    readText: async (path: string): Promise<{ ok: boolean; data?: string; error?: string }> => {
+      return coconut.call("fs_read_text", { path })
+    },
   },
 }
 

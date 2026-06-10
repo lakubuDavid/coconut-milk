@@ -55,7 +55,7 @@ var coconut = {
   },
   emit: async (event, params) => {
     await coconut.ready();
-    const payloadJson = _stringifyPayload(params);
+    const payloadJson = _stringifyPayload(params ?? {});
     const ack = await __coconut_emit(event, payloadJson);
     if (!ack || ack.length === 0)
       return;
@@ -70,7 +70,7 @@ var coconut = {
   },
   call: async (name, params) => {
     await coconut.ready();
-    const payloadJson = _stringifyPayload(params);
+    const payloadJson = _stringifyPayload(params ?? {});
     const resJson = await __coconut_call(name, payloadJson);
     const env = JSON.parse(resJson);
     if (env && typeof env === "object" && "ok" in env && env.ok === true) {
@@ -87,12 +87,30 @@ var coconut = {
   },
   views: async () => {
     await coconut.ready();
-    const resJson = await __coconut_list_views();
     try {
-      const arr = JSON.parse(resJson);
-      return Array.isArray(arr) ? arr : [];
+      const names = await coconut.call("getViews", {});
+      return Array.isArray(names) ? names : [];
     } catch {
       return [];
+    }
+  },
+  ping: async () => {
+    return coconut.call("ping", {});
+  },
+  window: {
+    minimize: async () => {
+      await coconut.call("__coconut_window_ctl", { cmd: "minimize" });
+    },
+    toggleFullscreen: async () => {
+      await coconut.call("__coconut_window_ctl", { cmd: "toggleFullscreen" });
+    },
+    close: async () => {
+      await coconut.call("__coconut_window_ctl", { cmd: "close" });
+    }
+  },
+  fs: {
+    readText: async (path) => {
+      return coconut.call("fs_read_text", { path });
     }
   }
 };

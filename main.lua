@@ -20,7 +20,7 @@ function coconut.config(ctx)
       :setResizable(true)
       :setMinimumWindowSize({ w = 640, h = 320 })
       :setMaximumWindowSize({ w = 2560, h = 1440 })
-      :setFrameless(true)
+      :setFrameless(false)
       :setTransparent(true)
       :setInitialView("home")
 
@@ -42,6 +42,16 @@ end
 function coconut.commands(ctx)
   ctx:bind("ping", function(params, ctx)
     return "pong"
+  end)
+
+  -- Get all registered view names (for dynamic navigation)
+  ctx:bind("getViews", function(params, ctx)
+    local views = coconut.views()
+    local names = {}
+    for name, _ in pairs(views) do
+      table.insert(names, name)
+    end
+    return names
   end)
 
   -- Window control commands for frameless-titlebar buttons

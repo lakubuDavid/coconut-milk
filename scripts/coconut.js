@@ -1,6 +1,5 @@
-
 /** Coconut runtime bridge (generated/handwritten twin of coconut.ts)
- *  Keep it compatible with scripts/coconut.ts.
+ *  Keep it compatible with src/embeds/coconut.ts.
  */
 
 const listeners = new Map();
@@ -102,4 +101,40 @@ export const coconut = {
   on,
   emit,
   call,
+
+  /** Get all registered view names. */
+  views: async () => {
+    await _ready();
+    try {
+      const names = await call("getViews", {});
+      return Array.isArray(names) ? names : [];
+    } catch {
+      return [];
+    }
+  },
+
+  /** Ping the Lua bridge for connectivity. */
+  ping: async () => {
+    return call("ping", {});
+  },
+
+  /** Window control helpers. */
+  window: {
+    minimize: async () => {
+      await call("__coconut_window_ctl", { cmd: "minimize" });
+    },
+    toggleFullscreen: async () => {
+      await call("__coconut_window_ctl", { cmd: "toggleFullscreen" });
+    },
+    close: async () => {
+      await call("__coconut_window_ctl", { cmd: "close" });
+    },
+  },
+
+  /** Filesystem helpers. */
+  fs: {
+    readText: async (path) => {
+      return call("fs_read_text", { path });
+    },
+  },
 };

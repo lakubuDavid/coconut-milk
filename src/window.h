@@ -49,6 +49,9 @@ void applyWindowStyle(Window *window);
 /// Set window background color (0-1 range).
 void setWindowBackgroundColor(Window* window, float r, float g, float b, float a = 1.0f);
 
+/// Get all registered view names.
+std::vector<std::string> getViewNames(Window* window);
+
 std::expected<View, Error> createView( std::string pathOrCode,
                                       ViewKind kind,
                                       std::optional<ViewConfig> configs);

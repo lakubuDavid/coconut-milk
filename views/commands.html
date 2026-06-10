@@ -21,11 +21,8 @@
   </div>
   <nav>
     <h1>🥥 Commands</h1>
-    <a href="#" data-view="home">Home</a>
-    <a href="#" data-view="note">Notes</a>
-    <a href="#" data-view="commands" class="active">Commands</a>
-    <a href="#" data-view="settings">Settings</a>
   </nav>
+  <script>document.body.dataset.view = 'commands';</script>
   <main>
     <p style="margin-bottom:1rem;color:#a1a1aa;">Test all registered Lua commands. Each card calls <code>coconut.call(name, params)</code>.</p>
     <div id="bridge-status" class="pending">waiting for bridge…</div>

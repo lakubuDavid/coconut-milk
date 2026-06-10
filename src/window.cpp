@@ -195,4 +195,18 @@ void setWindowBackgroundColor(Window* window, float r, float g, float b, float a
   platformSetWindowBackgroundColor(window->webview, r, g, b, a);
 }
 
+/// Get all registered view names.
+std::vector<std::string> getViewNames(Window* window) {
+  std::vector<std::string> names;
+  if (window == nullptr) {
+    return names;
+  }
+
+  for (const auto& [name, view] : window->views) {
+    (void)view;  // unused
+    names.push_back(name);
+  }
+  return names;
+}
+
 } // namespace coconut::window
