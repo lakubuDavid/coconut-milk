@@ -131,6 +131,16 @@ loadConfigJson(std::string_view config_path) {
       cfg.transparent = j["transparent"].get<bool>();
     }
 
+    if (j.contains("debug") && !j["debug"].is_null()) {
+      if (!j["debug"].is_boolean()) {
+        return std::unexpected(
+            Error{.code = ErrorCode::InvalidConfig,
+                  .message = "config.debug must be a boolean",
+                  .details = j["debug"].dump()});
+      }
+      cfg.debug = j["debug"].get<bool>();
+    }
+
     if (j.contains("title") && !j["title"].is_null()) {
       if (!j["title"].is_string()) {
         return std::unexpected(
@@ -283,6 +293,7 @@ loadConfigLua(std::string_view config_path) {
     cfg.resizable = t["resizable"].get_or(true);
     cfg.frameless = t["frameless"].get_or(false);
     cfg.transparent = t["transparent"].get_or(false);
+    cfg.debug = t["debug"].get_or(false);
     cfg.title = t["title"].get_or<std::string>("Coconut");
     cfg.initial_view = t["initial_view"].get_or<std::string>("home");
     cfg.view_root = t["view_root"].get_or<std::string>("views");

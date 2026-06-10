@@ -1,4 +1,5 @@
 #include "app.h"
+#include "argparse.h"
 #include "commands.h"
 #include "config.h"
 #include "debug.h"
@@ -22,9 +23,31 @@
 
 using namespace coconut;
 
-int main() {
+int main(int argc, char* argv[]) {
+  // Step 0: parse command-line args (before anything else).
+  auto args = argparse::parse(argc, argv);
+
+  if (args.help) {
+    argparse::printHelp(argv[0]);
+    return 0;
+  }
+
+  if (args.version) {
+    argparse::printVersion(argv[0]);
+    return 0;
+  }
+
+  // Change to the specified root directory, if given.
+  if (args.root != ".") {
+    debug::info(std::format("changing root to '{}'", args.root));
+    std::filesystem::current_path(args.root);
+  }
+
   // C++ defaults (used when config file is absent).
   Config cfg{};
+
+  // Apply --debug flag (config file can override).
+  cfg.debug = args.debug;
 
   // Step 1: load config file (keep defaults on failure).
   // Tries coconut.config.lua first, then coconut.config.json, then C++ defaults.
