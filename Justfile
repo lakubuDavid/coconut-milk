@@ -4,6 +4,11 @@ DEFAULT_TARGET := "coconut-milk"
 TEST_TARGET := "coconut-milk-tests"
 GENERATOR_TARGET := "coconut-milk-generators"
 
+# ── Install paths ───────────────────────────────────────────
+# Default: user-local tools directory.
+# Industry standard: INSTALL_DIR := "/usr/local/bin"
+INSTALL_DIR := "$HOME/tools"
+
 default:
 	@just --list
 
@@ -48,3 +53,11 @@ debug:
 
 format:
 	clang-format -i src/**/*.h src/**/*.cpp tests/**/*.cpp
+
+# Symlink coconut-milk + create-coconut-app into INSTALL_DIR.
+install:
+	mkdir -p {{INSTALL_DIR}}
+	ln -sf "$(pwd)/build/macosx/x86_64/debug/coconut-milk" "{{INSTALL_DIR}}/coconut-milk"
+	ln -sf "$(pwd)/scripts/create-coconut-app" "{{INSTALL_DIR}}/create-coconut-app"
+	@echo "installed to {{INSTALL_DIR}}:"
+	@ls -la "{{INSTALL_DIR}}/coconut-milk" "{{INSTALL_DIR}}/create-coconut-app"
