@@ -10,8 +10,21 @@ default:
 build:
 	xmake build {{DEFAULT_TARGET}}
 
+build-vue:
+	xmake build calculator-vue
+	cd examples/calculator-vue && bun run build
+
 run:
 	xmake run {{DEFAULT_TARGET}}
+
+run-vue:
+	xmake build calculator-vue
+	COCONUT_DEV=1 xmake run calculator-vue
+
+run-vue-prod:
+	xmake build calculator-vue
+	cd examples/calculator-vue && bun run build
+	xmake run calculator-vue
 
 test:
 	xmake build {{TEST_TARGET}}
