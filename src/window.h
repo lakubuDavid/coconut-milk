@@ -46,6 +46,9 @@ void addView(Window *window, std::string name, View *view);
 /// Must be called once after the webview window exists.
 void applyWindowStyle(Window *window);
 
+/// Set window background color (0-1 range).
+void setWindowBackgroundColor(Window* window, float r, float g, float b, float a = 1.0f);
+
 std::expected<View, Error> createView( std::string pathOrCode,
                                       ViewKind kind,
                                       std::optional<ViewConfig> configs);

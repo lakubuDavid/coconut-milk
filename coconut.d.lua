@@ -58,6 +58,7 @@ View = {}
 ---@field setPosition fun(self: CoconutWindow, x: integer, y: integer)
 ---@field move fun(self: CoconutWindow, offset: CoconutPoint)
 ---@field getPosition fun(self: CoconutWindow): CoconutPoint
+---@field setBackgroundColor fun(self: CoconutWindow, r: number, g: number, b: number, a?: number)
 
 ---@class CoconutContext
 ---@field window CoconutWindow

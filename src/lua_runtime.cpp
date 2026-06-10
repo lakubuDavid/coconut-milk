@@ -349,6 +349,7 @@ void _bindUserType(Runtime *runtime) {
       "toggleFullscreen", &CoconutWindowHandle::toggleFullscreen,
       "resize",         &CoconutWindowHandle::resize,
       "setMovableByBackground", &CoconutWindowHandle::setMovableByBackground,
+      "setBackgroundColor", &CoconutWindowHandle::setBackgroundColor,
       "setPosition",    &CoconutWindowHandle::setPosition,
       "getPosition",    &CoconutWindowHandle::getPosition,
       "move",           std::move(moveHandle));

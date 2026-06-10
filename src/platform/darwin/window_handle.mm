@@ -85,4 +85,10 @@ void platformSetMovableByBackground(webview_t wv, bool on) {
   win.movableByWindowBackground = on ? YES : NO;
 }
 
+void platformSetWindowBackgroundColor(webview_t wv, float r, float g, float b, float a) {
+  NSWindow* win = getNSWindow(wv);
+  if (!win) return;
+  win.backgroundColor = [NSColor colorWithRed:r green:g blue:b alpha:a];
+}
+
 } // namespace coconut::window

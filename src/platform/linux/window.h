@@ -9,6 +9,9 @@ namespace coconut {
   namespace window {
     /// Apply Linux-native window style (frameless, etc.) — stub.
     inline void platformApplyWindowStyle(webview_t /*wv*/, Config* /*cfg*/) {}
+
+    /// Set window background color (0-1 range) — stub.
+    inline void platformSetWindowBackgroundColor(webview_t /*wv*/, float, float, float, float) {}
   }
 }
 

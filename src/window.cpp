@@ -186,4 +186,13 @@ void applyWindowStyle(Window *window) {
   platformApplyWindowStyle(window->webview, window->configs);
 }
 
+/// Set window background color (0-1 range).
+void setWindowBackgroundColor(Window* window, float r, float g, float b, float a) {
+  if (window == nullptr || window->webview == nullptr) {
+    return;
+  }
+
+  platformSetWindowBackgroundColor(window->webview, r, g, b, a);
+}
+
 } // namespace coconut::window

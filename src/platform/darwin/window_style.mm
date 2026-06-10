@@ -45,22 +45,6 @@ static void hideTitlebarElements(NSView* view) {
   }
 }
 
-/// Recursively hide all NSButton subviews in a view hierarchy.
-static void hideAllButtonsInView(NSView* view) {
-  if (!view) return;
-  
-  for (NSView* subview in view.subviews) {
-    if ([subview isKindOfClass:[NSButton class]]) {
-      NSButton* btn = (NSButton*)subview;
-      NSString* title = btn.title;
-      debug::info("hiding button: " + std::string([title UTF8String]) + " tag=" + std::to_string(btn.tag));
-      btn.hidden = YES;
-    }
-    // Recurse into subview's subviews
-    hideAllButtonsInView(subview);
-  }
-}
-
 /// Hide traffic lights and title by traversing the view hierarchy.
 /// The webview-created window doesn't have standardWindowButton:, so
 /// we need to find the buttons through the titlebar view hierarchy.
@@ -89,6 +73,22 @@ static void hideTrafficLights(NSWindow* win) {
   debug::info("traffic lights hidden");
 }
 
+/// Add an invisible toolbar to help with traffic light alignment.
+/// The toolbar makes the window treat the traffic light buttons properly.
+static void addInvisibleToolbar(NSWindow* win) {
+  debug::info("adding invisible toolbar...");
+  
+  NSToolbar* toolbar = [[NSToolbar alloc] initWithIdentifier:@"coconut-invisible-toolbar"];
+  toolbar.displayMode = NSToolbarDisplayModeIconOnly;
+  toolbar.allowsUserCustomization = NO;
+  toolbar.autosavesConfiguration = NO;
+  
+  win.toolbar = toolbar;
+  win.toolbarStyle = NSWindowToolbarStyleUnified;
+  
+  debug::info("invisible toolbar added");
+}
+
 void platformApplyWindowStyle(webview_t wv, Config* cfg) {
   if (wv == nullptr || cfg == nullptr) return;
 
@@ -100,15 +100,13 @@ void platformApplyWindowStyle(webview_t wv, Config* cfg) {
 
   // ── Frameless ────────────────────────────────────────────────────────
   if (cfg->frameless) {
-    // Approach from Stack Overflow: Use NSFullSizeContentViewWindowMask
-    // with titlebarAppearsTransparent and titleVisibility = hidden.
-    // This allows content to extend under titlebar area without removing
-    // the Titled bit (which can't be removed after window is displayed).
+    debug::info("applying frameless style...");
     
     NSWindowStyleMask mask = win.styleMask;
     debug::info("frameless: before styleMask=" + std::to_string((NSUInteger)mask));
 
     // Add full-size content view mask (allows content to extend under titlebar)
+    // This removes the top gap - content starts at window frame (0,0)
     mask |= NSWindowStyleMaskFullSizeContentView;
     
     // Set titlebar properties to hide it
@@ -117,10 +115,20 @@ void platformApplyWindowStyle(webview_t wv, Config* cfg) {
     
     win.styleMask = mask;
 
+    // Set background color to avoid grey/gradient appearance
+    // Use a dark color similar to typical app backgrounds
+    win.backgroundColor = [NSColor windowBackgroundColor];
+    
+    // Make window opaque (content covers entire window)
+    win.opaque = YES;
+    
+    // Add invisible toolbar to help with traffic light alignment
+    addInvisibleToolbar(win);
+    
     // Hide traffic lights via view hierarchy traversal
     hideTrafficLights(win);
 
-    // Try orderOut/orderFront to refresh appearance
+    // Force window to refresh
     [win orderOut:nil];
     [win makeKeyAndOrderFront:nil];
     [win display];

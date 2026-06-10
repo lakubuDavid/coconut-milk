@@ -11,6 +11,9 @@ namespace coconut {
     /// Forward declaration — implementation lives in window_style.mm
     /// for correct ObjC++ calling conventions.
     void platformApplyWindowStyle(webview_t wv, Config* cfg);
+
+    /// Set window background color (0-1 range).
+    void platformSetWindowBackgroundColor(webview_t wv, float r, float g, float b, float a);
   }
 }
 

@@ -20,6 +20,7 @@
     inline void platformToggleFullscreen(webview_t) {}
     inline void platformSetFullscreen(webview_t, bool) {}
     inline void platformSetMovableByBackground(webview_t, bool) {}
+    inline void platformSetWindowBackgroundColor(webview_t, float, float, float, float) {}
   }
 #elif defined(__linux__)
   // Linux stubs
@@ -32,6 +33,7 @@
     inline void platformToggleFullscreen(webview_t) {}
     inline void platformSetFullscreen(webview_t, bool) {}
     inline void platformSetMovableByBackground(webview_t, bool) {}
+    inline void platformSetWindowBackgroundColor(webview_t, float, float, float, float) {}
   }
 #else
   #error "Unsupported platform"
@@ -213,6 +215,12 @@ namespace coconut {
   void CoconutWindowHandle::setMovableByBackground(bool on) {
     if (app && app->webview) {
       window::platformSetMovableByBackground(app->webview, on);
+    }
+  }
+
+  void CoconutWindowHandle::setBackgroundColor(float r, float g, float b, float a) {
+    if (app && app->webview) {
+      window::platformSetWindowBackgroundColor(app->webview, r, g, b, a);
     }
   }
 
