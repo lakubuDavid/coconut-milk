@@ -31,6 +31,10 @@ run-vue-prod:
 	cd examples/calculator-vue && bun run build
 	xmake run calculator-vue
 
+run-ocr:
+	xmake build ocr-app
+	xmake run ocr-app
+
 test:
 	xmake build {{TEST_TARGET}}
 	xmake run {{TEST_TARGET}}

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OCR Scanner</title>
+  <script src="https://cdn.jsdelivr.net/npm/@unocss/runtime"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+    body { font-family: 'Inter', sans-serif; background: #0f172a; color: #e2e8f0; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-6">
+
+  <div x-data="ocrApp()" class="w-full max-w-2xl">
+    <h1 class="text-3xl font-semibold text-center mb-2 text-emerald-400">OCR Scanner</h1>
+    <p class="text-center text-slate-400 mb-8 text-sm">Scan documents, receipts, and images using Tesseract</p>
+
+    <!-- Drop zone -->
+    <div
+      @dragover.prevent="dragging = true"
+      @dragleave.prevent="dragging = false"
+      @drop.prevent="handleDrop($event)"
+      :class="dragging ? 'border-emerald-400 bg-emerald-400/10' : 'border-slate-600 bg-slate-800/50'"
+      class="border-2 border-dashed rounded-xl p-10 text-center transition-all duration-200 cursor-pointer mb-6"
+      @click="$refs.fileInput.click()"
+    >
+      <input type="file" x-ref="fileInput" @change="handleFile($event)" accept="image/*" class="hidden" />
+      <div class="text-4xl mb-3">📄</div>
+      <p class="text-slate-300 font-medium">Drop an image here or click to browse</p>
+      <p class="text-slate-500 text-xs mt-1">Supports PNG, JPG, WEBP, BMP</p>
+    </div>
+
+    <!-- Preview -->
+    <div x-show="imageUrl" x-transition class="mb-6">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm text-slate-400">Preview</span>
+        <button @click="clearImage()" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded">Remove</button>
+      </div>
+      <img :src="imageUrl" class="w-full rounded-lg shadow-lg max-h-80 object-contain bg-slate-900" />
+    </div>
+
+    <!-- Scan button -->
+    <button
+      @click="scan()"
+      :disabled="!imagePath || scanning"
+      :class="!imagePath || scanning ? 'opacity-50 cursor-not-allowed' : 'hover:bg-emerald-600'"
+      class="w-full py-3 bg-emerald-500 text-white font-medium rounded-lg transition-colors mb-6"
+    >
+      <span x-show="!scanning">🔍 Scan Document</span>
+      <span x-show="scanning" class="flex items-center justify-center gap-2">
+        <span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+        Scanning...
+      </span>
+    </button>
+
+    <!-- Error -->
+    <div x-show="error" x-transition class="bg-red-500/10 border border-red-500/30 text-red-300 p-4 rounded-lg mb-6 text-sm">
+      <span class="font-semibold">Error:</span> <span x-text="error"></span>
+    </div>
+
+    <!-- Result -->
+    <div x-show="text" x-transition class="mb-6">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm text-slate-400">Extracted Text</span>
+        <div class="flex gap-2">
+          <button @click="copyText()" class="text-xs text-emerald-400 hover:text-emerald-300 px-3 py-1 rounded border border-emerald-500/30">Copy</button>
+          <button @click="downloadText()" class="text-xs text-emerald-400 hover:text-emerald-300 px-3 py-1 rounded border border-emerald-500/30">Download</button>
+        </div>
+      </div>
+      <textarea
+        x-model="text"
+        class="w-full h-48 bg-slate-800 border border-slate-700 rounded-lg p-4 text-sm text-slate-200 resize-none focus:outline-none focus:border-emerald-500"
+        placeholder="OCR result will appear here..."
+      ></textarea>
+    </div>
+
+    <!-- Window size -->
+    <div class="text-center text-xs text-slate-600 mt-4">
+      Window: <span x-text="windowW"></span> × <span x-text="windowH"></span>
+    </div>
+  </div>
+
+  <script>
+    function ocrApp() {
+      return {
+        dragging: false,
+        imageUrl: null,
+        imagePath: null,
+        text: '',
+        error: null,
+        scanning: false,
+        windowW: 0,
+        windowH: 0,
+
+        async init() {
+          await coconut.ready()
+          // Listen for window resize events from Lua
+          coconut.on('window_resized', (payload) => {
+            this.windowW = payload.w
+            this.windowH = payload.h
+          })
+        },
+
+        handleDrop(e) {
+          this.dragging = false
+          const file = e.dataTransfer.files[0]
+          if (file) this.loadFile(file)
+        },
+
+        handleFile(e) {
+          const file = e.target.files[0]
+          if (file) this.loadFile(file)
+        },
+
+        loadFile(file) {
+          this.clearImage()
+          this.imageUrl = URL.createObjectURL(file)
+          // Save to temp path for Tesseract
+          this.saveToTemp(file)
+        },
+
+        async saveToTemp(file) {
+          // Read file as base64 and send to Lua to save
+          const reader = new FileReader()
+          reader.onload = async () => {
+            const base64 = reader.result.split(',')[1]
+            try {
+              const result = await coconut.call('ocr_save_temp', {
+                name: file.name,
+                data: base64,
+              })
+              if (result.ok) {
+                this.imagePath = result.path
+              } else {
+                this.error = result.error || 'Failed to save image'
+              }
+            } catch (e) {
+              this.error = e.message || 'Failed to save image'
+            }
+          }
+          reader.readAsDataURL(file)
+        },
+
+        async scan() {
+          if (!this.imagePath) return
+          this.scanning = true
+          this.error = null
+          this.text = ''
+
+          try {
+            const result = await coconut.call('ocr_scan', { image_path: this.imagePath })
+            if (result.ok) {
+              this.text = result.text
+            } else {
+              this.error = result.error || 'OCR failed'
+            }
+          } catch (e) {
+            this.error = e.message || 'Scan failed'
+          }
+
+          this.scanning = false
+        },
+
+        clearImage() {
+          this.imageUrl = null
+          this.imagePath = null
+          this.text = ''
+          this.error = null
+        },
+
+        copyText() {
+          navigator.clipboard.writeText(this.text)
+            .then(() => alert('Copied to clipboard'))
+            .catch(() => alert('Failed to copy'))
+        },
+
+        async downloadText() {
+          const filename = 'ocr-output.txt'
+          try {
+            const result = await coconut.call('ocr_save_text', {
+              text: this.text,
+              filename: filename,
+            })
+            if (result.ok) {
+              alert('Saved to: ' + result.path)
+            } else {
+              alert('Failed to save: ' + (result.error || 'unknown'))
+            }
+          } catch (e) {
+            alert('Failed to save: ' + e.message)
+          }
+        },
+      }
+    }
+  </script>
+
+</body>
+</html>

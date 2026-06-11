@@ -91,6 +91,32 @@ target("calculator-vue")
     add_packages("nlohmann_json")
     add_deps("webview")
 
+
+target("ocr-app")
+    set_kind("binary")
+    set_basename("coconut-milk")
+    set_rundir("$(projectdir)/examples/ocr-app")
+    before_build(function (target)
+        os.run("xmake coconut_bridge_embeds")
+    end)
+    add_includedirs("src")
+    add_includedirs("thirdparty/webview/core/include")
+    add_frameworks("Cocoa", "WebKit", "Foundation")
+    add_files("src/*.cpp")
+    add_files("src/platform/scheme_handler.cpp")
+    if is_plat("macosx") then
+        add_files("src/platform/darwin/*.cpp")
+        add_files("src/platform/darwin/*.mm")
+    elseif is_plat("windows") then
+        add_files("src/platform/win/*.cpp")
+    elseif is_plat("linux") then
+        add_files("src/platform/linux/*.cpp")
+    end
+    add_packages("sol2")
+    add_packages("luajit")
+    add_packages("nlohmann_json")
+    add_deps("webview")
+
 -- Generators experiment target
 
 target("coconut-milk-generators")

@@ -25,9 +25,11 @@ end
 function coconut.config(ctx)
   ctx
     :setWindowSize({ w = 480, h = 700 })
+    :setMinimumWindowSize({w=480,h=700})
     :setTitle("Calculator")
-    :setResizable(false)
-    :setFrameless(true)
+    :setResizable(true)
+    :setFrameless(false)
+    :setTransparent(true)
     :setInitialView(dev and "dev" or "app")
   return ctx
 end
