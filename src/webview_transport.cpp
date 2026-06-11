@@ -50,7 +50,7 @@ void WebviewTransport::send(const rpc::Message& msg) {
 
   switch (msg.type) {
     case rpc::Type::kEvent: {
-      auto payloadStr = msg.payload.is_null() ? "{}" : msg.payload.dump();
+      auto payloadStr = msg.payload.is_null() ? "{}" : msg.payload.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
       auto jsName = escapeJsSingleQuotedString(msg.name);
       auto jsPayload = escapeJsSingleQuotedString(payloadStr);
       auto script = std::format(
@@ -61,7 +61,7 @@ void WebviewTransport::send(const rpc::Message& msg) {
     }
     case rpc::Type::kReturn:
     case rpc::Type::kError: {
-      auto json = msg.toJson().dump();
+      auto json = msg.toJson().dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
       auto escaped = escapeJsSingleQuotedString(json);
       auto script = std::format(
           "globalThis.__coconut_rpc_receive('{}');", escaped);
@@ -69,7 +69,7 @@ void WebviewTransport::send(const rpc::Message& msg) {
       break;
     }
     case rpc::Type::kCall: {
-      auto payloadStr = msg.payload.dump();
+      auto payloadStr = msg.payload.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
       auto script = std::format(
           "globalThis['{}']({});", msg.name, payloadStr);
       webview_eval(m_webview, script.c_str());
@@ -141,16 +141,32 @@ void WebviewTransport::static_list_views(const char* id, const char* req,
   }
 
   // Return the array — webview expects a JSON string.
-  webview_return(self->m_webview, id, 0, names.dump().c_str());
+  webview_return(self->m_webview, id, 0, names.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace).c_str());
 }
 
 void WebviewTransport::handleCall(const char* id, const rpc::Message& msg) {
-  debug::info(std::format("handleCall: name='{}' payload={}", msg.name, msg.payload.dump()));
+  std::string payloadPreview;
+  try {
+    payloadPreview = msg.payload.dump();
+  } catch (...) {
+    payloadPreview = "[invalid json]";
+  }
+  debug::info(std::format("handleCall: name='{}' payload={}", msg.name, payloadPreview));
 
   // Build the full envelope so webview's onReply parses it back to an object.
   // The JS shim for __coconut_call re-stringifies it for coconut.call().
   auto respond = [this, id](nlohmann::json envelope) {
-    std::string result = envelope.dump();
+    std::string result;
+    try {
+      result = envelope.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
+    } catch (const std::exception& e) {
+      debug::error(std::format("handleCall: JSON dump failed: {}", e.what()));
+      nlohmann::json fallback;
+      fallback["ok"] = false;
+      fallback["error"] = {{"code", "BridgeError"},
+                           {"message", "JSON serialization failed"}};
+      result = fallback.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
+    }
     webview_return(m_webview, id, 0, result.c_str());
   };
 
@@ -211,7 +227,13 @@ void WebviewTransport::handleCall(const char* id, const rpc::Message& msg) {
 }
 
 void WebviewTransport::handleEvent(const char* id, const rpc::Message& msg) {
-  debug::info(std::format("handleEvent: name='{}' payload={}", msg.name, msg.payload.dump()));
+  std::string eventPayloadPreview;
+  try {
+    eventPayloadPreview = msg.payload.dump();
+  } catch (...) {
+    eventPayloadPreview = "[invalid json]";
+  }
+  debug::info(std::format("handleEvent: name='{}' payload={}", msg.name, eventPayloadPreview));
 
   // Dispatch to Lua's coconut.events(name, payload, ctx).
   if (m_app && m_app->lua_state && m_app->lua_state->lua_state &&
