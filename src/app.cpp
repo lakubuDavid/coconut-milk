@@ -23,7 +23,7 @@ std::expected<App *, Error> create(Config *configs, void* nativeWindow) {
   webview_t wv = webview_create(configs->debug ? 1 : 0, nativeWindow);
   if (wv == nullptr) {
     context::destroy(ctx.value());
-    return std::unexpected(Error{.code = ErrorCode::WebUiError,
+    return std::unexpected(Error{.code = ErrorCode::WebViewError,
                                  .message = "Failed to create webview window"});
   }
 

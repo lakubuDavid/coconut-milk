@@ -19,7 +19,7 @@ namespace coconut {
     QueueOverflow,
     LuaError,
     BridgeError,
-    WebUiError,
+    WebViewError,
     ParseError,
     IoError,
     NotImplementedYet

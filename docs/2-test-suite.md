@@ -31,7 +31,7 @@ Use different test levels for different risk areas:
 1. **Unit tests** for pure helpers and data transformation.
 2. **Integration tests** for C++ + Lua + generated glue interactions.
 3. **Bridge tests** for message routing and promise behavior.
-4. **Transport conformance tests** — both WebUI and webview transports
+4. **Transport conformance tests** — both legacy and native webview transports
    must satisfy the transport::Transport interface.
 5. **End-to-end tests** for the sample application.
 
@@ -39,7 +39,7 @@ Use different test levels for different risk areas:
 
 The framework should avoid flaky tests by using:
 
-- mockable WebUI/webview wrappers
+- mockable webview transport wrappers
 - fake bridge endpoints
 - temporary test directories
 - minimal external dependencies
@@ -47,11 +47,11 @@ The framework should avoid flaky tests by using:
 ### Transport-layer testing
 
 The transport interface (transport::Transport) is an abstraction that both
-WebUI and webview conform to. Tests should verify:
+Both native and embedded webview transports conform to. Tests should verify:
 
 - send(RpcMessage) dispatches the correct platform call
 - setMessageCallback registers and fires on inbound messages
-- Inbound WebUI/webview events are translated to the correct RpcMessage
+- Inbound native webview events are translated to the correct RpcMessage
 
 ### Test the contract, not implementation details
 
@@ -68,7 +68,7 @@ The important thing is whether Coconut behaves according to the spec:
 
 ## 3.1 Unit tests
 
-These tests target pure logic or logic that can be isolated from WebUI and Lua.
+These tests target pure logic or logic that can be isolated from the webview and Lua runtimes.
 
 ### Areas
 

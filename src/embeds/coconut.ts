@@ -56,7 +56,7 @@ function _markReady() {
 }
 
 /**
- * Called by the WebUI transport to deliver kReturn/kError RPC responses.
+ * Called by the native transport to deliver kReturn/kError RPC responses.
  * Currently a no-op; will be used for promise resolution when all traffic
  * routes through the transport (post-webview migration).
  */

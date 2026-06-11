@@ -5,7 +5,7 @@
 ///
 /// Canonical RPC envelope for JS ↔ C++ message passing.
 ///
-/// Both WebUI and webview transports use the same envelope shape.
+/// Both legacy and native webview transports use the same envelope shape.
 /// Only the underlying send/recv mechanism differs.
 ///
 /// Envelope structure:

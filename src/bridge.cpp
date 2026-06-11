@@ -139,7 +139,7 @@ static void dispatchRpcCallToLua(coconut::App* app, const rpc::Message& msg) {
 }
 
 // ---------------------------------------------------------------------------
-// Remaining legacy helpers (callLua, callJS using raw WebUI)
+// Legacy helper wrappers for Lua/JS bridge operations
 // ---------------------------------------------------------------------------
 
 void emitToLua(coconut::App *app, std::string eventName,
@@ -443,7 +443,7 @@ void destroy(State *state) {
   if (state == nullptr) {
     return;
   }
-  delete state->transport; // WebuiTransport
+  delete state->transport; // WebviewTransport
   state->transport = nullptr;
   delete state;
 }

@@ -70,7 +70,7 @@ int main(int argc, char* argv[]) {
   platform::installSchemeHandlerHook(app_root);
 
   debug::info("main: creating app...");
-  // Step 2: create app (App core owns WebUI window id + context).
+  // Step 2: create app (App core owns webview handle + context).
   // On macOS, if frameless mode is enabled, create a frameless NSWindow
   // BEFORE calling app::create() so the webview uses our frameless window.
   void* nativeWindow = nullptr;

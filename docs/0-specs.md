@@ -1,6 +1,6 @@
 # Coconut Milk v0 API Spec
 
-This document defines the current minimal Lua desktop UI framework API inspired by Tauri/Electron, built on top of WebUI.
+This document defines the current minimal Lua desktop UI framework API inspired by Tauri/Electron, built on top of a native webview bridge.
 
 The goal of v0 is to keep the surface area small, predictable, and easy to generate tooling from later.
 

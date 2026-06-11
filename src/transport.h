@@ -6,8 +6,7 @@
 /// Abstract transport interface for JS ↔ C++ RPC messages.
 ///
 /// Concrete implementations wrap platform-specific mechanisms:
-///   - WebuiTransport:  WebUI's WebSocket + CivetWeb server
-///   - WebviewTransport: webview's native WKScriptMessageHandler (future)
+///   - WebviewTransport: webview's native WKScriptMessageHandler
 ///
 /// The transport simply sends/receives RpcMessage envelopes.
 /// It does not interpret the message contents.
@@ -24,7 +23,7 @@ using MessageCallback = std::function<void(const rpc::Message&)>;
 /// Abstract transport for JS ↔ C++ RPC messages.
 ///
 /// Usage:
-///   1. Create a concrete transport (e.g. WebuiTransport).
+///   1. Create a concrete transport (e.g. WebviewTransport).
 ///   2. Set the message callback via setMessageCallback().
 ///   3. Call send() to deliver messages to the frontend.
 ///   4. Incoming messages arrive on the registered callback.

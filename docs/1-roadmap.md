@@ -7,7 +7,7 @@ It follows the current design decisions:
 - `views/` and `commands/` as the main project roots
 - LuaLS-style annotations plus Coconut `---@command`
 - generated `.g.lua`, `.d.ts`, and frontend helpers
-- WebUI as the native browser bridge
+- Native webview as the browser bridge (WKWebView / WebView2 / WebKitGTK)
 - sol2 as the C++ ↔ Lua binding layer
 - hybrid bridge protocol with `ready`, `call`, `return`, `event`, and `error`
 
@@ -25,7 +25,7 @@ Establish the project layout and the first stable entry points.
    - `docs/0-specs.md`
    - `docs/1-roadmap.md`
 4. Add sample Lua app files and sample commands.
-5. Keep the build config (`xmake.lua`) minimal but ready for WebUI and Lua.
+5. Keep the build config (`xmake.lua`) minimal but ready for native webview and Lua.
 
 ### Deliverables
 - clear folder layout
@@ -108,13 +108,13 @@ Load and resolve named views from Lua.
 
 ---
 
-## Phase 4: WebUI window integration
+## Phase 4: native window integration
 
 ### Goal
 Create the native desktop window and connect it to the view system.
 
 ### Steps
-1. Wrap WebUI window creation.
+1. Wrap native webview window creation.
 2. Set browser backend mode from config.
 3. Apply initial window size.
 4. Load the selected initial view.
@@ -123,7 +123,7 @@ Create the native desktop window and connect it to the view system.
 
 ### Deliverables
 - app window opens successfully
-- initial view renders in WebUI
+- initial view renders in native webview
 - basic resize/close behavior works
 
 ---

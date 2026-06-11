@@ -6,7 +6,7 @@ Rules this agent must follow when writing code or making decisions.
 
 - Single-window first.
 - Lua is the application authoring language.
-- WebUI is the native webview bridge.
+- Native webview is the browser bridge.
 - sol2 is the C++ ↔ Lua binding layer.
 - Coconut owns the higher-level runtime protocol.
 - Command bindings are explicit and one name maps to one handler.
@@ -41,7 +41,7 @@ Each module should follow the same basic shape where applicable:
 `Config` is created once and shared across modules.
 
 Current modules:
-`coconut::app`, `coconut::bridge`, `coconut::lua`, `coconut::webui`,
+`coconut::app`, `coconut::bridge`, `coconut::lua`,
 `coconut::commands`, `coconut::fs`, `coconut::error`
 
 ## Lua and bridge style

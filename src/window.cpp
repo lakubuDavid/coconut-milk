@@ -25,7 +25,7 @@ namespace coconut::window {
 
 std::expected<Window *, Error> createWindow(Config *config, webview_t wv) {
   if (wv == nullptr) {
-    return std::unexpected(Error{.code = ErrorCode::WebUiError, .message = "Invalid webview handle"});
+    return std::unexpected(Error{.code = ErrorCode::WebViewError, .message = "Invalid webview handle"});
   }
 
   return new Window{.configs = config, .views = {}, .webview = wv};
