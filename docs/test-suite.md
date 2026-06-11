@@ -1,6 +1,6 @@
 # Coconut Milk Test Suite Plan
 
-This document defines the test strategy for Coconut Milk based on the roadmap in `docs/1-roadmap.md`.
+This document defines the test strategy for Coconut Milk based on the roadmap in `docs/roadmap.md`.
 
 The goal is to make the runtime, bridge, Lua integration, command generation, and sample app verifiable in small layers.
 

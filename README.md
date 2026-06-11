@@ -153,9 +153,9 @@ commands/notes.lua
 
 ## Reference docs
 
-- **[Specification](docs/0-specs.md)** — full API and bridge spec
-- **[Roadmap](docs/1-roadmap.md)** — implementation plan and phases
-- **[Test suite](docs/2-test-suite.md)** — test plan and coverage
+- **[Specification](docs/specs.md)** — full API and bridge spec
+- **[Roadmap](docs/roadmap.md)** — implementation plan and phases
+- **[Test suite](docs/test-suite.md)** — test plan and test scope
 
 ### Support matrix
 
@@ -181,4 +181,4 @@ commands/notes.lua
 Windows/Linux implementations are functional for core features
 but missing platform-specific polish.
 
-See [the roadmap](docs/1-roadmap.md) for planned work.
+See [the roadmap](docs/roadmap.md) for planned work.

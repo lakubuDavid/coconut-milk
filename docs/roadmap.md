@@ -22,8 +22,8 @@ Establish the project layout and the first stable entry points.
 1. Create the root runtime structure in `src/`.
 2. Keep `main.cpp` as a thin bootstrap file.
 3. Add the core documentation files:
-   - `docs/0-specs.md`
-   - `docs/1-roadmap.md`
+   - `docs/specs.md`
+   - `docs/roadmap.md`
 4. Add sample Lua app files and sample commands.
 5. Keep the build config (`xmake.lua`) minimal but ready for native webview and Lua.
 

@@ -247,4 +247,4 @@ coconut-milk [options]
 
 - Read the [API Reference](api-reference.md)
 - Learn about [Command Generation](generators.md)
-- Check the [Specification](0-specs.md)
+- Check the [Specification](specs.md)
