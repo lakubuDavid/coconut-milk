@@ -7,6 +7,8 @@ local impl = require("calc")
 local function register(ctx)
   ctx:bind("calc_save", impl.calc_save)
   ctx:bind("calc_load", impl.calc_load)
+  ctx:bind("settings_save", impl.settings_save)
+  ctx:bind("settings_load", impl.settings_load)
   return ctx
 end
 

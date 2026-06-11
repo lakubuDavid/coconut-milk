@@ -1,6 +1,5 @@
 local dev = os.getenv("COCONUT_DEV") == "1"
 return {
-  browser = "webview",
   initial_view = dev and "dev" or "app",
   view_root = "views",
   command_root = "commands",

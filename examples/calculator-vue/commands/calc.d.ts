@@ -10,3 +10,11 @@ declare function calc_save(params:{entries: {expr: string; result: string}[]},) 
 @description 
 */
 declare function calc_load() : Promise<[{entries: {expr: string; result: string}[]}]>;
+/**
+@description 
+*/
+declare function settings_save(params:{theme: string; precision: number; sound: boolean},) : Promise<[{ok: boolean}]>;
+/**
+@description 
+*/
+declare function settings_load() : Promise<[{theme?: string; precision?: number; sound?: boolean}]>;

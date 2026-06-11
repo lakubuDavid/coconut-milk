@@ -309,7 +309,6 @@ void _bindUserType(Runtime *runtime) {
           [](CoconutContext* ctx, CoconutWindowHandle* h) {
             if (ctx) ctx->window_handle = h;
           }),
-      "setBrowser", &CoconutContext::setBrowser,
       "setWindowSize", std::move(setWindowSize),
       "setMinimumWindowSize", std::move(setMinimumWindowSize),
       "setMaximumWindowSize", std::move(setMaximumWindowSize),
@@ -411,6 +410,67 @@ std::expected<sol::object, Error> call(Runtime* runtime,
   return result;
 }
 
+// ── View callback invocation ───────────────────────────────────────────
+
+void invokeViewCallback(Runtime* runtime,
+                          const std::string& viewName,
+                          const std::string& eventName) {
+  if (runtime == nullptr || runtime->lua_state == nullptr ||
+      runtime->context == nullptr) {
+    return;
+  }
+
+  sol::state& lua = *runtime->lua_state;
+
+  // Look up the view descriptor registry.
+  sol::object registry = lua["coconut"]["_view_descriptors"];
+  if (!registry.is<sol::table>()) {
+    debug::warn("invokeViewCallback: _view_descriptors not found");
+    return;
+  }
+
+  sol::object desc = registry.as<sol::table>()[viewName];
+  if (!desc.is<sol::table>()) {
+    // View not registered in descriptor registry — normal for views
+    // created from config file rather than coconut.views().
+    return;
+  }
+
+  sol::table descriptor = desc.as<sol::table>();
+
+  // Track on_load so it's only called once.
+  if (eventName == "on_load") {
+    sol::object loaded = descriptor["_loaded"];
+    if (loaded.is<bool>() && loaded.as<bool>()) {
+      return; // already loaded
+    }
+    descriptor["_loaded"] = true;
+  }
+
+  sol::object callbacks = descriptor["_callbacks"];
+  if (!callbacks.is<sol::table>()) return;
+
+  sol::object cb = callbacks.as<sol::table>()[eventName];
+  if (!cb.is<sol::function>()) return;
+
+  // Build a context table with props and the runtime context.
+  sol::table ctx = lua.create_table();
+  ctx["ctx"] = runtime->context;
+  sol::table props = descriptor["_props"];
+  if (props.is<sol::table>()) {
+    ctx["props"] = props;
+  } else {
+    ctx["props"] = lua.create_table();
+  }
+
+  auto result = cb.as<sol::function>()(ctx);
+  if (!result.valid()) {
+    sol::error err = result;
+    debug::warn(std::format("view callback '{}' for '{}' failed: {}",
+                            eventName, viewName, err.what()));
+  }
+}
+
 // ── Entry-point loader ──────────────────────────────────────────────────
 
 std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
@@ -479,7 +539,6 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
         if (v.is<int>()) field = v.as<int>();
       };
 
-      mergeStr("browser",         cfg->browser);
       mergeInt("window_width",    cfg->window_width);
       mergeInt("window_height",   cfg->window_height);
       mergeInt("window_min_width",  cfg->window_min_width);
@@ -525,6 +584,7 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
       if (views_obj.is<sol::table>()) {
         debug::info("coconut.views() returned view descriptors");
         sol::table vt = views_obj.as<sol::table>();
+        sol::table registry = lua.create_table();
         for (auto& [k, v] : vt) {
           if (!v.is<sol::table>()) continue;
           sol::table desc = v.as<sol::table>();
@@ -534,8 +594,11 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
           if (kind.empty()) continue;
           cfg->views[name] = ViewEntry{.kind = std::move(kind),
                                         .src = std::move(value)};
+          registry[name] = desc;
           debug::info(std::format("view '{}' ({})", name, cfg->views[name].kind));
         }
+        lua["coconut"]["_view_descriptors"] = registry;
+        debug::info("stored view descriptors in coconut._view_descriptors");
       }
     }
   }

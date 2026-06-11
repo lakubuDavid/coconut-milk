@@ -68,7 +68,6 @@ Load Lua and expose the Coconut API surface to scripts using sol2.
    - `coconut.views()`
    - `coconut.config(ctx)`
 4. Add `ctx` method bindings through sol2:
-   - `setBrowser`
    - `setWindowSize`
    - `setInitialView`
    - `show`

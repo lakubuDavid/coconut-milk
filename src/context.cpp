@@ -4,6 +4,7 @@
 #include "commands.h"
 #include "debug.h"
 #include "dialog.h"
+#include "lua_runtime.h"
 #include "window.h"
 
 // Platform dispatch for native window handle operations
@@ -64,13 +65,6 @@ namespace coconut {
   }  // namespace context
 
   // ── CoconutContext methods ────────────────────────────────────────
-
-  CoconutContext* CoconutContext::setBrowser(const std::string& mode) {
-    if (configs != nullptr) {
-      configs->browser = mode;
-    }
-    return this;
-  }
 
   CoconutContext* CoconutContext::setWindowSize(const CoconutWindowSize& size) {
     if (configs != nullptr) {
@@ -176,7 +170,19 @@ namespace coconut {
   // ── CoconutWindowHandle methods ───────────────────────────────────
 
   void CoconutWindowHandle::show(const std::string& name) {
-    if (app && app->window) window::showView(app->window, name);
+    if (app && app->window && app->window->current_view != name) {
+      // Call on_unmount for the current view before switching.
+      if (app->lua_state && !app->window->current_view.empty()) {
+        lua::invokeViewCallback(app->lua_state,
+                                app->window->current_view,
+                                "on_unmount");
+      }
+      window::showView(app->window, name);
+      // Call on_mount for the new view after switching.
+      if (app->lua_state) {
+        lua::invokeViewCallback(app->lua_state, name, "on_mount");
+      }
+    }
   }
 
   void CoconutWindowHandle::reload() {

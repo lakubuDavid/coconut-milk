@@ -18,3 +18,18 @@ export async function calc_load() {
   return coconut.call("calc_load", {});
 }
 
+/**
+ * @param {{theme: string, precision: number, sound: boolean}} params
+ * @returns {Promise<{ok: boolean}>}
+ */
+export async function settings_save(params) {
+  return coconut.call("settings_save", {params});
+}
+
+/**
+ * @returns {Promise<{theme?: string, precision?: number, sound?: boolean}>}
+ */
+export async function settings_load() {
+  return coconut.call("settings_load", {});
+}
+

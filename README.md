@@ -6,8 +6,7 @@ Think Electron/Tauri, but minimal — single-window, Lua scripting, native webvi
 ```lua
 -- main.lua
 function coconut.config(ctx)
-  ctx:setBrowser("auto")
-     :setWindowSize({ w = 1280, h = 640 })
+  ctx:setWindowSize({ w = 1280, h = 640 })
      :setInitialView("home")
   return ctx
 end

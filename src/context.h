@@ -51,9 +51,6 @@ namespace coconut {
     window::Window*     window       = nullptr;
     CoconutWindowHandle* window_handle = nullptr;
 
-    /// Startup: selects which browser backend to use. Chainable.
-    CoconutContext* setBrowser(const std::string& mode);
-
     /// Startup: initial window size. Chainable.
     CoconutContext* setWindowSize(const CoconutWindowSize& size);
 

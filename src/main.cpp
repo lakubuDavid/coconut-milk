@@ -224,6 +224,8 @@ int main(int argc, char* argv[]) {
     auto* v = new window::View(std::move(*view_result));
     window::addView(window, name, v);
     debug::info(std::format("view '{}' registered", name));
+    // Call on_load for views created from coconut.views() descriptors.
+    coconut::lua::invokeViewCallback(lua_runtime, name, "on_load");
   }
 
   for(const auto [k,v] : window->views){
@@ -250,6 +252,8 @@ int main(int argc, char* argv[]) {
     // No need to signalReady — it auto-fires when the page loads.
     debug::info(std::format("showing initial view '{}'", cfg.initial_view));
     window::showView(window, cfg.initial_view);
+    // Call on_mount for the initial view.
+    coconut::lua::invokeViewCallback(lua_runtime, cfg.initial_view, "on_mount");
   }
 
   debug::info("main: calling app::run()...");

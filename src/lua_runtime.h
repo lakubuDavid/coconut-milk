@@ -34,10 +34,10 @@ namespace coconut {
     /// Load the application entry point (main.lua) and execute the
     /// coconut.config(ctx) callback if present.
     ///
-    /// The ctx setters (setBrowser, setWindowSize, setInitialView) mutate the
+    /// The ctx setters (setWindowSize, setInitialView) mutate the
     /// shared Config in-place, merging app-level overrides on top of
     /// config-file defaults.  If the callback returns a table, additional
-    /// scalar fields (browser, window_width, ...) and views from that table
+    /// scalar fields (window_width, ...) and views from that table
     /// are also merged into cfg.
     ///
     /// Returns true if main.lua was loaded and processed.
@@ -49,6 +49,13 @@ namespace coconut {
     /// Must be called after runtime->app is wired (i.e. after create() and
     /// after lua_runtime->app = app).
     void wireWindowHandle(Runtime* runtime);
+
+    /// Invoke a view descriptor lifecycle callback (on_load, on_mount, on_unmount).
+    /// Looks up the view descriptor in the Lua registry and calls the stored
+    /// callback if it exists.  on_load is only called once per view.
+    void invokeViewCallback(Runtime* runtime,
+                            const std::string& viewName,
+                            const std::string& eventName);
 
     /// Call a registered Lua command by name.
     ///

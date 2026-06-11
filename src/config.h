@@ -23,10 +23,9 @@ struct ViewEntry {
 /// Shared startup configuration.
 ///
 /// Created once at startup (with defaults) and distributed as `const Config*`
-/// to all runtime modules.  Some fields (browser, window_size, initial_view)
+/// to all runtime modules.  Some fields (window_size, initial_view)
 /// may be mutated by `coconut.config(ctx)` during the startup hook.
 struct Config {
-  std::string browser = "auto";
   int window_width = 1280;
   int window_height = 640;
   int window_min_width = 0;

@@ -145,21 +145,12 @@ Receives the runtime context and configures the application.
 ```lua
 function coconut.config(ctx)
   return ctx
-    :setBrowser("auto")
     :setWindowSize({ w = 1280, h = 640 })
     :setInitialView("home")
 end
 ```
 
 ### Context methods
-
-#### `ctx:setBrowser(mode)`
-Sets the browser backend.
-
-Example values:
-
-- `"auto"`
-- backend-specific names such as `"webkit"`, `"webview2"`, etc.
 
 #### `ctx:setWindowSize(size)`
 Sets the initial window size.
@@ -191,7 +182,6 @@ Requests application or window shutdown.
 #### Chainability
 The following methods are chainable in v0:
 
-- `setBrowser`
 - `setWindowSize`
 - `setInitialView`
 
@@ -486,7 +476,6 @@ end
 
 function coconut.config(ctx)
   return ctx
-    :setBrowser("auto")
     :setWindowSize({ w = 1280, h = 640 })
     :setInitialView("home")
     :bind("sayHi", function(params, ctx)
@@ -930,7 +919,6 @@ If a frontend command promise is rejected, the rejection reason should be derive
 - `views/` default root
 - `commands/` folder
 - `View.url`, `View.html`, `View.load`
-- `ctx:setBrowser`
 - `ctx:setWindowSize`
 - `ctx:setInitialView`
 - `ctx:show`

@@ -31,16 +31,6 @@ loadConfigJson(std::string_view config_path) {
 
     // --- scalar fields ---
 
-    if (j.contains("browser") && !j["browser"].is_null()) {
-      if (!j["browser"].is_string()) {
-        return std::unexpected(
-            Error{.code = ErrorCode::InvalidConfig,
-                  .message = "config.browser must be a string",
-                  .details = j["browser"].dump()});
-      }
-      cfg.browser = j["browser"].get<std::string>();
-    }
-
     if (j.contains("window_width") && !j["window_width"].is_null()) {
       if (!j["window_width"].is_number_integer()) {
         return std::unexpected(
@@ -283,7 +273,6 @@ loadConfigLua(std::string_view config_path) {
     Config cfg{};
 
     // Scalar fields with defaults
-    cfg.browser = t["browser"].get_or<std::string>("auto");
     cfg.window_width = t["window_width"].get_or(1280);
     cfg.window_height = t["window_height"].get_or(640);
     cfg.window_min_width = t["window_min_width"].get_or(0);

@@ -306,7 +306,6 @@ Frontend tests can later use a browser automation tool, but for v1 they can also
 - `coconut.views()` loading
 - `coconut.config(ctx)` execution
 - `coconut.on_resize(...)`
-- `ctx:setBrowser(...)`
 - `ctx:setWindowSize(...)`
 - `ctx:setInitialView(...)`
 - `ctx:show(...)`
