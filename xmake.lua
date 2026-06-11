@@ -21,7 +21,7 @@ task("coconut_bridge_embeds")
         local dts_out = "src/embeds/coconut.d.ts"
         local header_out = "src/embeds/coconut_embed.h"
 
-        -- 1) JS bundle
+        -- 1) JS bundle (uses var — that's fine, it's embedded artifact)
         os.run("bun build " .. ts_in .. " --outfile " .. js_out .. " --format esm")
 
         -- 2) Declarations (Bun doesn't emit .d.ts here)

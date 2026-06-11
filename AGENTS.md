@@ -1,14 +1,6 @@
-# Coconut Milk Agent Guide
+# Coconut Milk — Agent Guide
 
-This file documents the coding style, design decisions, and reference docs for the Coconut Milk project.
-
-## Reference docs
-
-Read these before making architectural or API changes:
-
-- `docs/0-specs.md` — current API and bridge spec
-- `docs/1-roadmap.md` — implementation roadmap
-- `docs/2-test-suite.md` — test plan and test scope
+Rules this agent must follow when writing code or making decisions.
 
 ## Core design decisions
 
@@ -41,16 +33,6 @@ Read these before making architectural or API changes:
 
 ## Module layout
 
-The current module style is:
-
-- `coconut::app`
-- `coconut::bridge`
-- `coconut::lua`
-- `coconut::webui`
-- `coconut::commands`
-- `coconut::fs`
-- `coconut::error`
-
 Each module should follow the same basic shape where applicable:
 
 - `create(Config *config)`
@@ -58,29 +40,19 @@ Each module should follow the same basic shape where applicable:
 
 `Config` is created once and shared across modules.
 
+Current modules:
+`coconut::app`, `coconut::bridge`, `coconut::lua`, `coconut::webui`,
+`coconut::commands`, `coconut::fs`, `coconut::error`
+
 ## Lua and bridge style
 
 - Keep the Lua surface minimal and explicit.
 - `coconut.config(ctx)` is the startup config hook.
 - `coconut.views()` returns named view descriptors.
 - `ctx` is the runtime context object passed into Lua.
-- Bridge messages are conceptual object-shaped envelopes, not necessarily JSON internally.
+- Bridge messages are conceptual object-shaped envelopes.
 - `emit` is async and queue-based.
 - `call` is Promise-based and waits for readiness.
-
-## Tests
-
-- Every functional change should have a test or an updated test plan.
-- Prefer small deterministic tests.
-- Keep placeholder tests only until the real behavior is implemented.
-- The test harness lives under `tests/`.
-
-## Formatting
-
-- Use the repo `.clang-format` file.
-- Prefer 2-space indentation.
-- Keep includes sorted.
-- Keep namespaces uncluttered and readable.
 
 ## When in doubt
 
