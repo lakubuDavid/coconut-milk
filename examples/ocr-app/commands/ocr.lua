@@ -68,7 +68,7 @@ local function ocr_scan(params, ctx)
   local text = ""
   if fs.exists(out_path) then
     text = fs.readText(out_path) or ""
-    fs.remove(out_path)
+    os.remove(out_path)
   end
 
   if text == "" then
