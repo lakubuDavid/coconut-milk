@@ -271,16 +271,9 @@ static std::string formatTypeOrPassthrough(const std::string& raw,
 /// JS wrappers depend on (__coconut_call, etc.).  These are ambient
 /// declarations so editors/LSP don't flag undeclared variables.
 static void writeRuntimeDeclarations(std::ostream& out) {
-  out << "// Runtime functions used by the generated wrappers.\n";
-  out << "// These are provided by the Coconut Milk bridge at runtime.\n";
-  out << "\n";
-  out << "/**\n";
-  out << " * Call a Lua command registered via ctx:bind.\n";
-  out << " * @param name - Command name (matches the @command tag).\n";
-  out << " * @param payload - Parameters forwarded to the Lua handler.\n";
-  out << " * @returns Promise resolving with the Lua return value.\n";
-  out << " */\n";
-  out << "declare function __coconut_call<T >(name: string, payload: Record<string, unknown>): Promise<T>;\n";
+  out << "// Declares the global `coconut` object provided by the Coconut Milk bridge.\n";
+  out << "// Full type definition is in scripts/coconut.d.ts.\n";
+  out << "/// <reference path=\"../scripts/coconut.d.ts\" />\n";
   out << "\n";
 }
 
@@ -316,7 +309,7 @@ std::string generateTSDefinition(std::vector<CommandDefinition> commandDefs) {
 std::string generateJSWrapper(std::vector<CommandDefinition> commandDefs) {
   std::stringstream out;
   out << "// Auto-generated command wrappers. Do not edit.\n";
-  out << "// Uses __coconut_call for Lua command invocation.\n";
+  out << "// Uses coconut.call() for Lua command invocation.\n";
   out << "// Plain JS with JSDoc — no build step required.\n";
   out << "// @ts-check\n\n";
 
@@ -373,7 +366,7 @@ std::string generateJSWrapper(std::vector<CommandDefinition> commandDefs) {
     out << ") {\n";
 
     // Build the payload object — strip trailing ? from keys
-    out << "  return __coconut_call(\"" << def.name << "\", {";
+    out << "  return coconut.call(\"" << def.name << "\", {";
     first = true;
     for (const auto& p : def.parameters) {
       if (p.name == "ctx") continue;

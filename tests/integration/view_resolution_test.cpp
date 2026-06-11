@@ -50,13 +50,13 @@ COCONUT_TEST(integration, create_html_view_stores_inline) {
   COCONUT_REQUIRE(result->html.find("<html><body>Hello</body></html>") != std::string::npos);
 }
 
-COCONUT_TEST(integration, create_url_view_not_yet_implemented) {
+COCONUT_TEST(integration, create_url_view_stores_url) {
   auto result = coconut::window::createView("https://example.com",
                                             coconut::window::VIEW_KIND_URL,
                                             std::nullopt);
-  // URL views are not implemented — must return NotImplementedYet.
-  COCONUT_REQUIRE(!result.has_value());
-  COCONUT_REQUIRE_EQ(result.error().code, coconut::ErrorCode::NotImplementedYet);
+  // URL views store the URL — no local file resolution.
+  COCONUT_REQUIRE(result.has_value());
+  COCONUT_REQUIRE_EQ(result->path, "https://example.com");
 }
 
 COCONUT_TEST(integration, add_view_stores_in_window) {

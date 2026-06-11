@@ -1,5 +1,5 @@
 // Auto-generated command wrappers. Do not edit.
-// Uses __coconut_call for Lua command invocation.
+// Uses coconut.call() for Lua command invocation.
 // Plain JS with JSDoc — no build step required.
 // @ts-check
 
@@ -8,14 +8,14 @@
  * @returns {Promise<any>}
  */
 export async function noop() {
-  return __coconut_call("noop", {});
+  return coconut.call("noop", {});
 }
 
 /**
  * @returns {Promise<string>}
  */
 export async function ping() {
-  return __coconut_call("ping", {});
+  return coconut.call("ping", {});
 }
 
 /**
@@ -24,7 +24,7 @@ export async function ping() {
  * @returns {Promise<string>}
  */
 export async function greet(name) {
-  return __coconut_call("greet", {name});
+  return coconut.call("greet", {name});
 }
 
 /**
@@ -36,7 +36,7 @@ export async function greet(name) {
  * @returns {Promise<number>}
  */
 export async function sum(a, b) {
-  return __coconut_call("sum", {a, b});
+  return coconut.call("sum", {a, b});
 }
 
 /**
@@ -47,7 +47,7 @@ export async function sum(a, b) {
  * @returns {Promise<any>}
  */
 export async function login(username, password, remember) {
-  return __coconut_call("login", {username, password, remember});
+  return coconut.call("login", {username, password, remember});
 }
 
 /**
@@ -57,7 +57,7 @@ export async function login(username, password, remember) {
  * @returns {Promise<string[]>}
  */
 export async function search(query, options) {
-  return __coconut_call("search", {query, options});
+  return coconut.call("search", {query, options});
 }
 
 /**
@@ -67,7 +67,7 @@ export async function search(query, options) {
  * @returns {Promise<string[]>}
  */
 export async function transform(data, fn) {
-  return __coconut_call("transform", {data, fn});
+  return coconut.call("transform", {data, fn});
 }
 
 /**
@@ -77,7 +77,7 @@ export async function transform(data, fn) {
  * @returns {Promise<{name: string, meta?: object}>}
  */
 export async function merge(base, overrides) {
-  return __coconut_call("merge", {base, overrides});
+  return coconut.call("merge", {base, overrides});
 }
 
 /**
@@ -87,6 +87,6 @@ export async function merge(base, overrides) {
  * @returns {Promise<{result: string | number | boolean, valid: boolean}>}
  */
 export async function evaluate(expr, validate) {
-  return __coconut_call("evaluate", {expr, validate});
+  return coconut.call("evaluate", {expr, validate});
 }
 

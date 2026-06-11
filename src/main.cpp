@@ -236,7 +236,16 @@ int main(int argc, char* argv[]) {
   window::applyWindowStyle(window);
 
   // Show the initial view once all views are registered.
-  if (!cfg.initial_view.empty()) {
+  if (cfg.initial_view.empty()) {
+    debug::warn("no initial_view set — app starts with default blank view");
+  } else if (window->views.find(cfg.initial_view) == window->views.end()) {
+    debug::warn(std::format("initial_view '{}' not found among registered views",
+                             cfg.initial_view));
+    debug::info("registered views:");
+    for (const auto& [name, _] : window->views) {
+      debug::info(std::format("  - {}", name));
+    }
+  } else {
     // kReady is baked into the webview_init() script (see createTransport).
     // No need to signalReady — it auto-fires when the page loads.
     debug::info(std::format("showing initial view '{}'", cfg.initial_view));

@@ -1,5 +1,5 @@
 // Auto-generated command wrappers. Do not edit.
-// Uses __coconut_call for Lua command invocation.
+// Uses coconut.call() for Lua command invocation.
 // Plain JS with JSDoc — no build step required.
 // @ts-check
 
@@ -8,7 +8,7 @@
  * @returns {Promise<string>}
  */
 export async function hello(params) {
-  return __coconut_call("hello", {params});
+  return coconut.call("hello", {params});
 }
 
 /**
@@ -16,6 +16,6 @@ export async function hello(params) {
  * @returns {Promise<string>}
  */
 export async function goodbye(params) {
-  return __coconut_call("goodbye", {params});
+  return coconut.call("goodbye", {params});
 }
 
