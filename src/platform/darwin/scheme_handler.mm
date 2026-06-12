@@ -1,18 +1,16 @@
 /// Coconut `coconut://` URL scheme handler for macOS (WKWebView).
 ///
-/// Implements a WKURLSchemeHandler using raw ObjC runtime.
-/// Compatible with ARC (no manual retain/release).
+/// Thin platform adapter — all routing decisions live in routes::handle().
+/// This file just maps RouteResult → WKURLSchemeTask callbacks.
 
 #if defined(__APPLE__)
 
 #include "debug.h"
-#include "fs.h"
 #include "routes.h"
 
 #include <cstdint>
 #include <format>
 #include <string>
-#include <vector>
 
 #import <objc/runtime.h>
 #import <WebKit/WebKit.h>
@@ -30,33 +28,7 @@ void setSchemeHandlerRoot(const std::string& root_dir) {
 
 // ── WKURLSchemeHandler implementation ────────────────────────────
 
-static const char* mimeTypeForExtension(const std::string& ext) {
-  if (ext == "css")  return "text/css";
-  if (ext == "js")   return "application/javascript";
-  if (ext == "html") return "text/html";
-  if (ext == "htm")  return "text/html";
-  if (ext == "json") return "application/json";
-  if (ext == "png")  return "image/png";
-  if (ext == "jpg" || ext == "jpeg") return "image/jpeg";
-  if (ext == "gif")  return "image/gif";
-  if (ext == "svg")  return "image/svg+xml";
-  if (ext == "ico")  return "image/x-icon";
-  if (ext == "woff") return "font/woff";
-  if (ext == "woff2") return "font/woff2";
-  if (ext == "ttf")  return "font/ttf";
-  if (ext == "map")  return "application/json";
-  return "application/octet-stream";
-}
-
-static std::string stripScheme(const std::string& url) {
-  const char* prefix = "coconut://";
-  if (url.compare(0, 10, prefix) == 0) {
-    return url.substr(10);
-  }
-  return url;
-}
-
-/// webView:startURLSchemeTask: — reads file and responds.
+/// webView:startURLSchemeTask: — delegates to routes::handle().
 static id startURLSchemeTask(id self, SEL _cmd, id webView, id task) {
   (void)self;
   (void)_cmd;
@@ -70,7 +42,7 @@ static id startURLSchemeTask(id self, SEL _cmd, id webView, id task) {
 
     const char* urlCStr = [urlStr UTF8String];
     if (!urlCStr) {
-      debug::error("scheme_handler: nil URL");
+      debug::error("scheme_handler: nil URL, responding 404");
       NSHTTPURLResponse* resp = [[NSHTTPURLResponse alloc]
           initWithURL:urlObj statusCode:404
           HTTPVersion:@"HTTP/1.1" headerFields:nil];
@@ -80,19 +52,17 @@ static id startURLSchemeTask(id self, SEL _cmd, id webView, id task) {
     }
 
     std::string url(urlCStr);
-    std::string relPath = stripScheme(url);
+    debug::info(std::format("scheme_handler: request '{}'", url));
 
-    // ── View name routing ───────────────────────────────────────────
-    // If the path matches a registered view name, navigate to that view
-    // via the bridge instead of serving a file.  Uses the platform-agnostic
-    // routes module so no duplication across platform handlers.
-    {
-      std::string viewName = routes::resolve(relPath);
-      if (!viewName.empty()) {
-        debug::info(std::format("scheme_handler: route -> view '{}'", viewName));
+    // ── Delegate all routing to the platform-agnostic routes module ──
+    auto action = routes::handle(url, g_root_dir);
+
+    switch (action.type) {
+
+      case routes::RouteResult::NAVIGATE_VIEW: {
+        debug::info(std::format("scheme_handler: navigate to view '{}'", action.view_name));
         NSString* js = [NSString stringWithFormat:
-            @"coconut.emit('navigate', {view:'%s'})", viewName.c_str()];
-        debug::info(std::format("scheme_handler: evaluateJS '{}'", [js UTF8String]));
+            @"coconut.emit('navigate', {view:'%s'})", action.view_name.c_str()];
         [(WKWebView*)webView evaluateJavaScript:js completionHandler:nil];
         debug::info("scheme_handler: responding 204 (no content)");
         NSHTTPURLResponse* resp = [[NSHTTPURLResponse alloc]
@@ -100,53 +70,37 @@ static id startURLSchemeTask(id self, SEL _cmd, id webView, id task) {
             HTTPVersion:@"HTTP/1.1" headerFields:nil];
         [taskObj didReceiveResponse:resp];
         [taskObj didFinish];
-        return nil;
+        break;
+      }
+
+      case routes::RouteResult::SERVE_FILE: {
+        debug::info(std::format("scheme_handler: serve '{}' ({} bytes, {})",
+                    action.file_path, action.data.size(), action.mime_type));
+        NSDictionary* headers = @{
+          @"Content-Type": [NSString stringWithUTF8String:action.mime_type.c_str()]
+        };
+        NSHTTPURLResponse* response = [[NSHTTPURLResponse alloc]
+            initWithURL:urlObj statusCode:200
+            HTTPVersion:@"HTTP/1.1" headerFields:headers];
+        [taskObj didReceiveResponse:response];
+        NSData* nsData = [[NSData alloc]
+            initWithBytes:action.data.data() length:(NSUInteger)action.data.size()];
+        [taskObj didReceiveData:nsData];
+        [taskObj didFinish];
+        break;
+      }
+
+      case routes::RouteResult::NOT_FOUND:
+      default: {
+        debug::warn(std::format("scheme_handler: 404 '{}'", url));
+        NSHTTPURLResponse* resp = [[NSHTTPURLResponse alloc]
+            initWithURL:urlObj statusCode:404
+            HTTPVersion:@"HTTP/1.1" headerFields:nil];
+        [taskObj didReceiveResponse:resp];
+        [taskObj didFinish];
+        break;
       }
     }
-
-    // ── Log file serving attempt ────────────────────────────────────
-    debug::info(std::format("scheme_handler: trying file '{}'", relPath));
-
-    // ── File serving ────────────────────────────────────────────────
-    std::string filePath = fs::resolve(g_root_dir, relPath);
-    debug::info(std::format("scheme_handler: file resolved to '{}'", filePath));
-
-    auto result = fs::readBytes(filePath);
-    if (!result) {
-      debug::warn(std::format("scheme_handler: 404 {}", filePath));
-      NSHTTPURLResponse* resp = [[NSHTTPURLResponse alloc]
-          initWithURL:urlObj statusCode:404
-          HTTPVersion:@"HTTP/1.1" headerFields:nil];
-      [taskObj didReceiveResponse:resp];
-      [taskObj didFinish];
-      return nil;
-    }
-
-    auto& data = *result;
-    auto dot = filePath.rfind('.');
-    std::string mime = "application/octet-stream";
-    if (dot != std::string::npos) {
-      mime = mimeTypeForExtension(filePath.substr(dot + 1));
-    }
-
-    // Build NSDictionary header: { @"Content-Type": mime_str }
-    NSDictionary* headers = @{
-      @"Content-Type": [NSString stringWithUTF8String:mime.c_str()]
-    };
-
-    // Response with 200
-    NSHTTPURLResponse* response = [[NSHTTPURLResponse alloc]
-        initWithURL:urlObj statusCode:200
-        HTTPVersion:@"HTTP/1.1" headerFields:headers];
-
-    [taskObj didReceiveResponse:response];
-
-    // Data
-    NSData* nsData = [[NSData alloc]
-        initWithBytes:data.data() length:(NSUInteger)data.size()];
-
-    [taskObj didReceiveData:nsData];
-    [taskObj didFinish];
   }
 
   return nil;
@@ -195,7 +149,6 @@ void registerWKURLSchemeHandler(void* configPtr) {
 
   debug::info("scheme_handler: about to alloc handler...");
 
-  // Use standard ObjC syntax for alloc/init so ARC handles memory properly.
   id handler = [[(id)g_handler_class alloc] init];
 
   if (!handler) {
@@ -204,7 +157,6 @@ void registerWKURLSchemeHandler(void* configPtr) {
   }
 
   SEL setHandlerSel = sel_getUid("setURLSchemeHandler:forURLScheme:");
-  // Use the runtime function instead of msgSend to avoid casting SEL to id.
   if (!class_respondsToSelector(object_getClass(config), setHandlerSel)) {
     debug::error("scheme_handler: config doesn't respond to selector");
     return;
