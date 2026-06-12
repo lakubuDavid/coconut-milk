@@ -33,7 +33,42 @@ header h1 { font-size: 14px; font-weight: 600; margin-right: 8px; }
 .settings-row input[type="number"] { width: 56px; padding: 3px 6px; border: 1px solid #ccc; border-radius: 2px; font-family: 'JetBrains Mono', monospace; font-size: 11px; background: #fff; color: #111; }
 .settings-row input[type="checkbox"] { accent-color: #111; cursor: pointer; }
 .settings-row input[type="color"] { width: 28px; height: 22px; border: 1px solid #ccc; border-radius: 2px; padding: 0; cursor: pointer; background: #fff; }
-.settings-row select { padding: 3px 4px; border: 1px solid #ccc; border-radius: 2px; font-family: 'JetBrains Mono', monospace; font-size: 11px; background: #fff; color: #111; }
+.settings-row select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding: 3px 24px 3px 6px;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  background: #fff;
+  color: #111;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 4px center;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.settings-row select:hover { border-color: #111; }
+.settings-row select:focus { outline: none; border-color: #111; box-shadow: 0 0 0 1px rgba(0,0,0,0.1); }
+.settings-row select option { background: #fff; color: #111; }
+
+@supports (appearance: base-select) {
+  .settings-row select {
+    appearance: base-select;
+    background-image: none;
+    padding-right: 6px;
+  }
+  .settings-row select::picker-icon { display: none; }
+  .settings-row select::picker(select) {
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 2px;
+    padding: 2px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+}
 .settings-row input[type="text"] { width: 80px; padding: 3px 6px; border: 1px solid #ccc; border-radius: 2px; font-family: 'JetBrains Mono', monospace; font-size: 11px; background: #fff; color: #111; }
 
 .pack-btn { width: 100%; padding: 8px; border: 1px solid #111; border-radius: 2px; background: #111; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.15s; margin-top: 4px; }
@@ -100,8 +135,10 @@ header h1 { font-size: 14px; font-weight: 600; margin-right: 8px; }
 .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 4px; border: none; background: none; cursor: pointer; color: #888; font-family: 'JetBrains Mono', monospace; font-size: 9px; transition: 0.1s; border-left: 2px solid transparent; }
 .nav-item:hover { color: #111; background: #f0f0f0; }
 .nav-item.active { color: #111; background: #fff; border-left-color: #111; }
-.nav-icon { font-size: 18px; line-height: 1; display:flex; align-items:center; justify-content:center; }
-.nav-icon svg { display:block; }
+.nav-icon { width: 20px; height: 20px; display:flex; align-items:center; justify-content:center; }
+.nav-icon img { display:block; opacity:0.5; transition:opacity 0.15s; }
+.nav-item:hover .nav-icon img,
+.nav-item.active .nav-icon img { opacity:1; }
 .nav-label { line-height: 1.2; text-align: center; }
 .app-content { display: flex; flex: 1; overflow: hidden; }
 .tool-page { display: none; flex: 1; overflow: hidden; flex-direction: column; }
