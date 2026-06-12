@@ -76,7 +76,7 @@ A cross-platform desktop app framework powered by **Lua** for backend logic and 
 ## 🔧 Troubleshooting
 
 - **[Common Errors](./troubleshooting.md#common-errors)** — `CommandNotFound`, `NotReady`, `MissingFile`
-- **[Dialog Crashes](./troubleshooting.md#dialog-crashes)** — NSOpenPanel issues, thread safety
+- **[Dialog Crashes](./troubleshooting.md#dialog-crashes)** — Open/save dialog issues, crash safety
 - **[CORS / ESM Issues](./troubleshooting.md#cors--esm-module-issues)** — `coconut://` scripts, IIFE bundles
 - **[Debugging](./troubleshooting.md#debugging)** — `--debug` flag, transport logs, WebKit inspector
 - **[Platform Issues](./troubleshooting.md#platform-issues)** — macOS frameless, Windows/Linux stubs

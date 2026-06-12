@@ -6,7 +6,7 @@ Coconut Milk is a **cross-platform desktop app framework** that combines:
 
 - **Lua** for backend logic (commands, filesystem, native dialogs)
 - **HTML/CSS/JS** for the UI (any framework — vanilla, Vue, React, Solid, Alpine.js)
-- **Native webview** for rendering (WKWebView on macOS, WebView2 on Windows, WebKitGTK on Linux)
+- **Native webview** for rendering (native engine on each platform)
 
 Think of it as a lightweight alternative to Electron or Tauri, but with Lua instead of Rust/Node.js. The entire runtime is a single `coconut` binary (~2-5 MB depending on platform), and your app is just a folder of Lua scripts and HTML files.
 
@@ -16,7 +16,7 @@ Think of it as a lightweight alternative to Electron or Tauri, but with Lua inst
 - **Simple syntax** — Easy to learn, great for scripting
 - **Hot-reload friendly** — No compilation step for Lua code
 - **Low memory** — ~200KB runtime footprint
-- **Extensible** — sol2 C++ bindings make native calls trivial
+- **Extensible** — Native calls are easy to add through the bridge
 
 ### Why not just use a browser?
 
@@ -527,7 +527,7 @@ export async function greet(payload) {
 
 The biggest gotcha with Vite + Coconut: **ESM modules don't work from `coconut://`**.
 
-**Why:** The page loads from `file://` but scripts load from `coconut://`. These are different origins, and `type="module"` scripts require CORS. WKWebView silently discards cross-origin ESM modules.
+**Why:** The page loads from `file://` but scripts load from `coconut://`. These are different origins, and `type="module"` scripts require CORS. The webview silently discards cross-origin ESM modules.
 
 **Solution:** Use IIFE bundles:
 
@@ -552,7 +552,7 @@ Or configure Vite to output IIFE (not default). For most projects, the developme
 | **Notifications** | ❌ Not implemented | Use HTML/CSS for in-app toasts |
 | **Clipboard** | ❌ Not implemented | Use JS `navigator.clipboard` API |
 | **Threading** | ❌ Single-threaded Lua | Commands run synchronously |
-| **Windows/Linux scheme handler** | 🔲 Stub | `coconut://` only works on macOS (WKWebView) |
+| **Windows/Linux scheme handler** | 🔲 Stub | `coconut://` only works on macOS |
 | **Frameless window on Windows/Linux** | 🔲 Stub | Only macOS supports frameless/transparent |
 | **Plugin system** | ❌ Not implemented | Use `commands/` folder for extensibility |
 | **Auto-updates** | ❌ Not implemented | Plan for distribution phase |
@@ -580,9 +580,9 @@ Or configure Vite to output IIFE (not default). For most projects, the developme
 
 | Platform | Status | Notes |
 |---|---|---|
-| **macOS** | ✅ Full support | WKWebView, frameless, transparent, native dialogs |
-| **Windows** | 🔲 Partial | WebView2 works, but `coconut://` and frameless are stubs |
-| **Linux** | 🔲 Partial | WebKitGTK works, but `coconut://` and frameless are stubs |
+| **macOS** | ✅ Full support | Frameless, transparent, `coconut://` scheme, native dialogs |
+| **Windows** | 🔲 Partial | WebView works, but `coconut://` and frameless are not yet implemented |
+| **Linux** | 🔲 Partial | WebView works, but `coconut://` and frameless are not yet implemented |
 
 ---
 

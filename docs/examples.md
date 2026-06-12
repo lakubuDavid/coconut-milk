@@ -412,12 +412,11 @@ end
 ```
 
 **How it works:**
-- `setFrameless(true)` sets `NSFullSizeContentViewWindowMask` (not removing `NSWindowStyleMaskTitled`)
-- `titlebarAppearsTransparent = YES` + `titleVisibility = hidden` hides the title bar
-- Traffic light buttons are hidden via view hierarchy traversal
-- An invisible `NSToolbar` with `NSWindowToolbarStyleUnified` helps with button alignment
+- The title bar area becomes part of the window content area (the content view expands into it)
+- The title text and traffic light buttons are hidden
+- The result is a clean, chrome-free window that you can style entirely with CSS
 
-**Gotcha:** You cannot remove `NSWindowStyleMaskTitled` after the window is displayed (Apple docs: "cannot remove traits"). The frameless approach uses content view expansion instead.
+**Limitation:** Frameless mode is macOS-only in v0.1. The window must keep its titled style mask internally — content view expansion is used instead of removing the title bit entirely.
 
 ### View.html() with Sub-resources
 
@@ -446,7 +445,7 @@ View.html([[
 
 ### ESM Modules from coconut://
 
-**Problem:** `type="module"` scripts from `coconut://` are CORS-restricted when the page loads from `file://`. WKWebView silently discards them.
+**Problem:** `type="module"` scripts from `coconut://` are CORS-restricted when the page loads from `file://`. The webview silently discards them.
 
 **Solution:** Bundle as IIFE and use plain `<script>` tags:
 
@@ -465,9 +464,9 @@ bun build lib/editor.mjs --outfile assets/editor-bundle.js --format iife
 
 ### Dialog from Background Thread
 
-The Lua callback runs on the webview's message handler thread. On macOS, NSOpenPanel/NSSavePanel must run on the main thread. The dialog code handles this automatically.
+Dialog calls are handled safely — native dialogs always run on the correct thread and exceptions are caught gracefully.
 
-**Safety:** All dialog calls are wrapped in `@try/@catch` (ObjC) and `pcall` (Lua) to prevent crashes.
+**Safety:** All dialog calls are wrapped in exception handling and `pcall` (Lua) to prevent crashes.
 
 ---
 

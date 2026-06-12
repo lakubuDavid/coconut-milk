@@ -26,7 +26,7 @@ When run without a subcommand, `coconut` starts the desktop application.
 
 #### How It Works
 
-1. **Determine project root** — Uses current working directory (`std::filesystem::absolute(".")`)
+1. **Determine project root** — Uses the current working directory
 2. **Load config** — Parses `coconut.config.lua` (if present)
 3. **Load Lua entry** — Runs `main.lua` from the project root
 4. **Execute callbacks** — `coconut.config(ctx)`, `coconut.views()`, `coconut.commands(ctx)`

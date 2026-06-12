@@ -266,8 +266,8 @@ ctx:setFrameless(true)
 ```
 
 **Notes:**
-- On macOS, uses `NSFullSizeContentViewWindowMask` + `titlebarAppearsTransparent`
-- Traffic light buttons are hidden via view hierarchy traversal
+- On macOS, the title bar area becomes part of the window content area
+- Traffic light buttons are hidden automatically
 - Not supported on Windows/Linux (stub in v0.1)
 
 ---
@@ -479,7 +479,7 @@ local docs = View.url("https://example.com/docs")
 ```
 
 **Notes:**
-- External URLs are subject to the WKNavigationDelegate policy
+- External URLs are subject to the navigation policy
 - Allow-listed URLs: `file://`, `coconut://`, `about:`, `data:`, `blob:`, localhost
 - Non-allow-listed URLs open in the system browser
 

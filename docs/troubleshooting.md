@@ -172,38 +172,19 @@ const result = await coconut.call("greet", { name: "Ada" })
 
 ## Dialog Crashes
 
-### NSOpenPanel Crash
+### Open/Save Dialog Crashes
 
-**Symptom:** App crashes when calling `coconut.dialog.open()`.
+**Symptom:** App crashes when calling `coconut.dialog.open()` or `coconut.dialog.save()`.
 
 **Causes and fixes:**
 
-1. **Init on factory result** — Fixed: `openPanel` returns an already-initialized instance. The code no longer calls `init` on it.
+1. **Thread safety** — Fixed: Dialog calls are wrapped in exception handling and always run on the correct thread.
 
-2. **Thread safety** — Fixed: Dialog calls are wrapped in `@try/@catch` in ObjC and `pcall` in Lua.
-
-3. **Missing accessibility permissions** — If the dialog doesn't appear:
+2. **Missing accessibility permissions** — If the dialog doesn't appear:
    - Go to **System Settings → Privacy & Security → Accessibility**
    - Add your terminal app (or the `coconut` binary) to the allowed list
 
-### NSSavePanel Crash
-
-Same fixes as NSOpenPanel. The code is now wrapped in `@try/@catch`:
-
-```cpp
-// In src/platform/darwin/dialog.mm
-Result platformSaveFile(...) {
-  Result result{};
-  @try {
-    // ObjC runtime calls
-  } @catch (NSException *e) {
-    debug::error(std::format("ObjC exception: {}", [[e reason] UTF8String]));
-  } @catch (...) {
-    debug::error("unknown exception");
-  }
-  return result;
-}
-```
+3. **Lua safety** — Always wrap dialog calls in `pcall` to catch any errors gracefully.
 
 ### Lua pcall Safety
 
@@ -229,7 +210,7 @@ end
 
 **Symptom:** `<script src="coconut://assets/app.js">` loads fine, but `<script type="module" src="coconut://assets/app.mjs">` silently fails.
 
-**Cause:** `type="module"` ESM scripts are CORS-restricted. The page loads from `file://` but scripts load from `coconut://` — different origins. WKWebView silently discards cross-origin ESM modules.
+**Cause:** `type="module"` ESM scripts are CORS-restricted. The page loads from `file://` but scripts load from `coconut://` — different origins. The webview silently discards cross-origin ESM modules.
 
 **Fix:** Bundle as IIFE and use plain `<script>` tags:
 
@@ -360,7 +341,7 @@ console.error('Command failed:', err)
 
 1. **Window style is applied AFTER Lua config** — `applyWindowStyle()` runs after `loadEntryPoint()`, so `coconut.config(ctx)` overrides work correctly.
 
-2. **Use the correct approach** — Don't try to remove `NSWindowStyleMaskTitled` after the window is displayed. Use `NSFullSizeContentViewWindowMask` instead:
+2. **Use the frameless API** — Just call `ctx:setFrameless(true)` in `coconut.config(ctx)`:
 
    ```lua
    function coconut.config(ctx)
@@ -370,7 +351,7 @@ console.error('Command failed:', err)
    end
    ```
 
-3. **Traffic light buttons** — Hidden via view hierarchy traversal, not `standardWindowButton:` (which returns nil on webview-created windows).
+3. **Traffic light buttons** — Hidden automatically when frameless mode is enabled.
 
 ### macOS: Transparent Background Not Working
 
@@ -393,7 +374,7 @@ console.error('Command failed:', err)
 
 ### Windows/Linux: coconut:// Not Working
 
-The `coconut://` scheme handler is implemented only for macOS (WKWebView) in v0.1. Windows and Linux are stubs.
+The `coconut://` scheme handler is implemented only for macOS in v0.1. Windows and Linux support is planned.
 
 **Workaround:** Use absolute `file://` URLs for assets on Windows/Linux:
 

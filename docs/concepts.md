@@ -15,7 +15,7 @@ Coconut Milk uses a **layered architecture** with four main layers:
                       │
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  WebView (WKWebView / WebView2 / WebKitGTK)                 │
+│  WebView (Native — platform-specific engine)                │
 │  - Renders HTML, executes JS                                 │
 │  - Handles coconut:// scheme requests                        │
 │  - Injects coconut JS API globally                           │
@@ -23,15 +23,15 @@ Coconut Milk uses a **layered architecture** with four main layers:
                       │
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  C++ Runtime (bridge, routes, config)                       │
+│  Runtime Layer (bridge, routes, config)                    │
 │  - RPC message dispatch                                     │
 │  - Route resolution (views, files, 404)                     │
-│  - Transport layer (webview binding)                        │
+│  - Transport between webview and Lua                        │
 └─────────────────────┬───────────────────────────────────────┘
                       │
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  Lua Runtime (LuaJIT + sol2 bindings)                       │
+│  Lua Runtime (LuaJIT)                                       │
 │  - Command handlers (commands/*.lua)                        │
 │  - View lifecycle callbacks                                 │
 │  - Event dispatch (coconut.events)                          │
@@ -50,10 +50,10 @@ Coconut Milk uses a **layered architecture** with four main layers:
 
 1. **User interacts with the UI** (clicks a button, submits a form)
 2. **Frontend JS calls `coconut.call("command_name", payload)`**
-3. **WebView sends an RPC message to C++** (JSON string via `webview_bind`)
-4. **C++ dispatches to Lua** via sol2 bindings
+3. **WebView sends an RPC message to the runtime** (JSON serialized)
+4. **The runtime dispatches the message to the Lua handler**
 5. **Lua command handler runs** and returns a value (or emits events)
-6. **C++ serializes the result** back to JSON
+6. **The runtime serializes the result** back to JSON
 7. **WebView delivers the response** to the frontend
 8. **Frontend Promise resolves** with the return value
 
@@ -170,13 +170,12 @@ With `coconut://`, paths are always relative to the app root:
 
 ![Scheme Flow Diagram](./diagrams/scheme-flow.png)
 
-1. **HTML requests `coconut://assets/app.js`** — The browser (WKWebView) recognizes the custom scheme
-2. **WKWebView calls the scheme handler** — `webView:startURLSchemeTask:` is invoked on `CoconutSchemeHandler`
-3. **Handler delegates to `routes::resolve()`** — The platform-agnostic route resolver strips the `coconut://` prefix and resolves the path
-4. **File is read from disk** — `coconut::fs::readBytes()` reads the file from the absolute path
-5. **MIME type is detected** — Based on file extension (`.js` → `text/javascript`, `.css` → `text/css`, etc.)
-6. **Response is sent to WKWebView** — The handler completes the `WKURLSchemeTask` with the file data and MIME type
-7. **Asset loads in the page** — The browser processes the response as if it came from a normal HTTP server
+1. **HTML requests `coconut://assets/app.js`** — The native webview recognizes the custom scheme
+2. **The scheme handler intercepts the request** — Strips the `coconut://` prefix and resolves the path against the project root
+3. **File is read from disk** — The asset file is read from the resolved absolute path
+4. **MIME type is detected** — Based on file extension (`.js` → `text/javascript`, `.css` → `text/css`, etc.)
+5. **Response is returned to the webview** — File contents and MIME type are sent back
+6. **Asset loads in the page** — The browser processes the response as if it came from a normal HTTP server
 
 ### Path Resolution
 
@@ -239,11 +238,11 @@ The handler maps file extensions to MIME types:
 
 ### Platform Support
 
-| Platform | Status | Mechanism |
+| Platform | Status | Notes |
 |---|---|---|
-| **macOS** | ✅ Full | `WKURLSchemeHandler` registered on `WKWebViewConfiguration` |
-| **Windows** | 🔲 Stub | `CoreWebView2.WebResourceRequested` (not implemented) |
-| **Linux** | 🔲 Stub | `webkit_web_context_register_uri_scheme()` (not implemented) |
+| **macOS** | ✅ Full | Custom URL scheme handler for asset resolution and view navigation |
+| **Windows** | 🔲 Stub | Not yet implemented |
+| **Linux** | 🔲 Stub | Not yet implemented |
 
 ### Priority Order
 
@@ -255,7 +254,7 @@ When resolving a `coconut://` URL, the handler checks in this order:
 
 ### CORS and Sub-resources
 
-Sub-resources (CSS, JS, images) loaded from `coconut://` work without CORS issues because **WKWebView scheme handler responses are in-process** — they don't go through the network stack.
+Sub-resources (CSS, JS, images) loaded from `coconut://` work without CORS issues because **custom scheme handler responses are in-process** — they don't go through the network stack.
 
 **Important caveat:** `type="module"` ESM scripts from `coconut://` are still CORS-restricted when the page loads from `file://`. Use **IIFE bundles** with plain `<script>` tags to avoid this.
 
@@ -338,7 +337,7 @@ All communication between the frontend and the Lua backend uses a **canonical RP
 | `return` | Lua → Frontend | Successful response to a call |
 | `error` | Lua → Frontend | Error response to a call |
 | `event` | Either direction | Fire-and-forget event |
-| `ready` | Frontend → C++ | Bridge initialization handshake |
+| `ready` | Frontend → Runtime | Bridge initialization handshake |
 
 ### JSON Envelope Shape
 
@@ -355,7 +354,7 @@ All communication between the frontend and the Lua backend uses a **canonical RP
 // Event: Either direction
 { "type": "event", "name": "toast", "payload": { "message": "Saved!" } }
 
-// Ready: Frontend → C++
+// Ready: Frontend → Runtime
 { "type": "ready" }
 ```
 
@@ -370,9 +369,9 @@ All communication between the frontend and the Lua backend uses a **canonical RP
 
 ![RPC Call Flow](./diagrams/rpc-call.png)
 
-1. **C++ creates the bridge** and loads the frontend
+1. **The runtime initializes the bridge** and loads the frontend
 2. **Frontend bridge script initializes** and sends `{ "type": "ready" }`
-3. **C++ acknowledges** — the bridge is now active
+3. **The runtime acknowledges** — the bridge is now active
 4. **Queued events are delivered**, waiting command calls proceed
 
 ---
@@ -447,34 +446,34 @@ return {
 
 | Feature | Status | Notes |
 |---|---|---|
-| WebView | ✅ WKWebView | Native macOS webview |
-| coconut:// scheme | ✅ Full | `WKURLSchemeHandler` |
-| Frameless window | ✅ Full | `NSFullSizeContentViewWindowMask` + `titlebarAppearsTransparent` |
-| Transparent background | ✅ Full | `setTransparent(true)` |
-| Native dialogs | ✅ Full | `NSOpenPanel`, `NSSavePanel`, `NSAlert` |
+| WebView | ✅ Native | Native webview engine |
+| coconut:// scheme | ✅ Full | Asset resolution and view navigation via `coconut://` URLs |
+| Frameless window | ✅ Full | Remove title bar and borders |
+| Transparent background | ✅ Full | Set transparent window with custom RGBA background |
+| Native dialogs | ✅ Full | File open/save dialogs, message boxes |
 | Filesystem | ✅ Full | `fs.readText`, `fs.writeText`, `fs.listDir` |
-| Traffic light hiding | ✅ Full | View hierarchy traversal |
+| Traffic light hiding | ✅ Full | Hidden automatically in frameless mode |
 
 ### Windows
 
 | Feature | Status | Notes |
 |---|---|---|
-| WebView | ✅ WebView2 | Requires Microsoft Edge WebView2 runtime |
-| coconut:// scheme | 🔲 Stub | `WebResourceRequested` not implemented |
-| Frameless window | 🔲 Stub | Not implemented |
-| Transparent background | 🔲 Stub | Not implemented |
-| Native dialogs | ✅ Full | Win32 common dialogs |
+| WebView | ✅ Native | Microsoft Edge WebView2 (runtime required) |
+| coconut:// scheme | 🔲 Stub | Not yet implemented |
+| Frameless window | 🔲 Stub | Not yet implemented |
+| Transparent background | 🔲 Stub | Not yet implemented |
+| Native dialogs | ✅ Full | File open/save dialogs, message boxes |
 | Filesystem | ✅ Full | Same API as macOS |
 
 ### Linux
 
 | Feature | Status | Notes |
 |---|---|---|
-| WebView | ✅ WebKitGTK | Requires `libwebkit2gtk-4.1` |
-| coconut:// scheme | 🔲 Stub | `webkit_web_context_register_uri_scheme` not implemented |
-| Frameless window | 🔲 Stub | Not implemented |
-| Transparent background | 🔲 Stub | Not implemented |
-| Native dialogs | ✅ Full | GTK dialogs |
+| WebView | ✅ Native | WebKitGTK (`libwebkit2gtk-4.1` required) |
+| coconut:// scheme | 🔲 Stub | Not yet implemented |
+| Frameless window | 🔲 Stub | Not yet implemented |
+| Transparent background | 🔲 Stub | Not yet implemented |
+| Native dialogs | ✅ Full | File open/save dialogs, message boxes |
 | Filesystem | ✅ Full | Same API as macOS |
 
 ---

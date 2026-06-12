@@ -6,19 +6,17 @@ The Coconut Milk bridge is the communication layer between the **frontend (JavaS
 
 ## RPC Protocol
 
-All bridge traffic uses a **canonical RPC envelope** defined in `src/rpc_envelope.h`:
+All bridge traffic uses a canonical RPC envelope with five message types:
 
 ### Message Types
 
-```cpp
-enum class Type {
-  kCall,    // Request a command call (JS → Lua)
-  kReturn,  // Successful response (Lua → JS)
-  kError,   // Error response (Lua → JS)
-  kEvent,   // Fire-and-forget event (either direction)
-  kReady,   // Bridge readiness handshake (JS → C++)
-};
-```
+| Type | Direction | Purpose |
+|---|---|---|
+| `call` | Frontend → Lua | Invoke a registered command |
+| `return` | Lua → Frontend | Successful response to a call |
+| `error` | Lua → Frontend | Error response to a call |
+| `event` | Either direction | Fire-and-forget message |
+| `ready` | Frontend → Runtime | Bridge initialization handshake |
 
 ### JSON Envelope Shape
 
@@ -55,8 +53,6 @@ enum class Type {
 
 ### coconut.call() Path
 
-![RPC Call Flow](./diagrams/rpc-call.png)
-
 ```
 1. Frontend JS:
    await coconut.call("greet", { name: "Ada" })
@@ -64,47 +60,33 @@ enum class Type {
 2. JS serializes payload:
    JSON.stringify({ name: "Ada" }) → '{"name":"Ada"}'
 
-3. JS sends RPC envelope via webview_bind:
-   __coconut_call("greet", '{"name":"Ada"}')
+3. JS sends the RPC envelope to the runtime
 
-4. C++ receives via static_on_rpc callback:
-   Parse JSON → extract {"type":"call", "id":"u1", "name":"greet", "payload":{...}}
+4. The runtime dispatches to the Lua handler:
+   → params table = { name = "Ada" }
 
-5. C++ dispatches to Lua:
-   sol2: fn(paramsTable, context)
-   → paramsTable = { name = "Ada" }
-
-6. Lua command runs:
+5. Lua command runs:
    return { greeting = "Hello, " .. name .. "!" }
 
-7. C++ serializes result:
-   { "type": "return", "id": "u1", "payload": { "greeting": "Hello, Ada!" } }
+6. The runtime serializes the result as JSON:
+   { "type": "return", "id": "uuid", "payload": { "greeting": "Hello, Ada!" } }
 
-8. C++ sends response via webview_eval:
-   __coconut_rpc_receive('{"type":"return","id":"u1","payload":{...}}')
-
-9. JS parses and resolves Promise:
+7. JS receives the response:
    Promise resolves → { greeting: "Hello, Ada!" }
 ```
 
 ### ctx:emit() Path
 
-![Event Flow](./diagrams/event-flow.png)
-
 ```
 1. Lua backend:
    ctx:emit("toast", { message = "Saved!", type = "success" })
 
-2. C++ serializes event envelope:
-   { "type": "event", "name": "toast", "payload": { "message": "Saved!", "type": "success" } }
+2. The runtime serializes the event envelope and sends it to the webview
 
-3. C++ sends via webview_eval:
-   __coconut_dispatch_event("toast", '{"message":"Saved!","type":"success"}')
-
-4. Injected JS runtime parses payload:
+3. Injected JS runtime parses the payload:
    JSON.parse('{"message":"Saved!","type":"success"}')
 
-5. JS invokes registered listeners:
+4. JS invokes registered listeners:
    coconut.on("toast", callback) → callback({ message: "Saved!", type: "success" })
 ```
 
@@ -112,55 +94,29 @@ enum class Type {
 
 ## Transport Layer
 
-The transport layer handles the **actual delivery** of RPC messages between C++ and the webview.
+The transport layer handles the **actual delivery** of RPC messages between the runtime and the webview.
 
-### Outbound (C++ → JS)
+### Outbound (Runtime → JS)
 
-Messages are sent via `webview_eval()`:
-
-```cpp
-// In webview_transport.cpp
-void WebviewTransport::send(const rpc::Message& msg) {
-  std::string json = msg.toJson().dump();
-  // Inject into webview as JavaScript
-  webview_eval(m_webview,
-    ("__coconut_rpc_receive('" + json + "')").c_str());
-}
-```
-
-The injected JavaScript (`__coconut_rpc_receive`) parses the JSON and dispatches:
+Messages are delivered to the frontend by evaluating JavaScript in the webview context. The injected JS function `__coconut_rpc_receive` parses the JSON and dispatches:
 
 - `return` → resolves the corresponding Promise
 - `error` → rejects the corresponding Promise
 - `event` → invokes registered listeners
 
-### Inbound (JS → C++)
+### Inbound (JS → Runtime)
 
-Messages are received via `webview_bind()`:
+When the frontend calls a function like `__coconut_rpc(jsonString)`, the runtime receives the JSON string, parses it, and dispatches based on the `type` field:
 
-```cpp
-// In webview_transport.cpp
-webview_bind(m_webview, "__coconut_rpc", &WebviewTransport::static_on_rpc, this);
-```
-
-When the frontend calls `__coconut_rpc(jsonString)`, the C++ callback fires:
-
-```cpp
-void WebviewTransport::static_on_rpc(const char* id, const char* req, void* arg) {
-  // req = JSON.stringify([msgJson]) — array-wrapped for webview_bind compatibility
-  auto args = nlohmann::json::parse(req);
-  auto msgJson = args[0].get<std::string>();
-  auto msg = rpc::Message::fromJson(msgJson);
-  // Dispatch based on msg.type
-}
-```
+- `call` → look up the command handler, invoke it, send response
+- `event` → dispatch to the Lua `coconut.events()` handler
+- `ready` → mark the bridge as ready, deliver queued events
 
 ### Script Injection
 
 At webview creation, Coconut injects a JavaScript runtime that provides the `coconut` global API:
 
 ```javascript
-// Injected via WKUserScript (document_start)
 window.coconut = {
   ready: function() { ... },
   call: function(name, payload) { ... },
@@ -170,7 +126,7 @@ window.coconut = {
 }
 ```
 
-This injection happens at `WKUserScriptInjectionTimeAtDocumentStart`, so `coconut` is available before any page scripts run.
+This injection happens before any page scripts run, so `coconut` is available immediately.
 
 ---
 
@@ -181,10 +137,10 @@ The bridge uses a **two-way handshake** to determine when it's ready for communi
 ### Handshake Sequence
 
 ```
-1. C++ creates webview, loads HTML, injects coconut JS runtime
+1. Runtime initializes the bridge and loads the frontend HTML
 2. Frontend JS initializes (DOM ready, coconut object available)
 3. Frontend sends: { "type": "ready" }
-4. C++ acknowledges — bridge is now active
+4. Runtime acknowledges — bridge is now active
 5. Queued events are delivered, waiting calls proceed
 ```
 
@@ -227,7 +183,7 @@ window.coconut.ready = function() {
 }
 ```
 
-C++ calls `__coconut_bridge_ready()` when the bridge is initialized:
+When the bridge initializes, `__coconut_bridge_ready()` is called:
 
 ```javascript
 window.__coconut_bridge_ready = function() {
@@ -245,7 +201,7 @@ window.__coconut_bridge_ready = function() {
 
 ### JSON Encoding
 
-All payloads are serialized to JSON using `nlohmann::json`:
+All payloads are serialized to JSON:
 
 | Lua Type | JSON Type | Example |
 |---|---|---|
@@ -276,27 +232,15 @@ local mixed = { "a", name = "Ada" }
 
 ### UTF-8 Handling
 
-`nlohmann::json::dump()` throws on invalid UTF-8 by default. Coconut uses `error_handler_t::replace` to substitute invalid sequences:
-
-```cpp
-json.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
-// Invalid UTF-8 bytes are replaced with U+FFFD (replacement character)
-```
-
-### String Sanitization
-
-The `sanitizeJsonString()` function in `src/bridge.cpp` removes:
-
-- **Null bytes** (`0x00`) — Can terminate strings prematurely
-- **Invalid UTF-8 sequences** — Multi-byte sequences that don't form valid characters
+Invalid UTF-8 bytes in strings are replaced with the Unicode replacement character (U+FFFD) during serialization. Null bytes (`0x00`) are also removed — they can't be represented in JSON.
 
 ---
 
 ## Frontend Helpers
 
-The injected `coconut` global provides several helper methods:
+The injected `coconut` global provides several helper methods.
 
-### coconut.ready()
+### `coconut.ready()`
 
 ```typescript
 await coconut.ready(): Promise<void>
@@ -309,7 +253,7 @@ await coconut.ready()
 // Now safe to call coconut.call(), coconut.emit(), etc.
 ```
 
-### coconut.call()
+### `coconut.call()`
 
 ```typescript
 await coconut.call<TResponse, TPayload>(
@@ -321,13 +265,8 @@ await coconut.call<TResponse, TPayload>(
 Calls a Lua command and returns the result.
 
 ```js
-// With type inference (when commands.d.ts is generated):
 const result = await coconut.call("greet", { name: "Ada" })
 // result: { greeting: string }
-
-// Without types:
-const result = await coconut.call("unknown_command", { data: "test" })
-// result: unknown
 ```
 
 **Error handling:**
@@ -341,7 +280,7 @@ try {
 }
 ```
 
-### coconut.emit()
+### `coconut.emit()`
 
 ```typescript
 await coconut.emit(name: string, payload?: object): Promise<void>
@@ -353,7 +292,7 @@ Emits an event to the Lua backend.
 await coconut.emit("navigate", { view: "settings" })
 ```
 
-### coconut.on()
+### `coconut.on()`
 
 ```typescript
 coconut.on(name: string, fn: (payload: object) => void): () => void
@@ -370,7 +309,7 @@ const unsub = coconut.on("toast", (payload) => {
 unsub()  // Stop listening
 ```
 
-### coconut.views()
+### `coconut.views()`
 
 ```typescript
 await coconut.views(): Promise<string[]>
@@ -383,7 +322,7 @@ const views = await coconut.views()
 // ["home", "settings", "about"]
 ```
 
-### coconut.ping()
+### `coconut.ping()`
 
 ```typescript
 await coconut.ping(): Promise<string>
@@ -396,7 +335,7 @@ const pong = await coconut.ping()
 // "pong"
 ```
 
-### coconut.window
+### `coconut.window`
 
 ```typescript
 coconut.window: {
@@ -414,7 +353,7 @@ await coconut.window.toggleFullscreen()
 await coconut.window.close()
 ```
 
-### coconut.fs
+### `coconut.fs`
 
 ```typescript
 coconut.fs: {
@@ -426,11 +365,8 @@ Filesystem helpers.
 
 ```js
 const { ok, data, error } = await coconut.fs.readText("/path/to/file.txt")
-if (ok) {
-  console.log(data)  // File contents
-} else {
-  console.error(error)
-}
+if (ok) console.log(data)
+else console.error(error)
 ```
 
 ---
@@ -453,12 +389,12 @@ if (ok) {
 | `QueueOverflow` | Event queue overflow | Too many events before readiness |
 | `LuaError` | Lua runtime error | Exception in command handler |
 | `BridgeError` | Bridge protocol error | Malformed RPC envelope |
-| `WebViewError` | Webview error | WKWebView/WebView2 failure |
+| `WebViewError` | Webview error | Webview failure |
 | `ParseError` | Parse error | Invalid JSON in message |
 
 ### Error Envelope
 
-Error responses use the `kError` message type:
+Error responses use the `error` type:
 
 ```json
 {
@@ -501,40 +437,14 @@ local function risky_operation(params, ctx)
 end
 ```
 
-### ObjC Exception Interception
+### Dialog Exception Safety
 
-On macOS, native dialog calls (NSOpenPanel, NSSavePanel, NSAlert) are wrapped in `@try/@catch`:
-
-```cpp
-// In src/platform/darwin/dialog.mm
-Result platformOpenFile(...) {
-  Result result{};
-  @try {
-    // ObjC runtime calls
-  } @catch (NSException *e) {
-    debug::error(std::format("dialog::openFile ObjC exception: {}", [[e reason] UTF8String]));
-  } @catch (...) {
-    debug::error("dialog::openFile unknown exception");
-  }
-  return result;
-}
-```
-
-### Lua pcall Safety
-
-Example commands use `pcall` for safety around native calls:
+Dialog calls (open, save, messageBox) are handled safely by the runtime — exceptions are caught and logged instead of crashing the app. In Lua, always wrap dialog calls in `pcall` for an extra safety layer:
 
 ```lua
--- In examples/code-editor/commands/editor.lua
-local function open_dialog(payload, ctx)
-  local ok, result = pcall(coconut.dialog.open, "Open File or Folder", false, true)
-  if not ok then
-    coconut.error("open_dialog: pcall failed: " .. tostring(result))
-    return { cancelled = true, error = tostring(result) }
-  end
-  if result.confirmed and result.path then
-    return { path = result.path, is_dir = result.is_dir }
-  end
+local ok, result = pcall(coconut.dialog.open, "Open File", false, true)
+if not ok then
+  coconut.error("Dialog failed: " .. tostring(result))
   return { cancelled = true }
 end
 ```
@@ -548,12 +458,9 @@ end
 The main type definition file provides ambient typings for `window.coconut`:
 
 ```typescript
-// scripts/coconut.d.ts
 export {};
 
 /// <reference path="./generated/commands.d.ts" />
-
-export type CoconutPayload = Record<string, unknown>;
 
 export interface CoconutError {
   code: string;
@@ -606,11 +513,7 @@ export type CoconutCommandName = "greet" | "farewell" | "ping" | "save_settings"
 This union type is used as the default for `TCommandName` in `coconut.call()`:
 
 ```typescript
-// With generated types:
 await coconut.call("greet", { name: "Ada" })  // ✅ Type-checked
-
-// Without generated types:
-await coconut.call("typo_command", { ... })    // ❌ Type error
 ```
 
 ### tsconfig.json Setup

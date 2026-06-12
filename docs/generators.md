@@ -136,7 +136,7 @@ done
 
 ## Build pipeline
 
-The generator is a C++ binary (`coconut generate`) that parses Lua files using a simple state machine. It scans for `---@command` tags and extracts the function signature, parameters, and return types.
+The generator (`coconut generate`) parses Lua files using a simple state machine. It scans for `---@command` tags and extracts the function signature, parameters, and return types.
 
 ### Parser behavior
 
