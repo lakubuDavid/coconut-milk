@@ -1,0 +1,20 @@
+sequenceDiagram
+  title: ctx:emit() / coconut.on() — Event Flow
+
+  participant LUA
+  participant CPP
+  participant JS_RUNTIME
+  participant APP
+
+  LUA ->> CPP : ctx:emit("toast", {message:"saved"})
+  CPP ->> CPP : serialize kEvent envelope
+  CPP ->> JS_RUNTIME : __coconut_dispatch_event("toast", payload)
+  JS_RUNTIME ->> JS_RUNTIME : parse JSON payload
+  JS_RUNTIME ->> APP : invoke registered listeners
+  APP -->> JS_RUNTIME : callback executes
+
+  @start_note right of APP
+    coconut.on("toast", (p) => {
+      console.log(p.message)
+    })
+  @end_note

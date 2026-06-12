@@ -1,0 +1,20 @@
+sequenceDiagram
+  title: coconut:// Scheme — Request Flow
+
+  participant VIEW
+  participant WV
+  participant HANDLER
+  participant ROUTES
+  participant FS
+
+  VIEW ->> WV : script src="coconut://assets/app.js"
+  WV ->> HANDLER : webView:startURLSchemeTask:
+  HANDLER ->> ROUTES : handle("assets/app.js", root_dir)
+  ROUTES ->> ROUTES : strip coconut:// prefix
+  ROUTES ->> ROUTES : resolve relative to app root
+  ROUTES ->> FS : readBytes("/abs/path/assets/app.js")
+  FS -->> ROUTES : file bytes
+  ROUTES ->> ROUTES : detect MIME type
+  ROUTES -->> HANDLER : RouteResult: SERVE_FILE
+  HANDLER ->> WV : task.completeWithResponse(data, mime)
+  WV -->> VIEW : app.js loaded and executed

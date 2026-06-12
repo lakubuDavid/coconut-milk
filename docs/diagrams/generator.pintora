@@ -1,0 +1,19 @@
+sequenceDiagram
+  title: coconut generate — Build Pipeline
+
+  participant SRC
+  participant SCAN
+  participant PARSE
+  participant TS
+  participant LUA
+  participant AGG
+
+  SRC ->> SCAN : Scan all .lua files
+  SCAN ->> PARSE : Extract @command blocks
+  PARSE ->> PARSE : Parse @param, @return, @command tags
+  PARSE -->> TS : Command definitions
+  TS ->> TS : Write generated/commands.d.ts
+  TS -->> AGG : CoconutCommandName union type
+  PARSE -->> LUA : Command bindings
+  LUA ->> LUA : Write .g.lua glue per command
+  AGG -->> TS : coconut.d.ts references commands.d.ts

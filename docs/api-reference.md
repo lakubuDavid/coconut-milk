@@ -1,139 +1,593 @@
-# Coconut Milk API Reference
+# API Reference
+
+Complete reference for all Lua and JavaScript APIs exposed by Coconut Milk.
+
+---
 
 ## Lua API
 
-### `coconut.config(ctx)`
+### coconut.config(ctx)
 
-Called at startup to configure the application. Returns `ctx` (or a table that will be merged into the config).
+**Signature:** `function coconut.config(ctx) → ctx`
+
+**Description:** Required startup callback. Receives the runtime context and configures the application. Must return `ctx` (chainable).
+
+**Example:**
 
 ```lua
 function coconut.config(ctx)
   return ctx
     :setWindowSize({ w = 1280, h = 640 })
-    :setInitialView("home")
+    :setMinimumWindowSize({ w = 800, h = 500 })
     :setTitle("My App")
+    :setInitialView("home")
 end
 ```
 
-### Context methods
+**Notes:**
+- Called after `coconut.config.lua` is parsed
+- Values set here **override** values from the config file
+- Must return `ctx` for chainable usage
 
-| Method | Signature | Description |
-|---|---|---|
-| `setWindowSize` | `({w: number, h: number}) → ctx` | Initial window size |
-| `setMinimumWindowSize` | `({w: number, h: number}) → ctx` | Minimum window size |
-| `setMaximumWindowSize` | `({w: number, h: number}) → ctx` | Maximum window size |
-| `setMinimumWindowWidth` | `(w: number) → ctx` | Minimum window width |
-| `setMinimumWindowHeight` | `(h: number) → ctx` | Minimum window height |
-| `setMaximumWindowWidth` | `(w: number) → ctx` | Maximum window width |
-| `setMaximumWindowHeight` | `(h: number) → ctx` | Maximum window height |
-| `setTitle` | `(title: string) → ctx` | Window title |
-| `setResizable` | `(resizable: boolean) → ctx` | Window resizable flag |
-| `setFrameless` | `(frameless: boolean) → ctx` | Frameless window |
-| `setTransparent` | `(transparent: boolean) → ctx` | Transparent background |
-| `setInitialView` | `(name: string) → ctx` | Initial view name |
-| `setBackgroundColor` | `(r, g, b, a) → ctx` | Window background color |
-| `bind` | `(name: string, fn) → ctx` | Register a command |
-| `emit` | `(name: string, payload: table)` | Emit event to frontend |
-| `emit_sync` | `(name: string, payload: table)` | Emit event synchronously |
-| `show` | `(name: string)` | Switch to view |
-| `reload` | `()` | Reload current view |
-| `close` | `()` | Close window |
+---
 
-### `coconut.views()`
+### coconut.views()
 
-Returns a table of named view descriptors.
+**Signature:** `function coconut.views() → table<string, ViewDescriptor>`
+
+**Description:** Returns a table of named view descriptors. Keys are view names, values are view descriptors created by `View.load()`, `View.html()`, or `View.url()`.
+
+**Example:**
 
 ```lua
 function coconut.views()
   return {
-    home = View.load("views/home.html"),
+    home = View.load("views/home.html")
+      :on_load(function(ctx) print("Home loaded") end)
+      :on_mount(function(ctx) print("Home visible") end),
+    settings = View.load("views/settings.html"),
     about = View.html("<h1>About</h1>"),
-    external = View.url("https://example.com"),
+    docs = View.url("https://example.com/docs"),
   }
 end
 ```
 
-### View factories
+**Notes:**
+- View names must be unique strings
+- View descriptors are lazily evaluated on first access
+- Navigation uses view names, not descriptors
 
-| Factory | Description |
-|---|---|
-| `View.load(path)` | Load from a local HTML file |
-| `View.html(html)` | Inline HTML string |
-| `View.url(url)` | External URL |
+---
 
-### View descriptor callbacks
+### coconut.commands(ctx)
 
-```lua
-View.load("views/home.html")
-  :on_load(function(ctx)
-    -- Called once when the view is first created
-  end)
-  :on_mount(function(ctx)
-    -- Called every time the view becomes visible
-  end)
-  :on_unmount(function(ctx)
-    -- Called every time the view is hidden
-  end)
-  :on_frontend_event("navigate", function(name, payload, ctx)
-    -- Called when frontend emits this event while view is active
-  end)
-```
+**Signature:** `function coconut.commands(ctx) → nil`
 
-### `coconut.commands(ctx)`
+**Description:** Optional callback for manual command registration. Called after auto-loaded commands from `commands/` folder.
 
-Register commands manually (alternative to auto-loading from `commands/`).
+**Example:**
 
 ```lua
 function coconut.commands(ctx)
-  ctx:bind("hello", function(params, ctx)
-    return "Hello, " .. (params.name or "user")
+  ctx:bind("ping", function(params, ctx)
+    return { message = "pong" }
   end)
 end
 ```
 
-### `coconut.events(name, payload, ctx)`
+**Notes:**
+- Called after `commands/` folder is scanned
+- Manual bindings with duplicate names will fail
 
-Global frontend event dispatcher.
+---
+
+### coconut.events(name, payload, ctx)
+
+**Signature:** `function coconut.events(name: string, payload: table, ctx: CoconutContext) → nil`
+
+**Description:** Global frontend event dispatcher. Called for every frontend-emitted event.
+
+**Example:**
 
 ```lua
 function coconut.events(name, payload, ctx)
   if name == "navigate" then
     ctx:show(payload.view)
+  elseif name == "save_request" then
+    local ok = save_data(payload.data)
+    ctx:emit("save_response", { ok = ok })
   end
+end
+```
+
+**Notes:**
+- Called on the main Lua thread
+- Events are dispatched synchronously
+- Use `pcall` for safety if the handler may fail
+
+---
+
+### coconut.on_resize(ctx, w, h)
+
+**Signature:** `function coconut.on_resize(ctx: CoconutContext, w: number, h: number) → nil`
+
+**Description:** Called when the window is resized.
+
+**Example:**
+
+```lua
+function coconut.on_resize(ctx, w, h)
+  ctx:emit("window_resized", { w = w, h = h })
 end
 ```
 
 ---
 
-## Frontend API (`coconut` global)
+## Context Methods
 
-### `coconut.ready()`
+All methods on `ctx` (the runtime context) are chainable unless noted.
 
-Returns a `Promise<void>` that resolves when the bridge is ready.
+### ctx:setWindowSize(size)
+
+**Signature:** `ctx:setWindowSize({ w: number, h: number }) → ctx`
+
+**Description:** Set the initial window size in pixels.
+
+**Example:**
+
+```lua
+ctx:setWindowSize({ w = 1280, h = 640 })
+```
+
+---
+
+### ctx:setMinimumWindowSize(size)
+
+**Signature:** `ctx:setMinimumWindowSize({ w: number, h: number }) → ctx`
+
+**Description:** Set the minimum window size for resizing.
+
+**Example:**
+
+```lua
+ctx:setMinimumWindowSize({ w = 800, h = 500 })
+```
+
+---
+
+### ctx:setMaximumWindowSize(size)
+
+**Signature:** `ctx:setMaximumWindowSize({ w: number, h: number }) → ctx`
+
+**Description:** Set the maximum window size for resizing.
+
+**Example:**
+
+```lua
+ctx:setMaximumWindowSize({ w = 1920, h = 1080 })
+```
+
+---
+
+### ctx:setMinimumWindowWidth(w)
+
+**Signature:** `ctx:setMinimumWindowWidth(w: number) → ctx`
+
+**Description:** Set the minimum window width only.
+
+**Example:**
+
+```lua
+ctx:setMinimumWindowWidth(600)
+```
+
+---
+
+### ctx:setMinimumWindowHeight(h)
+
+**Signature:** `ctx:setMinimumWindowHeight(h: number) → ctx`
+
+**Description:** Set the minimum window height only.
+
+**Example:**
+
+```lua
+ctx:setMinimumWindowHeight(400)
+```
+
+---
+
+### ctx:setMaximumWindowWidth(w)
+
+**Signature:** `ctx:setMaximumWindowWidth(w: number) → ctx`
+
+**Description:** Set the maximum window width only.
+
+**Example:**
+
+```lua
+ctx:setMaximumWindowWidth(1600)
+```
+
+---
+
+### ctx:setMaximumWindowHeight(h)
+
+**Signature:** `ctx:setMaximumWindowHeight(h: number) → ctx`
+
+**Description:** Set the maximum window height only.
+
+**Example:**
+
+```lua
+ctx:setMaximumWindowHeight(900)
+```
+
+---
+
+### ctx:setTitle(title)
+
+**Signature:** `ctx:setTitle(title: string) → ctx`
+
+**Description:** Set the window title.
+
+**Example:**
+
+```lua
+ctx:setTitle("My Application")
+```
+
+---
+
+### ctx:setResizable(resizable)
+
+**Signature:** `ctx:setResizable(resizable: boolean) → ctx`
+
+**Description:** Enable or disable window resizing.
+
+**Example:**
+
+```lua
+ctx:setResizable(false)  -- Fixed-size window
+```
+
+---
+
+### ctx:setFrameless(frameless)
+
+**Signature:** `ctx:setFrameless(frameless: boolean) → ctx`
+
+**Description:** Remove window chrome (title bar, borders). macOS only.
+
+**Example:**
+
+```lua
+ctx:setFrameless(true)
+```
+
+**Notes:**
+- On macOS, uses `NSFullSizeContentViewWindowMask` + `titlebarAppearsTransparent`
+- Traffic light buttons are hidden via view hierarchy traversal
+- Not supported on Windows/Linux (stub in v0.1)
+
+---
+
+### ctx:setTransparent(transparent)
+
+**Signature:** `ctx:setTransparent(transparent: boolean) → ctx`
+
+**Description:** Enable transparent window background. macOS only.
+
+**Example:**
+
+```lua
+ctx:setTransparent(true)
+ctx:setBackgroundColor(0, 0, 0, 0)  -- Fully transparent
+```
+
+**Notes:**
+- When `transparent` is true, the frontend receives a `transparent-window` CSS class on `<body>`
+- Not supported on Windows/Linux (stub in v0.1)
+
+---
+
+### ctx:setBackgroundColor(r, g, b, a)
+
+**Signature:** `ctx:setBackgroundColor(r: number, g: number, b: number, a: number) → ctx`
+
+**Description:** Set the window background color. Values are 0.0-1.0.
+
+**Example:**
+
+```lua
+ctx:setBackgroundColor(0.07, 0.11, 0.1, 1.0)  -- Dark green (#121c1a)
+```
+
+---
+
+### ctx:setInitialView(name)
+
+**Signature:** `ctx:setInitialView(name: string) → ctx`
+
+**Description:** Set the view to show at startup. Must match a key in `coconut.views()`.
+
+**Example:**
+
+```lua
+ctx:setInitialView("home")
+```
+
+**Notes:**
+- If the view name is not found, a warning is logged at startup
+- View must be registered in `coconut.views()`
+
+---
+
+### ctx:bind(name, fn)
+
+**Signature:** `ctx:bind(name: string, fn: CoconutCommandFn) → ctx`
+
+**Description:** Register a command handler. One name maps to one handler.
+
+**Parameters:**
+- `name` (string): Command name, used by `coconut.call(name)`
+- `fn` (function): Handler with signature `function(params, ctx)`
+
+**Example:**
+
+```lua
+ctx:bind("greet", function(params, ctx)
+  local name = params.name or "World"
+  return { greeting = "Hello, " .. name .. "!" }
+end)
+```
+
+**Errors:**
+- `DuplicateCommand` — If a command with this name is already registered
+
+---
+
+### ctx:emit(name, payload)
+
+**Signature:** `ctx:emit(name: string, payload: table) → nil`
+
+**Description:** Emit an event to the frontend asynchronously. Queue-based delivery.
+
+**Example:**
+
+```lua
+ctx:emit("toast", { message = "Saved successfully!", type = "success" })
+```
+
+**Notes:**
+- Async — returns immediately
+- Queued if bridge is not ready
+- Preserves order per context
+
+---
+
+### ctx:emit_sync(name, payload)
+
+**Signature:** `ctx:emit_sync(name: string, payload: table) → nil`
+
+**Description:** Emit an event to the frontend synchronously. Blocks until delivered.
+
+**Example:**
+
+```lua
+ctx:emit_sync("critical", { reason = "data loss risk" })
+```
+
+**Notes:**
+- Blocking — does not return until dispatch is complete
+- May fail if bridge is not ready
+
+---
+
+### ctx:show(name)
+
+**Signature:** `ctx:show(name: string) → nil`
+
+**Description:** Switch to a view by name.
+
+**Example:**
+
+```lua
+ctx:show("settings")
+```
+
+**Notes:**
+- Triggers `on_unmount` on the current view
+- Triggers `on_mount` on the new view
+- View must be registered in `coconut.views()`
+
+---
+
+### ctx:reload()
+
+**Signature:** `ctx:reload() → nil`
+
+**Description:** Reload the current active view.
+
+**Example:**
+
+```lua
+ctx:reload()
+```
+
+---
+
+### ctx:close()
+
+**Signature:** `ctx:close() → nil`
+
+**Description:** Request application or window shutdown.
+
+**Example:**
+
+```lua
+ctx:close()
+```
+
+---
+
+## View Factories
+
+### View.load(path)
+
+**Signature:** `View.load(path: string) → ViewDescriptor`
+
+**Description:** Create a view descriptor from a local HTML file. Path is resolved relative to the app root.
+
+**Example:**
+
+```lua
+local home = View.load("views/home.html")
+```
+
+---
+
+### View.html(html)
+
+**Signature:** `View.html(html: string) → ViewDescriptor`
+
+**Description:** Create a view descriptor from an inline HTML string.
+
+**Example:**
+
+```lua
+local about = View.html("<h1>About</h1><p>Version 1.0</p>")
+```
+
+**Notes:**
+- HTML is written to a temp file and navigated via `file://`
+- This ensures the navigation policy delegate fires for sub-resources
+- Base URL is set correctly for `coconut://` asset resolution
+
+---
+
+### View.url(url)
+
+**Signature:** `View.url(url: string) → ViewDescriptor`
+
+**Description:** Create a view descriptor for an external URL.
+
+**Example:**
+
+```lua
+local docs = View.url("https://example.com/docs")
+```
+
+**Notes:**
+- External URLs are subject to the WKNavigationDelegate policy
+- Allow-listed URLs: `file://`, `coconut://`, `about:`, `data:`, `blob:`, localhost
+- Non-allow-listed URLs open in the system browser
+
+---
+
+## View Lifecycle Methods
+
+All methods are chainable on the view descriptor.
+
+### view:on_load(fn)
+
+**Signature:** `view:on_load(fn: function(ctx)) → view`
+
+**Description:** Called once when the view is first created.
+
+---
+
+### view:on_mount(fn)
+
+**Signature:** `view:on_mount(fn: function(ctx)) → view`
+
+**Description:** Called every time the view becomes visible.
+
+---
+
+### view:on_unmount(fn)
+
+**Signature:** `view:on_unmount(fn: function(ctx)) → view`
+
+**Description:** Called every time the view is hidden.
+
+---
+
+### view:on_frontend_event(name, fn)
+
+**Signature:** `view:on_frontend_event(name: string, fn: function(name, payload, ctx)) → view`
+
+**Description:** Called when a frontend event is emitted while this view is active.
+
+---
+
+## JavaScript API
+
+### coconut.ready()
+
+**Signature:** `await coconut.ready(): Promise<void>`
+
+**Description:** Returns a Promise that resolves when the bridge is ready. **Always call this first.**
+
+**Example:**
 
 ```js
 await coconut.ready()
+console.log('Bridge is ready')
 ```
 
-### `coconut.call(name, payload)`
+---
 
-Call a Lua command. Returns a `Promise<T>`.
+### coconut.call()
+
+**Signature:** `await coconut.call<TResponse, TPayload>(name: TCommandName, payload?: TPayload): Promise<TResponse>`
+
+**Description:** Call a Lua command. Returns a Promise that resolves with the command's return value.
+
+**Parameters:**
+- `name` (string): Registered command name
+- `payload` (object, optional): Payload table passed to the Lua command handler
+
+**Example:**
 
 ```js
-const result = await coconut.call("hello", { name: "Ada" })
+const result = await coconut.call("greet", { name: "Ada" })
+console.log(result.greeting)  // "Hello, Ada!"
 ```
 
-### `coconut.emit(name, payload)`
-
-Emit an event to Lua. Returns a `Promise<void>`.
+**Error handling:**
 
 ```js
-await coconut.emit("frontend_ready", { at: Date.now() })
+try {
+  const result = await coconut.call("greet", { name: "Ada" })
+} catch (err) {
+  console.error(`${err.code}: ${err.message}`)
+}
 ```
 
-### `coconut.on(name, callback)`
+---
 
-Listen for Lua-emitted events. Returns an unsubscribe function.
+### coconut.emit()
+
+**Signature:** `await coconut.emit(name: string, payload?: object): Promise<void>`
+
+**Description:** Emit an event to the Lua backend.
+
+**Example:**
+
+```js
+await coconut.emit("navigate", { view: "settings" })
+```
+
+---
+
+### coconut.on()
+
+**Signature:** `coconut.on(name: string, fn: (payload: object) => void): () => void`
+
+**Description:** Register a listener for Lua-emitted events. Returns an unsubscribe function.
+
+**Example:**
 
 ```js
 const unsub = coconut.on("toast", (payload) => {
@@ -144,117 +598,130 @@ const unsub = coconut.on("toast", (payload) => {
 unsub()
 ```
 
-### `coconut.views()`
+---
 
-Returns a `Promise<string[]>` with the list of registered view names.
+### coconut.views()
 
-```js
-const names = await coconut.views()
-```
+**Signature:** `await coconut.views(): Promise<string[]>`
 
-### `coconut.ping()`
+**Description:** Returns the list of registered view names.
 
-Returns a `Promise<string>` for connectivity testing.
+**Example:**
 
 ```js
-const pong = await coconut.ping()
-```
-
-### `coconut.window` helpers
-
-```js
-await coconut.window.minimize()
-await coconut.window.toggleFullscreen()
-await coconut.window.close()
-```
-
-### `coconut.fs` helpers
-
-```js
-const { ok, data, error } = await coconut.fs.readText("/path/to/file")
+const views = await coconut.views()
+// ["home", "settings", "about"]
 ```
 
 ---
 
-## Config file (`coconut.config.lua`)
+### coconut.ping()
 
-```lua
-return {
-  window_width = 1280,
-  window_height = 640,
-  window_min_width = 800,
-  window_min_height = 600,
-  window_max_width = 1920,
-  window_max_height = 1080,
-  initial_view = "home",
-  title = "My App",
-  frameless = false,
-  transparent = false,
-  resizable = true,
-  view_root = "views",
-  asset_root = "assets",
-  command_root = "commands",
-  generators = {
-    output_dir = "generated"
-  },
-  views = {
-    home = { kind = "file", src = "views/home.html" },
-  }
+**Signature:** `await coconut.ping(): Promise<string>`
+
+**Description:** Connectivity test. Returns `"pong"`.
+
+**Example:**
+
+```js
+const pong = await coconut.ping()
+// "pong"
+```
+
+---
+
+### coconut.window
+
+#### coconut.window.minimize()
+
+**Signature:** `await coconut.window.minimize(): Promise<void>`
+
+**Description:** Minimize the window to the dock/taskbar.
+
+**Example:**
+
+```js
+await coconut.window.minimize()
+```
+
+---
+
+#### coconut.window.toggleFullscreen()
+
+**Signature:** `await coconut.window.toggleFullscreen(): Promise<void>`
+
+**Description:** Toggle fullscreen mode.
+
+**Example:**
+
+```js
+await coconut.window.toggleFullscreen()
+```
+
+---
+
+#### coconut.window.close()
+
+**Signature:** `await coconut.window.close(): Promise<void>`
+
+**Description:** Close the window / quit the application.
+
+**Example:**
+
+```js
+await coconut.window.close()
+```
+
+---
+
+### coconut.fs
+
+#### coconut.fs.readText()
+
+**Signature:** `await coconut.fs.readText(path: string): Promise<{ ok: boolean; data?: string; error?: string }>`
+
+**Description:** Read a text file from the filesystem.
+
+**Parameters:**
+- `path` (string): Absolute path to the file
+
+**Example:**
+
+```js
+const { ok, data, error } = await coconut.fs.readText("/path/to/file.txt")
+if (ok) {
+  console.log(data)  // File contents
+} else {
+  console.error(error)
 }
 ```
 
 ---
 
-## Error codes
+## Error Types
 
-| Code | Description |
-|---|---|
-| `Ok` | Success |
-| `Unknown` | Unknown error |
-| `InvalidConfig` | Config file parse error |
-| `InvalidView` | Invalid view descriptor |
-| `MissingFile` | File not found |
-| `DuplicateCommand` | Command already registered |
-| `CommandNotFound` | Command not found |
-| `InvalidPayload` | Invalid payload format |
-| `NotReady` | Bridge not ready |
-| `QueueOverflow` | Event queue overflow |
-| `LuaError` | Lua runtime error |
-| `BridgeError` | Bridge protocol error |
-| `WebViewError` | Webview error |
-| `ParseError` | Parse error |
+### CoconutError (JavaScript)
 
----
-
-## Platform support
-
-| Feature | macOS | Windows | Linux |
-|---|---|---|---|
-| Window creation | ✅ | ✅ | ✅ |
-| WebView render | ✅ WKWebView | ✅ WebView2 | ✅ WebKitGTK |
-| `coconut://` scheme | ✅ | 🔲 stub | 🔲 stub |
-| Frameless window | ✅ | 🔲 | 🔲 |
-| Transparent BG | ✅ | 🔲 | 🔲 |
-| Lua runtime | ✅ | ✅ | ✅ |
-| Command generation | ✅ | ✅ | ✅ |
-| Dialog (open/save) | ✅ | ✅ | ✅ |
-| View callbacks | ✅ | ✅ | ✅ |
-
----
-
-## Bridge protocol
-
-Messages are JSON envelopes with the following shape:
-
-```json
-{ "type": "call",   "id": "uuid", "name": "cmd", "payload": {} }
-{ "type": "return", "id": "uuid", "payload": <any> }
-{ "type": "error",  "id": "uuid", "payload": { "code": "...", "message": "..." } }
-{ "type": "event",  "name": "evt", "payload": {} }
-{ "type": "ready" }
+```typescript
+interface CoconutError {
+  code: string       // Error code (e.g., "CommandNotFound")
+  message: string    // Human-readable description
+  details?: unknown  // Optional additional context
+}
 ```
 
-- `id` is required for `call`, `return`, and `error`
-- `name` is required for `call` and `event`
-- `payload` is a JSON value (object, array, or primitive)
-- `ready` has no `id` and carries no payload
+### CoconutBridgeError (Lua)
+
+```lua
+---@class CoconutBridgeError
+---@field code string
+---@field message string
+---@field details? table
+```
+
+---
+
+## Next Steps
+
+- See **[Examples](./examples.md)** for real-world usage patterns
+- Read **[Troubleshooting](./troubleshooting.md)** for common errors and solutions

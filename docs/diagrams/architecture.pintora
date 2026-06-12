@@ -1,0 +1,23 @@
+componentDiagram
+  title: Coconut Milk Architecture
+
+  [Frontend] as FE
+  [WebView] as WV
+  [SchemeHandler] as SH
+  [C++Runtime] as CPP
+  [LuaRuntime] as LUA
+  [NativeAPIs] as NATIVE
+
+  FE -- WV
+  WV -- SH
+  SH -- CPP
+  CPP -- NATIVE
+  NATIVE -- SH
+  SH -- WV
+  WV -- FE
+  WV -- CPP
+  CPP -- LUA
+  LUA -- CPP
+  CPP -- WV
+  WV -- FE
+  LUA -- NATIVE

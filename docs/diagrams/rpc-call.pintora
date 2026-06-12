@@ -1,0 +1,23 @@
+sequenceDiagram
+  title: coconut.call() — RPC Message Flow
+
+  participant JS
+  participant BRIDGE
+  participant CPP
+  participant LUA
+
+  JS ->> BRIDGE : coconut.call("greet", {name:"Ada"})
+  BRIDGE ->> BRIDGE : serialize to JSON string
+  BRIDGE ->> CPP : {"type":"call","id":"u1","name":"greet"}
+  CPP ->> CPP : parse JSON to Lua table
+  CPP ->> LUA : fn({name="Ada"}, ctx)
+  LUA -->> CPP : return "Hello, Ada!"
+  CPP ->> CPP : serialize to JSON
+  CPP -->> BRIDGE : {"type":"return","id":"u1"}
+  BRIDGE -->> BRIDGE : parse JSON to JS value
+  BRIDGE -->> JS : Promise resolves
+
+  @start_note right of JS
+    await coconut.call("greet", {name:"Ada"})
+    // => "Hello, Ada!"
+  @end_note
