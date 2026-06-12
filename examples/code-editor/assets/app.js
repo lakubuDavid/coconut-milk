@@ -45,7 +45,6 @@
   // ── Editor lifecycle ──────────────────────────────────────────────
 
   function setEditorContent(content, language, filename) {
-    // Destroy previous editor
     if (editorView) {
       editorView.destroy();
       editorView = null;
@@ -60,11 +59,10 @@
     });
 
     showEditor();
-    // Focus after layout settles
     setTimeout(() => editorView.focus?.(), 50);
   }
 
-  // ── File tree (unchanged from CM5 version) ────────────────────────
+  // ── File tree ────────────────────────────────────────────────────────
 
   function renderTree(entries, container, level) {
     level = level || 0;
@@ -155,7 +153,6 @@
   // ── Opening files ─────────────────────────────────────────────────
 
   function openFile(path) {
-    // Highlight selected
     document.querySelectorAll('.tree-item.selected').forEach(function (el) {
       el.classList.remove('selected');
     });
@@ -169,7 +166,7 @@
       }
 
       currentFile = result;
-      filePath.textContent = result.name + ' — ' + result.path;
+      filePath.textContent = result.name + ' - ' + result.path;
 
       if (result.type === 'image') {
         previewContent.innerHTML = '<img src="file://' + result.path + '" alt="' + escapeHtml(result.name) + '">';
@@ -182,19 +179,21 @@
     });
   }
 
-  // ── Saving ────────────────────────────────────────────────────────
+  // ── Save (Ctrl+S / Cmd+S) ────────────────────────────────────────
 
   function saveCurrent() {
     if (!currentFile || !editorView) {
-      console.warn('Nothing to save');
+      console.warn('saveCurrent: nothing to save');
       return;
     }
+    console.log('saveCurrent: path=' + currentFile.path);
     const content = editorView.state.doc.toString();
     coconut.call('editor_save_file', { path: currentFile.path, content: content }).then(function (result) {
+      console.log('saveCurrent: result.ok=' + result.ok);
       if (result.ok) {
-        filePath.textContent = currentFile.name + ' — saved ✓';
+        filePath.textContent = currentFile.name + ' - saved ok';
         setTimeout(function () {
-          if (currentFile) filePath.textContent = currentFile.name + ' — ' + currentFile.path;
+          if (currentFile) filePath.textContent = currentFile.name + ' - ' + currentFile.path;
         }, 2000);
       } else {
         alert('Save failed: ' + (result.error || 'unknown error'));
@@ -204,21 +203,26 @@
     });
   }
 
+  // ── Open dialog ──────────────────────────────────────────────────
+
   function openDialog() {
+    console.log('openDialog: calling editor_open_dialog');
     coconut.call('editor_open_dialog').then(function (result) {
+      console.log('openDialog: result.path=' + result.path + ' is_dir=' + result.is_dir);
       if (result.path) {
         if (result.is_dir) {
-          // Load directory in the file tree
           loadDirectory(result.path);
         } else {
           openFile(result.path);
         }
+      } else {
+        console.log('openDialog: cancelled or no path');
       }
     });
   }
 
   function loadDirectory(path) {
-    // Clear tree and load new root
+    console.log('loadDirectory: path=' + path);
     loadedDirs = {};
     fileTree.innerHTML = '';
     loadedDirs['.'] = [];
@@ -232,16 +236,23 @@
     showEmpty();
   }
 
+  // ── Save As dialog ───────────────────────────────────────────────
+
   function saveAsDialog() {
     const defaultName = currentFile ? currentFile.name : 'untitled.txt';
+    console.log('saveAsDialog: defaultName=' + defaultName);
     coconut.call('editor_save_dialog', { default_name: defaultName }).then(function (result) {
+      console.log('saveAsDialog: result.path=' + result.path);
       if (result.path) {
         const content = editorView ? editorView.state.doc.toString() : '';
         coconut.call('editor_save_file', { path: result.path, content: content }).then(function (res) {
+          console.log('saveAsDialog: save result.ok=' + res.ok);
           if (res.ok) {
-            filePath.textContent = 'saved → ' + result.path;
+            filePath.textContent = 'saved -> ' + result.path;
           }
         });
+      } else {
+        console.log('saveAsDialog: cancelled');
       }
     });
   }
@@ -253,7 +264,6 @@
     showEmpty();
   });
 
-  // Expose for toolbar onclick
   window.openFile = openFile;
   window.saveCurrent = saveCurrent;
   window.openDialog = openDialog;

@@ -63,16 +63,24 @@ end
 -- Save content to a file
 local function save_file(payload, ctx)
   if not payload.path or payload.content == nil then
+    coconut.warn("save_file: missing path or content")
     return { error = "missing path or content" }
   end
+  coconut.info("save_file: path=" .. payload.path .. " content_len=" .. #payload.content)
   local ok = coconut.fs.writeText(payload.path, payload.content)
-  if ok then return { ok = true } end
+  if ok then
+    coconut.info("save_file: ok=true")
+    return { ok = true }
+  end
+  coconut.warn("save_file: could not write file: " .. payload.path)
   return { error = "could not write file: " .. payload.path }
 end
 
 -- Show open dialog (files + folders)
 local function open_dialog(payload, ctx)
+  coconut.info("open_dialog: calling coconut.dialog.open")
   local result = coconut.dialog.open("Open File or Folder", false, true)
+  coconut.info("open_dialog: confirmed=" .. tostring(result.confirmed) .. " path=" .. (result.path or "") .. " is_dir=" .. tostring(result.is_dir))
   if result.confirmed and result.path and result.path ~= "" then
     return { path = result.path, is_dir = result.is_dir }
   end
@@ -81,8 +89,10 @@ end
 
 -- Show save file dialog
 local function save_dialog(payload, ctx)
-  local result = coconut.dialog.save("Save File",
-    payload.default_name or "untitled.txt")
+  local default_name = payload.default_name or "untitled.txt"
+  coconut.info("save_dialog: calling coconut.dialog.save default_name=" .. default_name)
+  local result = coconut.dialog.save("Save File", default_name)
+  coconut.info("save_dialog: confirmed=" .. tostring(result.confirmed) .. " path=" .. (result.path or ""))
   if result.confirmed and result.path and result.path ~= "" then
     return { path = result.path }
   end

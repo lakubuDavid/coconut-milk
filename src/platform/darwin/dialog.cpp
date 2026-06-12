@@ -107,7 +107,7 @@ Result platformMessageBox(const std::string& title,
   // NSAlertFirstButtonReturn = 1000
   result.confirmed = (response == 1000);
 
-  debug::info(std::format("dialog::messageBox('{}') → confirmed={}", title, result.confirmed));
+  debug::log(std::format("dialog::messageBox('{}') → confirmed={}", title, result.confirmed));
   return result;
 }
 
@@ -206,7 +206,7 @@ Result platformOpenFile(const std::string& title,
     result.confirmed = true;
   }
 
-  debug::info(std::format("dialog::openFile('{}') → confirmed={}, paths={}, is_dir={}",
+  debug::log(std::format("dialog::openFile('{}') → confirmed={}, paths={}, is_dir={}",
                            title, result.confirmed, result.paths.size(), result.is_dir));
   return result;
 }
@@ -275,7 +275,7 @@ Result platformSaveFile(const std::string& title,
     result.confirmed = true;
   }
 
-  debug::info(std::format("dialog::saveFile('{}') → confirmed={}, path='{}'",
+  debug::log(std::format("dialog::saveFile('{}') → confirmed={}, path='{}'",
                            title, result.confirmed, result.path));
   return result;
 }
