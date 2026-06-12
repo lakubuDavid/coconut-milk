@@ -48,30 +48,33 @@ std::string toString(Status s) {
   return "unknown";
 }
 
-// ── Default implementation ────────────────────────────────────────────
+// ── Default implementation (weak symbols) ────────────────────────────
 //
-// No platform-specific code exists yet.  All functions return
-// NotApplicable / false.  Platform implementations (darwin/permissions.mm,
-// win/permissions.cpp, linux/permissions.cpp) override these at link time.
+// Weak symbols allow platform-specific code (darwin/permissions.mm,
+// win/permissions.cpp, linux/permissions.cpp) to override these at link
+// time by providing strong symbols with the same names.
+//
+// On platforms without a specific permissions implementation, the weak
+// defaults below are used — all returning NotApplicable / false.
 //
 // Tests that expect Granted will FAIL until platform code is added —
 // this is intentional: red tests prove the feature is not implemented.
 
-Result check(Permission p) {
+__attribute__((weak)) Result check(Permission p) {
   return Result{
     .status = Status::NotApplicable,
     .message = "no platform implementation for " + toString(p),
   };
 }
 
-Result request(Permission p) {
+__attribute__((weak)) Result request(Permission p) {
   return Result{
     .status = Status::NotApplicable,
     .message = "no platform implementation for " + toString(p),
   };
 }
 
-bool isAvailable(Permission) {
+__attribute__((weak)) bool isAvailable(Permission) {
   return false;
 }
 

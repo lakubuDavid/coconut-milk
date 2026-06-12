@@ -51,7 +51,10 @@ target("coconut")
             os.run("xmake coconut_bridge_embeds")
         end
     end)
-    add_frameworks("Cocoa", "WebKit", "Foundation")
+    add_frameworks("Cocoa", "WebKit", "Foundation",
+                   "AVFoundation", "UserNotifications",
+                   "Contacts", "Photos", "Security",
+                   "ApplicationServices", "ScreenCaptureKit")
     add_files("src/*.cpp")
     add_files("src/generators/*.cpp")
     add_files("src/platform/scheme_handler.cpp")
@@ -74,7 +77,10 @@ target("coconut-milk-tests")
     set_kind("binary")
     add_includedirs("src", "tests")
     add_includedirs("thirdparty/webview/core/include")
-    add_frameworks("Cocoa", "WebKit", "Foundation")
+    add_frameworks("Cocoa", "WebKit", "Foundation",
+                   "AVFoundation", "EventKit", "UserNotifications",
+                   "CoreLocation", "Contacts", "Photos", "Security",
+                   "ApplicationServices", "ScreenCaptureKit")
     add_deps("webview")
     add_files(
         "tests/*.cpp",
@@ -88,7 +94,6 @@ target("coconut-milk-tests")
         "src/dialog.cpp",
         "src/error.cpp",
         "src/fs.cpp",
-        "src/permissions.cpp",
         "src/lifecycle.cpp",
         "src/lua_runtime.cpp",
         "src/window.cpp",
@@ -104,4 +109,5 @@ target("coconut-milk-tests")
     elseif is_plat("linux") then
         add_files("src/platform/linux/*.cpp")
     end
+    add_files("src/permissions.cpp")
     add_packages("sol2", "luajit", "nlohmann_json")

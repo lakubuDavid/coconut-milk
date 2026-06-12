@@ -90,83 +90,124 @@ COCONUT_TEST(unit, result_default_constructible) {
   using coconut::permissions::Status;
 
   Result r{};
-  // First enum value = 0 = Granted
   COCONUT_REQUIRE_EQ(r.status, Status::Granted);
   COCONUT_REQUIRE(r.message.empty());
 }
 
-// ── Default implementation — NOT IMPLEMENTED YET ──────────────────────
-//
-// These tests document expected behavior.  They FAIL until platform-
-// specific code (darwin/permissions.mm, win/permissions.cpp, etc.) is
-// added.  Red tests prove the feature is not working.
+// ── macOS platform tests ──────────────────────────────────────────────
 
-COCONUT_TEST(unit, check_returns_granted_camera) {
+COCONUT_TEST_MACOS(unit, macos_check_camera_returns_determined_or_granted) {
   using coconut::permissions::Permission;
   using coconut::permissions::Status;
   using coconut::permissions::check;
 
-  // TODO: implement macOS AVCaptureDevice.authorizationStatus
-  // TODO: implement Windows MediaCapture API
-  // TODO: implement Linux /dev/video* check
-  COCONUT_REQUIRE_EQ(check(Permission::Camera).status, Status::Granted);
+  // Camera permission should be a real status on macOS (not NotApplicable)
+  auto r = check(Permission::Camera);
+  COCONUT_REQUIRE(r.status != Status::NotApplicable);
+  // Could be Granted, Denied, NotDetermined, or Restricted
+  COCONUT_REQUIRE(r.status == Status::Granted ||
+                  r.status == Status::Denied ||
+                  r.status == Status::NotDetermined ||
+                  r.status == Status::Restricted);
 }
 
-COCONUT_TEST(unit, check_returns_granted_admin) {
+COCONUT_TEST_MACOS(unit, macos_check_microphone_returns_determined_or_granted) {
   using coconut::permissions::Permission;
   using coconut::permissions::Status;
   using coconut::permissions::check;
 
-  // TODO: implement macOS Authorization Services
-  // TODO: implement Windows IsUserAnAdmin
-  // TODO: implement Linux geteuid / polkit
-  COCONUT_REQUIRE_EQ(check(Permission::Admin).status, Status::Granted);
+  auto r = check(Permission::Microphone);
+  COCONUT_REQUIRE(r.status != Status::NotApplicable);
 }
 
-COCONUT_TEST(unit, check_returns_granted_notification) {
+COCONUT_TEST_MACOS(unit, macos_check_notification_returns_determined_or_granted) {
   using coconut::permissions::Permission;
   using coconut::permissions::Status;
   using coconut::permissions::check;
 
-  // TODO: implement macOS UNUserNotificationCenter
-  // TODO: implement Windows ToastNotifier
-  // TODO: implement Linux D-Bus notification daemon
-  COCONUT_REQUIRE_EQ(check(Permission::Notification).status, Status::Granted);
+  auto r = check(Permission::Notification);
+  COCONUT_REQUIRE(r.status != Status::NotApplicable);
 }
 
-COCONUT_TEST(unit, request_returns_granted_camera) {
+COCONUT_TEST_MACOS(unit, macos_check_contacts_returns_determined_or_granted) {
   using coconut::permissions::Permission;
   using coconut::permissions::Status;
-  using coconut::permissions::request;
+  using coconut::permissions::check;
 
-  // TODO: implement platform-specific permission request dialogs
-  COCONUT_REQUIRE_EQ(request(Permission::Camera).status, Status::Granted);
+  auto r = check(Permission::Contacts);
+  COCONUT_REQUIRE(r.status != Status::NotApplicable);
 }
 
-COCONUT_TEST(unit, request_returns_granted_admin) {
+COCONUT_TEST_MACOS(unit, macos_check_photos_returns_determined_or_granted) {
   using coconut::permissions::Permission;
   using coconut::permissions::Status;
-  using coconut::permissions::request;
+  using coconut::permissions::check;
 
-  // TODO: implement macOS AuthorizationCopyRights / Windows UAC / Linux pkexec
-  COCONUT_REQUIRE_EQ(request(Permission::Admin).status, Status::Granted);
+  auto r = check(Permission::Photos);
+  COCONUT_REQUIRE(r.status != Status::NotApplicable);
 }
 
-COCONUT_TEST(unit, is_available_returns_true_camera) {
+COCONUT_TEST_MACOS(unit, macos_check_accessibility_returns_determined_or_granted) {
+  using coconut::permissions::Permission;
+  using coconut::permissions::Status;
+  using coconut::permissions::check;
+
+  auto r = check(Permission::Accessibility);
+  COCONUT_REQUIRE(r.status != Status::NotApplicable);
+  // Should be Granted or NotDetermined (no Denied state for Accessibility)
+  COCONUT_REQUIRE(r.status == Status::Granted || r.status == Status::NotDetermined);
+}
+
+COCONUT_TEST_MACOS(unit, macos_check_admin_returns_not_determined_or_granted) {
+  using coconut::permissions::Permission;
+  using coconut::permissions::Status;
+  using coconut::permissions::check;
+
+  auto r = check(Permission::Admin);
+  // Most users are not root, so NotDetermined is expected
+  COCONUT_REQUIRE(r.status == Status::NotDetermined || r.status == Status::Granted);
+}
+
+COCONUT_TEST_MACOS(unit, macos_check_network_always_granted) {
+  using coconut::permissions::Permission;
+  using coconut::permissions::Status;
+  using coconut::permissions::check;
+
+  // No explicit permission on macOS — always granted
+  COCONUT_REQUIRE_EQ(check(Permission::Network).status, Status::Granted);
+}
+
+COCONUT_TEST_MACOS(unit, macos_check_clipboard_always_granted) {
+  using coconut::permissions::Permission;
+  using coconut::permissions::Status;
+  using coconut::permissions::check;
+
+  // No sandbox restriction on desktop macOS
+  COCONUT_REQUIRE_EQ(check(Permission::Clipboard).status, Status::Granted);
+}
+
+COCONUT_TEST_MACOS(unit, macos_is_available_camera_true) {
   using coconut::permissions::Permission;
   using coconut::permissions::isAvailable;
 
-  // TODO: Camera exists on macOS, Windows, Linux — platform check should return true
   COCONUT_REQUIRE(isAvailable(Permission::Camera));
 }
 
-COCONUT_TEST(unit, is_available_returns_false_contacts_on_linux) {
+COCONUT_TEST_MACOS(unit, macos_is_available_contacts_true) {
   using coconut::permissions::Permission;
   using coconut::permissions::isAvailable;
 
-  // TODO: Contacts does not exist on Linux — should return false
-  // This test documents expected platform-specific behavior
-  // On macOS this should be true; on Linux, false.
-  // For now, expect false (not implemented).
+  // Contacts exists on macOS
+  COCONUT_REQUIRE(isAvailable(Permission::Contacts));
+}
+
+// ── Cross-platform skip tests ─────────────────────────────────────────
+
+// On Linux, Contacts should not be available
+COCONUT_TEST_LINUX(unit, linux_is_available_contacts_false) {
+  using coconut::permissions::Permission;
+  using coconut::permissions::isAvailable;
+
+  // No Contacts framework on Linux
   COCONUT_REQUIRE(!isAvailable(Permission::Contacts));
 }

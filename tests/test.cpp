@@ -8,8 +8,16 @@ std::vector<TestCase> &registry() {
   return tests;
 }
 
-Registrar::Registrar(const char *suite, const char *name, void (*fn)()) {
-  registry().push_back(TestCase{suite, name, fn});
+Registrar::Registrar(const char *suite, const char *name, void (*fn)())
+    : Registrar(suite, name, fn, nullptr) {}
+
+Registrar::Registrar(const char *suite, const char *name, void (*fn)(), const char* skip_reason) {
+  registry().push_back(TestCase{
+    .suite = suite,
+    .name = name,
+    .fn = fn,
+    .skip = { .reason = skip_reason, .active = (skip_reason != nullptr) },
+  });
 }
 
 void require(bool condition, const char *expr, const char *file, int line) {
@@ -50,8 +58,14 @@ void require_equal(coconut::ErrorCode lhs, coconut::ErrorCode rhs, const char *l
 int run_all() {
   auto &tests = registry();
   int failed = 0;
+  int skipped = 0;
 
   for (const auto &test : tests) {
+    if (test.skip.active) {
+      ++skipped;
+      std::cout << "[SKIP] " << test.suite << "." << test.name << " -> " << test.skip.reason << '\n';
+      continue;
+    }
     try {
       test.fn();
       std::cout << "[PASS] " << test.suite << "." << test.name << '\n';
@@ -61,8 +75,9 @@ int run_all() {
     }
   }
 
-  std::cout << "\n" << (tests.size() - failed) << " passed, " << failed << " failed, " << tests.size()
-            << " total\n";
+  int passed = static_cast<int>(tests.size()) - failed - skipped;
+  std::cout << "\n" << passed << " passed, " << failed << " failed, " << skipped << " skipped, "
+            << tests.size() << " total\n";
   return failed == 0 ? 0 : 1;
 }
 

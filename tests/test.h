@@ -11,16 +11,24 @@
 
 namespace coconut::test {
 
+/// Skip reason for a test case.
+struct SkipInfo {
+  const char* reason;
+  bool active;
+};
+
 struct TestCase {
   std::string suite;
   std::string name;
   void (*fn)();
+  SkipInfo skip;
 };
 
 std::vector<TestCase> &registry();
 
 struct Registrar {
   Registrar(const char *suite, const char *name, void (*fn)());
+  Registrar(const char *suite, const char *name, void (*fn)(), const char* skip_reason);
 };
 
 void require(bool condition, const char *expr, const char *file, int line);
@@ -50,6 +58,36 @@ int run_all();
   static ::coconut::test::Registrar COCONUT_TEST_CONCAT(test_reg_, __LINE__)(#suite, #name,        \
                                                                               COCONUT_TEST_CONCAT(test_fn_, __LINE__)); \
   static void COCONUT_TEST_CONCAT(test_fn_, __LINE__)()
+
+#define COCONUT_TEST_SKIP(suite, name, reason)                                                     \
+  static void COCONUT_TEST_CONCAT(test_fn_, __LINE__)();                                           \
+  static ::coconut::test::Registrar COCONUT_TEST_CONCAT(test_reg_, __LINE__)(#suite, #name,        \
+                                                                              COCONUT_TEST_CONCAT(test_fn_, __LINE__), reason); \
+  static void COCONUT_TEST_CONCAT(test_fn_, __LINE__)()
+
+/// Platform skip macros — mark tests that only apply to a specific OS.
+/// The test compiles on all platforms but is skipped at runtime.
+#if defined(__APPLE__)
+  #define COCONUT_TEST_MACOS(suite, name)    COCONUT_TEST(suite, name)
+  #define COCONUT_TEST_NOT_MACOS(suite, name, reason) COCONUT_TEST_SKIP(suite, name, reason)
+  #define COCONUT_TEST_WIN(suite, name)      COCONUT_TEST_SKIP(suite, name, "windows only")
+  #define COCONUT_TEST_LINUX(suite, name)    COCONUT_TEST_SKIP(suite, name, "linux only")
+#elif defined(_WIN32)
+  #define COCONUT_TEST_MACOS(suite, name)    COCONUT_TEST_SKIP(suite, name, "macos only")
+  #define COCONUT_TEST_NOT_MACOS(suite, name, reason) COCONUT_TEST(suite, name)
+  #define COCONUT_TEST_WIN(suite, name)      COCONUT_TEST(suite, name)
+  #define COCONUT_TEST_LINUX(suite, name)    COCONUT_TEST_SKIP(suite, name, "linux only")
+#elif defined(__linux__)
+  #define COCONUT_TEST_MACOS(suite, name)    COCONUT_TEST_SKIP(suite, name, "macos only")
+  #define COCONUT_TEST_NOT_MACOS(suite, name, reason) COCONUT_TEST(suite, name)
+  #define COCONUT_TEST_WIN(suite, name)      COCONUT_TEST_SKIP(suite, name, "windows only")
+  #define COCONUT_TEST_LINUX(suite, name)    COCONUT_TEST(suite, name)
+#else
+  #define COCONUT_TEST_MACOS(suite, name)    COCONUT_TEST_SKIP(suite, name, "macos only")
+  #define COCONUT_TEST_NOT_MACOS(suite, name, reason) COCONUT_TEST_SKIP(suite, name, reason)
+  #define COCONUT_TEST_WIN(suite, name)      COCONUT_TEST_SKIP(suite, name, "windows only")
+  #define COCONUT_TEST_LINUX(suite, name)    COCONUT_TEST_SKIP(suite, name, "linux only")
+#endif
 
 #define COCONUT_REQUIRE(expr) ::coconut::test::require(static_cast<bool>(expr), #expr, __FILE__, __LINE__)
 #define COCONUT_REQUIRE_EQ(lhs, rhs)                                                                \
