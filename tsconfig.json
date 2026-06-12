@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "strict": false,
+    "esModuleInterop": true,
+    "moduleResolution": "bundler",
+    "checkJs": true,
+    "allowJs": true
+  },
+  "include": [
+    "assets",
+    "views",
+    "commands/*.d.ts",
+    "coconut.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "assets/lib"
+  ]
+}

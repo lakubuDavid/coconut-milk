@@ -1,23 +1,55 @@
 {
   "version": "1.0",
   "project": "coconut-milk",
-  "updatedAt": "2026-06-09T02:40:46.894Z",
+  "updatedAt": "2026-06-12T02:22:21.847Z",
   "tasks": [
     {
-      "id": "task-1780972179664-hopdtgz",
-      "title": "Dialog module (open/save/message box) + Lua bindings",
-      "description": "Create platform-abstracted dialog module with macOS impl via ObjC runtime, bind to Lua as coconut.dialog.*",
+      "id": "task-1781229773597-yqsorvv",
+      "title": "Single coconut binary with subcommands (runtime + generate)",
+      "description": "Consolidate coconut-milk + coconut-milk-generators into a single `coconut` binary with subcommands. Keep create-coconut-app as external Lua script.\n\nArchitecture:\n- `coconut` (default) — launch the app (current runtime behavior)\n- `coconut generate` — parse all commands/*.lua + write generated/ files\n- `coconut new` — (future, not in this batch)\n- `create-coconut-app` — stays external Lua script; not absorbed",
       "status": "completed",
-      "createdAt": "2026-06-09T02:29:39.664Z",
-      "updatedAt": "2026-06-09T02:40:43.466Z"
+      "createdAt": "2026-06-12T02:02:53.597Z",
+      "updatedAt": "2026-06-12T02:16:37.300Z"
     },
     {
-      "id": "task-1780972182962-4y7yjly",
-      "title": "Add min/max window size + resizable to Config",
-      "description": "Add window_min_width/height, window_max_width/height, resizable to Config struct, parse from config files, apply via webview_set_size hints",
+      "id": "task-1781229777378-xfaht4w",
+      "title": "Rename binary target from coconut-milk to coconut",
+      "description": "- In xmake.lua: change target name from \"coconut-milk\" to \"coconut\"\n- Update set_basename on ocr-app and calculator-vue targets to \"coconut\"\n- Update Justfile references (DEFAULT_TARGET, run, debug recipes)\n- Update docs if they mention binary name\n- Keep backward compat: create-coconut-app can still symlink as coconut",
       "status": "completed",
-      "createdAt": "2026-06-09T02:29:42.962Z",
-      "updatedAt": "2026-06-09T02:40:46.894Z"
+      "createdAt": "2026-06-12T02:02:57.378Z",
+      "updatedAt": "2026-06-12T02:16:25.600Z"
+    },
+    {
+      "id": "task-1781229781528-15j42yi",
+      "title": "Add subcommand dispatch in main.cpp",
+      "description": "- Parse argv[1] to dispatch: \"generate\" → run generator, anything else → run app\n- Structure: main.cpp checks if argc > 1 && argv[1] == \"generate\"\n- If generate: call a new generate() function (or the generator's main logic)\n- Otherwise: existing runtime startup (no behavior change)\n- Keep argparse separate for each subcommand's flags (generate has --out-dir, run has --root --debug)",
+      "status": "completed",
+      "createdAt": "2026-06-12T02:03:01.528Z",
+      "updatedAt": "2026-06-12T02:16:28.183Z"
+    },
+    {
+      "id": "task-1781229785934-a163p4l",
+      "title": "Absorb generator into coconut generate subcommand",
+      "description": "- Move generator logic from src/generators/main.cpp into a function callable from main.cpp\n- Key improvement: use LuaRuntime to read project config (output_dir, command_root) instead of fragile configStringField() string parsing\n- Generate for ALL commands/*.lua in one pass (not per-file), aggregate commands.d.ts naturally\n- Keep src/generators/ files (command_definition.hpp, type_parser.hpp) as shared code\n- Remove src/generators/main.cpp standalone entrypoint, or keep it as a compile-unit with the function",
+      "status": "completed",
+      "createdAt": "2026-06-12T02:03:05.934Z",
+      "updatedAt": "2026-06-12T02:16:31.013Z"
+    },
+    {
+      "id": "task-1781229790175-rshvimk",
+      "title": "Remove coconut-milk-generators standalone target",
+      "description": "- Remove target(\"coconut-milk-generators\") from xmake.lua\n- Remove just run-gen recipe from Justfile (or redirect to coconut generate)\n- Remove bin/coconut-milk-generators from .gitignore if present\n- Keep src/generators/ directory and files — they compile as part of coconut binary",
+      "status": "completed",
+      "createdAt": "2026-06-12T02:03:10.175Z",
+      "updatedAt": "2026-06-12T02:16:33.732Z"
+    },
+    {
+      "id": "task-1781229945518-syhikdo",
+      "title": "Update create-coconut-app: framework list, package manager prompt, vanilla default",
+      "description": "Changes to scripts/create-coconut-app (external Lua script, not absorbed into binary):\n\n1. **Framework list**: { vanilla, react, vue, solid } — matches official create-vite templates\n2. **Default framework**: vanilla (was vue) — less opinionated first experience\n3. **Package manager prompt**: When vite template selected, prompt user to choose npm (default) or bun\n4. **npm as default**: scaffold uses `npm create vite@latest . -- --template <fw>`; deps use `npm install`; dev server in README is `npm run dev`\n5. **bun path**: `bunx create-vite@latest . --template <fw>`; `bun add vite@latest`; `bun install`; `bun run dev`\n6. **README generation**: parameterized by pkg_manager instead of hardcoded bun\n7. **bare / bare-ts untouched** — zero-toolchain, no changes",
+      "status": "completed",
+      "createdAt": "2026-06-12T02:05:45.518Z",
+      "updatedAt": "2026-06-12T02:22:21.847Z"
     }
   ]
 }

@@ -7,3 +7,7 @@ tmp/
 .DS_Store
 
 
+bin
+generated
+test-ts
+compile_commands.json
