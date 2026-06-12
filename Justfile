@@ -20,17 +20,19 @@ run-gen:
 
 # ── Examples (run core binary from example directory) ───────
 
+BIN := $(shell xmake show --target={{DEFAULT_TARGET}} --program= 2>/dev/null || echo "$(pwd)/build/macosx/x86_64/debug/coconut")
+
 run-editor: build build-editor-bundle
-	xmake run --workdir=$(pwd)/examples/code-editor {{DEFAULT_TARGET}}
+	cd examples/code-editor && {{BIN}}
 
 run-ocr: build
-	xmake run --workdir=$(pwd)/examples/ocr-app {{DEFAULT_TARGET}}
+	cd examples/ocr-app && {{BIN}}
 
 run-lua-html: build
-	xmake run --workdir=$(pwd)/examples/lua-html-app {{DEFAULT_TARGET}}
+	cd examples/lua-html-app && {{BIN}}
 
 run-vue: build
-	xmake run --workdir=$(pwd)/examples/calculator-vue {{DEFAULT_TARGET}}
+	cd examples/calculator-vue && {{BIN}}
 
 # Build the CodeMirror 6 bundle for the code-editor example
 build-editor-bundle:

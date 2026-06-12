@@ -76,10 +76,14 @@ local function save_file(payload, ctx)
   return { error = "could not write file: " .. payload.path }
 end
 
--- Show open dialog (files + folders)
+-- Show open dialog (files + folders) — pcall'd for safety
 local function open_dialog(payload, ctx)
   coconut.info("open_dialog: calling coconut.dialog.open")
-  local result = coconut.dialog.open("Open File or Folder", false, true)
+  local ok, result = pcall(coconut.dialog.open, "Open File or Folder", false, true)
+  if not ok then
+    coconut.error("open_dialog: pcall failed: " .. tostring(result))
+    return { cancelled = true, error = tostring(result) }
+  end
   coconut.info("open_dialog: confirmed=" .. tostring(result.confirmed) .. " path=" .. (result.path or "") .. " is_dir=" .. tostring(result.is_dir))
   if result.confirmed and result.path and result.path ~= "" then
     return { path = result.path, is_dir = result.is_dir }
@@ -87,11 +91,15 @@ local function open_dialog(payload, ctx)
   return { cancelled = true }
 end
 
--- Show save file dialog
+-- Show save file dialog — pcall'd for safety
 local function save_dialog(payload, ctx)
   local default_name = payload.default_name or "untitled.txt"
   coconut.info("save_dialog: calling coconut.dialog.save default_name=" .. default_name)
-  local result = coconut.dialog.save("Save File", default_name)
+  local ok, result = pcall(coconut.dialog.save, "Save File", default_name)
+  if not ok then
+    coconut.error("save_dialog: pcall failed: " .. tostring(result))
+    return { cancelled = true, error = tostring(result) }
+  end
   coconut.info("save_dialog: confirmed=" .. tostring(result.confirmed) .. " path=" .. (result.path or ""))
   if result.confirmed and result.path and result.path ~= "" then
     return { path = result.path }
