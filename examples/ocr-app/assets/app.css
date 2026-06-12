@@ -1,0 +1,136 @@
+/* ===== OCR Scanner — App Styles ===== */
+
+/* FOUC prevention: hide until UnoCSS applies styles */
+[un-cloak] {
+  display: none;
+}
+
+/* Reset & Base */
+*, *::before, *::after { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+  background: #0a0e14;
+  color: #e4e8ef;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar { display: none; }
+body { scrollbar-width: none; }
+.scroll-hide::-webkit-scrollbar { display: none; }
+.scroll-hide { scrollbar-width: none; -ms-overflow-style: none; }
+
+/* ===== Custom Select (appearance: none — universal fallback) ===== */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: #111827;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2388a0b2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  border: 1px solid #2a3444;
+  border-radius: 8px;
+  color: #e4e8ef;
+  padding: 8px 36px 8px 12px;
+  font-size: 12px;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  width: 100%;
+  max-width: 160px;
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+}
+select:hover {
+  border-color: #3d4a5c;
+  background-color: #141c27;
+}
+select:focus {
+  outline: none;
+  border-color: #00d4aa;
+  box-shadow: 0 0 0 2px rgba(0, 212, 170, 0.15);
+}
+select option {
+  background: #111827;
+  color: #e4e8ef;
+  padding: 8px;
+}
+select optgroup {
+  background: #0f1419;
+  color: #6b7280;
+  font-weight: 600;
+  padding: 4px 8px;
+}
+
+/* ===== Progressive Enhancement: base-select (Chrome 134+) ===== */
+@supports (appearance: base-select) {
+  select {
+    appearance: base-select;
+    background-image: none;
+    padding-right: 12px;
+  }
+  select::picker-icon {
+    display: none;
+  }
+  select::picker(select) {
+    appearance: base-select;
+    background: #111827;
+    border: 1px solid #2a3444;
+    border-radius: 8px;
+    padding: 4px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+  select::picker(select) option {
+    background: transparent;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  select::picker(select) option:hover,
+  select::picker(select) option:active {
+    background: #1a2332;
+  }
+  select option::checkmark {
+    color: #00d4aa;
+  }
+  select:focus-visible {
+    outline: 2px solid #00d4aa;
+    outline-offset: 2px;
+  }
+}
+
+/* ===== Toggle Switch ===== */
+.toggle {
+  position: relative;
+  width: 44px;
+  height: 22px;
+  border-radius: 9999px;
+  transition: background-color 0.2s;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+.toggle-knob {
+  position: absolute;
+  top: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  transition: left 0.2s;
+}
+.toggle.on {
+  background-color: #00d4aa;
+}
+.toggle.on .toggle-knob {
+  left: 24px;
+}
+.toggle.off {
+  background-color: #2a3444;
+}
+.toggle.off .toggle-knob {
+  left: 2px;
+}

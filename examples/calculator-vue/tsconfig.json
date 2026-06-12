@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": true,
+    "sourceMap": true,
+    "checkJs": true,
+    "allowJs": true
+  },
+  "include": [
+    "src/**/*",
+    "assets/**/*",
+    "views/**/*",
+    "commands/**/*",
+    "coconut.d.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
+}

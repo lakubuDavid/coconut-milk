@@ -21,7 +21,7 @@ void platformMoveWindow(webview_t wv, int dx, int dy) {
   frame.origin.x += dx;
   frame.origin.y += dy;
   [win setFrameOrigin:frame.origin];
-  debug::info(std::string("platformMoveWindow: dx=") + std::to_string(dx)
+  debug::log(std::string("platformMoveWindow: dx=") + std::to_string(dx)
               + " dy=" + std::to_string(dy)
               + " new=(" + std::to_string((int)frame.origin.x)
               + "," + std::to_string((int)frame.origin.y) + ")");
@@ -36,7 +36,7 @@ void platformSetWindowPosition(webview_t wv, int x, int y) {
   // setFrameTopLeftPoint uses top-left screen coordinates (y=0 = top of screen).
   NSPoint pt = NSMakePoint(x, y);
   [win setFrameTopLeftPoint:pt];
-  debug::info(std::string("platformSetWindowPosition: x=") + std::to_string(x)
+  debug::log(std::string("platformSetWindowPosition: x=") + std::to_string(x)
               + " y=" + std::to_string(y));
 }
 

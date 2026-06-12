@@ -3,7 +3,9 @@
 #include "commands.h"
 #include "config.h"
 #include "debug.h"
+#include "generators/generate.h"
 #include "lifecycle.h"
+#include "routes.h"
 #include "lua_runtime.h"
 #include "window.h"
 
@@ -19,6 +21,7 @@
 #include <iostream>
 #include <memory>
 #include <print>
+#include <set>
 #include <vector>
 
 using namespace coconut;
@@ -28,13 +31,37 @@ int main(int argc, char* argv[]) {
   auto args = argparse::parse(argc, argv);
 
   if (args.help) {
-    argparse::printHelp(argv[0]);
+    if (args.generate) {
+      argparse::printGenerateHelp(argv[0]);
+    } else {
+      argparse::printHelp(argv[0]);
+    }
     return 0;
   }
 
   if (args.version) {
     argparse::printVersion(argv[0]);
     return 0;
+  }
+
+  // Subcommand: generate
+  if (args.generate) {
+    // Change to root if specified
+    if (args.root != ".") {
+      std::filesystem::current_path(args.root);
+    }
+
+    // Load config to get command_root and output_dir
+    std::string cmdRoot = "commands";
+    std::string outDir = args.out_dir;
+    auto cfg_result = coconut::loadConfig();
+    if (cfg_result) {
+      cmdRoot = cfg_result->command_root;
+      if (args.out_dir == "generated") {
+        outDir = cfg_result->output_dir;
+      }
+    }
+    return generator::runGenerate(cmdRoot, outDir);
   }
 
   // Change to the specified root directory, if given.
@@ -47,13 +74,15 @@ int main(int argc, char* argv[]) {
   Config cfg{};
 
   // Apply --debug flag (config file can override).
-  cfg.debug = args.debug;
+  cfg.debug.enabled = args.debug;
+  cfg.debug.showTransportDump = args.debug;
 
   // Step 1: load config file (keep defaults on failure).
   // Tries coconut.config.lua first, then coconut.config.json, then C++ defaults.
   auto cfg_result = coconut::loadConfig();
   if (cfg_result) {
     cfg = cfg_result.value();
+    debug::setLevel(debug::levelFromString(cfg.debug.logLevel));
     debug::info(std::format("config loaded: frameless={}", cfg.frameless));
   } else {
     const auto err = cfg_result.error();
@@ -228,9 +257,23 @@ int main(int argc, char* argv[]) {
     coconut::lua::invokeViewCallback(lua_runtime, name, "on_load");
   }
 
-  for(const auto [k,v] : window->views){
-    std::println("Views: {} ",k);
+  // Pass view names to the route resolver so coconut://view_name links
+  // trigger navigation instead of file serving.
+  {
+    std::set<std::string> names;
+    for (const auto& [name, _] : window->views) {
+      names.insert(name);
+    }
+    routes::setViewNames(names);
   }
+
+  // Install the WKNavigationDelegate before showing the first view
+  // so it's in place when the navigation starts.  This intercepts
+  // external links and opens them in the system browser instead of
+  // the webview.
+  debug::info("main: calling window::installNavDelegate");
+  window::installNavDelegate(window);
+  debug::info("main: window::installNavDelegate done");
 
   // Apply native window style (frameless, transparent, etc.) after
   // the Lua entry point has had a chance to set config overrides via

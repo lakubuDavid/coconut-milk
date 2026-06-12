@@ -145,13 +145,15 @@ void WebviewTransport::static_list_views(const char* id, const char* req,
 }
 
 void WebviewTransport::handleCall(const char* id, const rpc::Message& msg) {
-  std::string payloadPreview;
-  try {
-    payloadPreview = msg.payload.dump();
-  } catch (...) {
-    payloadPreview = "[invalid json]";
+  if (m_app && m_app->configs && m_app->configs->debug.showTransportDump) {
+    std::string payloadPreview;
+    try {
+      payloadPreview = msg.payload.dump();
+    } catch (...) {
+      payloadPreview = "[invalid json]";
+    }
+    debug::info(std::format("handleCall: name='{}' payload={}", msg.name, payloadPreview));
   }
-  debug::info(std::format("handleCall: name='{}' payload={}", msg.name, payloadPreview));
 
   // Build the full envelope so webview's onReply parses it back to an object.
   // The JS shim for __coconut_call re-stringifies it for coconut.call().
@@ -227,13 +229,15 @@ void WebviewTransport::handleCall(const char* id, const rpc::Message& msg) {
 }
 
 void WebviewTransport::handleEvent(const char* id, const rpc::Message& msg) {
-  std::string eventPayloadPreview;
-  try {
-    eventPayloadPreview = msg.payload.dump();
-  } catch (...) {
-    eventPayloadPreview = "[invalid json]";
+  if (m_app && m_app->configs && m_app->configs->debug.showTransportDump) {
+    std::string eventPayloadPreview;
+    try {
+      eventPayloadPreview = msg.payload.dump();
+    } catch (...) {
+      eventPayloadPreview = "[invalid json]";
+    }
+    debug::info(std::format("handleEvent: name='{}' payload={}", msg.name, eventPayloadPreview));
   }
-  debug::info(std::format("handleEvent: name='{}' payload={}", msg.name, eventPayloadPreview));
 
   // Dispatch to Lua's coconut.events(name, payload, ctx).
   if (m_app && m_app->lua_state && m_app->lua_state->lua_state &&

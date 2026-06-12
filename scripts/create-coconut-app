@@ -6,18 +6,20 @@
 ---
 --- Options:
 ---   -t, --template <bare|bare-ts|vite>   Template type (default: bare)
----   -f, --framework <react|vue|solid>     Framework for vite template (default: vue)
+---   -f, --framework <vanilla|react|vue|solid>  Framework for vite template (default: vanilla)
+---   -p, --pm <npm|bun>                   Package manager for vite template (default: npm)
 ---   -y, --yes                            Skip prompts, use defaults
 ---   -h, --help                           Show this help
 ---
 --- Templates:
 ---   bare      Coconut + raw HTML + CSS/JS
 ---   bare-ts   bare + TypeScript + tsconfig
----   vite      Coconut + Vite + framework (react/vue/solid)
+---   vite      Coconut + Vite + framework (vanilla/react/vue/solid)
 ---
 
 local TEMPLATES = { bare = true, ["bare-ts"] = true, vite = true }
-local FRAMEWORKS = { react = true, vue = true, solid = true }
+local FRAMEWORKS = { vanilla = true, react = true, vue = true, solid = true }
+local PACKAGE_MANAGERS = { npm = true, bun = true }
 
 -- ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -222,21 +224,105 @@ console.log('Hello from Coconut Milk (TypeScript)!')
 ]]
 end
 
+--- Generate tsconfig.json (bare — JS with type-checking via checkJs)
+function GENERATORS.tsconfig_js()
+  return [[{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "checkJs": true,
+    "allowJs": true
+  },
+  "include": ["views/**/*", "assets/**/*", "coconut.d.ts"],
+  "exclude": ["node_modules", "dist", "assets/lib"]
+}
+]]
+end
+
 --- Generate tsconfig.json (bare-ts)
 function GENERATORS.tsconfig()
   return [[{
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "strict": true,
     "esModuleInterop": true,
-    "moduleResolution": "bundler",
     "outDir": "dist",
     "rootDir": "src",
     "declaration": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "checkJs": true,
+    "allowJs": true
   },
-  "include": ["src"]
+  "include": ["src/**/*", "coconut.d.ts"],
+  "exclude": ["node_modules", "dist"]
+}
+]]
+end
+
+--- Generate coconut.d.ts (type definitions for the bridge API)
+function GENERATORS.coconut_dts()
+  return [[// Crucial: turning the file into a module so 'declare global' is accepted
+export {};
+
+/// <reference path="./generated/commands.d.ts" />
+
+export type CoconutPayload = Record<string, unknown>;
+
+export interface CoconutError {
+  code: string;
+  message: string;
+  details?: unknown;
+}
+
+export interface CoconutViewDescriptor {
+  kind: "file" | "html" | "url";
+  src?: string;
+}
+
+export interface CoconutWindowAPI {
+  minimize(): Promise<void>;
+  toggleFullscreen(): Promise<void>;
+  close(): Promise<void>;
+}
+
+export interface CoconutFsAPI {
+  readText(path: string): Promise<{ ok: boolean; data?: string; error?: string }>;
+}
+
+export interface CoconutJsAPI<TCommandName extends string = CoconutCommandName> {
+  ready(): Promise<void>;
+  call<TResponse = unknown, TPayload = Record<string, unknown>>(
+    name: TCommandName,
+    payload?: TPayload,
+  ): Promise<TResponse>;
+  emit<TPayload = Record<string, unknown>>(
+    name: string,
+    payload?: TPayload,
+  ): Promise<void>;
+  on<TPayload = Record<string, unknown>>(
+    name: string,
+    fn: (payload: TPayload) => void,
+  ): () => void;
+  views(): Promise<string[]>;
+  ping(): Promise<string>;
+  window: CoconutWindowAPI;
+  fs: CoconutFsAPI;
+}
+
+export type CoconutCommandHelper<
+  TParams = Record<string, unknown>,
+  TResult = unknown,
+> = (payload: TParams) => Promise<TResult>;
+
+declare global {
+  interface Window {
+    coconut: CoconutJsAPI;
+  }
 }
 ]]
 end
@@ -293,7 +379,8 @@ export async function greet(params) {
 end
 
 --- Generate README.md
-function GENERATORS.readme(project_name, template, framework)
+function GENERATORS.readme(project_name, template, framework, pkg_manager)
+  local pm = pkg_manager or "npm"
   local lines = {
     '# ' .. project_name,
     '',
@@ -307,21 +394,21 @@ function GENERATORS.readme(project_name, template, framework)
     lines[#lines + 1] = ''
     lines[#lines + 1] = '```bash'
     lines[#lines + 1] = '# Terminal 1: start Vite dev server'
-    lines[#lines + 1] = 'bun run dev'
+    lines[#lines + 1] = pm .. ' run dev'
     lines[#lines + 1] = ''
     lines[#lines + 1] = '# Terminal 2: run Coconut with env flag'
-    lines[#lines + 1] = 'COCONUT_DEV=1 /path/to/coconut-milk'
+    lines[#lines + 1] = 'COCONUT_DEV=1 /path/to/coconut'
     lines[#lines + 1] = '```'
     lines[#lines + 1] = ''
     lines[#lines + 1] = '### Production mode'
     lines[#lines + 1] = ''
     lines[#lines + 1] = '```bash'
-    lines[#lines + 1] = 'bun run build'
-    lines[#lines + 1] = '/path/to/coconut-milk'
+    lines[#lines + 1] = pm .. ' run build'
+    lines[#lines + 1] = '/path/to/coconut'
     lines[#lines + 1] = '```'
   else
     lines[#lines + 1] = '```bash'
-    lines[#lines + 1] = '/path/to/coconut-milk'
+    lines[#lines + 1] = '/path/to/coconut'
     lines[#lines + 1] = '```'
   end
   lines[#lines + 1] = ''
@@ -331,6 +418,8 @@ function GENERATORS.readme(project_name, template, framework)
   lines[#lines + 1] = project_name .. '/'
   lines[#lines + 1] = '├── coconut.config.lua'
   lines[#lines + 1] = '├── main.lua'
+  lines[#lines + 1] = '├── tsconfig.json'
+  lines[#lines + 1] = '├── coconut.d.ts'
   lines[#lines + 1] = '├── commands/'
   lines[#lines + 1] = '│   ├── example.lua'
   lines[#lines + 1] = '│   └── example.g.js'
@@ -338,8 +427,7 @@ function GENERATORS.readme(project_name, template, framework)
   if template == "bare-ts" then
     lines[#lines + 1] = '    ├── index.html'
     lines[#lines + 1] = '    ├── style.css'
-    lines[#lines + 1] = '    ├── app.ts'
-    lines[#lines + 1] = '    └── tsconfig.json'
+    lines[#lines + 1] = '    └── app.ts'
   elseif template == "vite" then
     lines[#lines + 1] = '    └── (Vite project files)'
   else
@@ -374,6 +462,10 @@ local function scaffold_bare(project_dir, project_name)
     GENERATORS.example_command())
   write_file(path_join(project_dir, "commands/example.g.js"),
     GENERATORS.example_g_js())
+  write_file(path_join(project_dir, "tsconfig.json"),
+    GENERATORS.tsconfig_js())
+  write_file(path_join(project_dir, "coconut.d.ts"),
+    GENERATORS.coconut_dts())
   write_file(path_join(project_dir, "README.md"),
     GENERATORS.readme(project_name, "bare"))
 end
@@ -401,11 +493,14 @@ local function scaffold_bare_ts(project_dir, project_name)
     GENERATORS.example_command())
   write_file(path_join(project_dir, "commands/example.g.js"),
     GENERATORS.example_g_js())
+  write_file(path_join(project_dir, "coconut.d.ts"),
+    GENERATORS.coconut_dts())
   write_file(path_join(project_dir, "README.md"),
     GENERATORS.readme(project_name, "bare-ts"))
 end
 
-local function scaffold_vite(project_dir, project_name, framework)
+local function scaffold_vite(project_dir, project_name, framework, pkg_manager)
+  local pm = pkg_manager or "npm"
   log("Scaffolding vite + " .. framework .. " project...")
 
   -- Create Vite project in a temp location
@@ -415,11 +510,16 @@ local function scaffold_vite(project_dir, project_name, framework)
   os.execute("rm -rf " .. tmp_dir)
   os.execute("mkdir -p " .. tmp_dir)
 
-  local cmd = "cd '" .. tmp_dir .. "' && bunx --yes create-vite@latest . --template " .. framework .. " --no-interactive 2>&1 </dev/null"
-  log("Running: bun create vite . --template " .. framework)
+  local cmd
+  if pm == "bun" then
+    cmd = "cd '" .. tmp_dir .. "' && bunx --yes create-vite@latest . --template " .. framework .. " --no-interactive 2>&1 </dev/null"
+  else
+    cmd = "cd '" .. tmp_dir .. "' && npm create vite@latest . -- --template " .. framework .. " --no-interactive 2>&1 </dev/null"
+  end
+  log("Running: " .. pm .. " create vite . --template " .. framework)
   local ok = os.execute(cmd)
   if not ok then
-    die("Failed to create Vite project. Is bun installed?")
+    die("Failed to create Vite project. Is " .. pm .. " installed?")
   end
 
   -- Move Vite files into project dir (without nested subdirectory)
@@ -428,7 +528,11 @@ local function scaffold_vite(project_dir, project_name, framework)
 
   -- Upgrade to latest Vite + framework plugin
   log("Upgrading to latest Vite...")
-  os.execute("cd " .. project_dir .. " && bun add vite@latest 2>&1 </dev/null")
+  if pm == "bun" then
+    os.execute("cd " .. project_dir .. " && bun add vite@latest 2>&1 </dev/null")
+  else
+    os.execute("cd " .. project_dir .. " && npm install vite@latest 2>&1 </dev/null")
+  end
 
   -- Update vite.config for relative base
   local vc_path = path_join(project_dir, "vite.config.js")
@@ -455,17 +559,21 @@ local function scaffold_vite(project_dir, project_name, framework)
   write_file(path_join(project_dir, "commands/example.g.js"),
     GENERATORS.example_g_js())
   write_file(path_join(project_dir, "README.md"),
-    GENERATORS.readme(project_name, "vite", framework))
+    GENERATORS.readme(project_name, "vite", framework, pm))
 
   -- Install dependencies
   log("Installing dependencies...")
-  os.execute("cd " .. project_dir .. " && bun install 2>&1 </dev/null")
+  if pm == "bun" then
+    os.execute("cd " .. project_dir .. " && bun install 2>&1 </dev/null")
+  else
+    os.execute("cd " .. project_dir .. " && npm install 2>&1 </dev/null")
+  end
 end
 
 -- ── Main ──────────────────────────────────────────────────────────────────
 
 local function parse_args()
-  local args = { name = nil, template = "bare", framework = "vue", yes = false }
+  local args = { name = nil, template = "bare", framework = "vanilla", pm = "npm", yes = false }
   local i = 1
   while i <= #arg do
     local a = arg[i]
@@ -486,7 +594,10 @@ local function parse_args()
       args.template = arg[i] or "bare"
     elseif a == "-f" or a == "--framework" then
       i = i + 1
-      args.framework = arg[i] or "vue"
+      args.framework = arg[i] or "vanilla"
+    elseif a == "-p" or a == "--pm" then
+      i = i + 1
+      args.pm = arg[i] or "npm"
     elseif a == "-y" or a == "--yes" then
       args.yes = true
     elseif a:sub(1, 1) ~= "-" and not args.name then
@@ -495,7 +606,8 @@ local function parse_args()
     i = i + 1
   end
   if not TEMPLATES[args.template] then args.template = "bare" end
-  if not FRAMEWORKS[args.framework] then args.framework = "vue" end
+  if not FRAMEWORKS[args.framework] then args.framework = "vanilla" end
+  if not PACKAGE_MANAGERS[args.pm] then args.pm = "npm" end
   return args
 end
 
@@ -520,10 +632,13 @@ local function main()
     template = prompt_select("Template", templates_list, template)
   end
 
-  -- Collect framework for vite
+  -- Collect package manager and framework for vite
+  local pm = opts.pm
   local framework = opts.framework
   if template == "vite" and not opts.yes then
-    local frameworks_list = { "vue", "react", "solid" }
+    local pm_list = { "npm", "bun" }
+    pm = prompt_select("Package manager", pm_list, pm)
+    local frameworks_list = { "vanilla", "react", "vue", "solid" }
     framework = prompt_select("Framework", frameworks_list, framework)
   end
 
@@ -551,17 +666,17 @@ local function main()
   elseif template == "bare-ts" then
     scaffold_bare_ts(project_dir, project_name)
   elseif template == "vite" then
-    scaffold_vite(project_dir, project_name, framework)
+    scaffold_vite(project_dir, project_name, framework, pm)
   end
 
   log("Done! Created project in " .. project_dir)
   io.write("\nTo get started:\n")
   io.write("  cd " .. project_name .. "\n")
-  io.write("  /path/to/coconut-milk\n")
+  io.write("  /path/to/coconut\n")
   if template == "vite" then
     io.write("\nDev mode (with hot reload):\n")
-    io.write("  # Terminal 1: bun run dev\n")
-    io.write("  # Terminal 2: COCONUT_DEV=1 /path/to/coconut-milk\n")
+    io.write("  # Terminal 1: " .. pm .. " run dev\n")
+    io.write("  # Terminal 2: COCONUT_DEV=1 /path/to/coconut\n")
   end
   io.write("\n")
 end

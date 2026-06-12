@@ -122,13 +122,22 @@ loadConfigJson(std::string_view config_path) {
     }
 
     if (j.contains("debug") && !j["debug"].is_null()) {
-      if (!j["debug"].is_boolean()) {
+      if (j["debug"].is_boolean()) {
+        // Backward compat: bool → enable master switch
+        cfg.debug.enabled = j["debug"].get<bool>();
+        cfg.debug.showTransportDump = cfg.debug.enabled;
+      } else if (j["debug"].is_object()) {
+        auto d = j["debug"];
+        cfg.debug.enabled = d.value("enabled", false);
+        cfg.debug.showTransportDump = d.value("showTransportDump", false);
+        if (d.contains("logLevel") && d["logLevel"].is_string())
+          cfg.debug.logLevel = d["logLevel"].get<std::string>();
+      } else {
         return std::unexpected(
             Error{.code = ErrorCode::InvalidConfig,
-                  .message = "config.debug must be a boolean",
+                  .message = "config.debug must be a bool or object",
                   .details = j["debug"].dump()});
       }
-      cfg.debug = j["debug"].get<bool>();
     }
 
     if (j.contains("title") && !j["title"].is_null()) {
@@ -179,6 +188,21 @@ loadConfigJson(std::string_view config_path) {
                   .details = j["command_root"].dump()});
       }
       cfg.command_root = j["command_root"].get<std::string>();
+    }
+
+    if (j.contains("output_dir") && !j["output_dir"].is_null()) {
+      if (!j["output_dir"].is_string()) {
+        return std::unexpected(
+            Error{.code = ErrorCode::InvalidConfig,
+                  .message = "config.output_dir must be a string",
+                  .details = j["output_dir"].dump()});
+      }
+      cfg.output_dir = j["output_dir"].get<std::string>();
+    } else if (j.contains("generators") && j["generators"].is_object()) {
+      auto& g = j["generators"];
+      if (g.contains("output_dir") && g["output_dir"].is_string()) {
+        cfg.output_dir = g["output_dir"].get<std::string>();
+      }
     }
 
     // --- views block (optional) ---
@@ -282,12 +306,32 @@ loadConfigLua(std::string_view config_path) {
     cfg.resizable = t["resizable"].get_or(true);
     cfg.frameless = t["frameless"].get_or(false);
     cfg.transparent = t["transparent"].get_or(false);
-    cfg.debug = t["debug"].get_or(false);
+    {
+      sol::object debugObj = t["debug"];
+      if (debugObj.is<bool>()) {
+        cfg.debug.enabled = debugObj.as<bool>();
+        cfg.debug.showTransportDump = cfg.debug.enabled;
+      } else if (debugObj.is<sol::table>()) {
+        sol::table dt = debugObj;
+        cfg.debug.enabled = dt["enabled"].get_or(false);
+        cfg.debug.showTransportDump = dt["showTransportDump"].get_or(false);
+        cfg.debug.logLevel = dt["logLevel"].get_or<std::string>("info");
+      }
+    }
     cfg.title = t["title"].get_or<std::string>("Coconut");
     cfg.initial_view = t["initial_view"].get_or<std::string>("home");
     cfg.view_root = t["view_root"].get_or<std::string>("views");
     cfg.asset_root = t["asset_root"].get_or<std::string>("assets");
     cfg.command_root = t["command_root"].get_or<std::string>("commands");
+    // output_dir: top-level key, or generators.output_dir for backward compat
+    cfg.output_dir = t["output_dir"].get_or<std::string>(cfg.output_dir);
+    {
+      sol::object gen = t["generators"];
+      if (gen.is<sol::table>()) {
+        sol::table gt = gen.as<sol::table>();
+        cfg.output_dir = gt["output_dir"].get_or<std::string>(cfg.output_dir);
+      }
+    }
 
     // Views block (optional)
     sol::object views_obj = t["views"];

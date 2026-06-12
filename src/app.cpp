@@ -20,7 +20,7 @@ std::expected<App *, Error> create(Config *configs, void* nativeWindow) {
   }
 
   debug::info("app::create: context created, creating webview...");
-  webview_t wv = webview_create(configs->debug ? 1 : 0, nativeWindow);
+  webview_t wv = webview_create(configs->debug.enabled ? 1 : 0, nativeWindow);
   if (wv == nullptr) {
     context::destroy(ctx.value());
     return std::unexpected(Error{.code = ErrorCode::WebViewError,

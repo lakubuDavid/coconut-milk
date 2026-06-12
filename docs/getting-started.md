@@ -14,7 +14,7 @@
 ```bash
 git clone https://github.com/lakubuDavid/coconut-milk.git
 cd coconut-milk
-xmake build coconut-milk
+xmake build coconut
 ```
 
 ### Install to $HOME/tools
@@ -23,14 +23,14 @@ xmake build coconut-milk
 just install
 ```
 
-This symlinks `coconut-milk` and `create-coconut-app` into `$HOME/tools/`.
+This symlinks `coconut` and `create-coconut-app` into `$HOME/tools/`.
 
 ### Create your first app
 
 ```bash
 create-coconut-app my-app --template bare
 cd my-app
-xmake run coconut-milk
+xmake run coconut
 ```
 
 ---
@@ -121,7 +121,7 @@ cd my-app
 bun install
 bun run build        # produces dist/
 # then from the Coconut Milk root:
-xmake run coconut-milk --root my-app
+xmake run coconut --root my-app
 ```
 
 ---
@@ -169,7 +169,7 @@ return { hello = hello }
 ### 3. Generate typed wrappers
 
 ```bash
-./bin/coconut-milk-generators commands/hello.lua --out-dir generated
+coconut generate commands/hello.lua --out-dir generated
 ```
 
 This produces:
@@ -180,7 +180,7 @@ This produces:
 ### 4. Run
 
 ```bash
-xmake run coconut-milk
+xmake run coconut
 ```
 
 ---
@@ -234,7 +234,7 @@ When `transparent` is true, the frontend receives a `transparent-window` CSS cla
 ## CLI options
 
 ```
-coconut-milk [options]
+coconut [options]
   -h, --help       Show help
   -v, --version    Show version
   -d, --debug      Enable debug mode

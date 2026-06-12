@@ -10,6 +10,13 @@
 
 namespace coconut {
 
+/// Debug settings — off by default.
+struct DebugConfig {
+  bool enabled           = false;  ///< Master switch (CLI --debug, or config)
+  bool showTransportDump = false;  ///< Log bridge message payloads
+  std::string logLevel   = "info"; ///< Minimum log level: debug|info|warn|error
+};
+
 /// Describes a view as declared in the startup config file.
 ///
 /// At load time the framework converts these into runtime `window::View`
@@ -35,12 +42,13 @@ struct Config {
   bool resizable = true;
   bool frameless = false;
   bool transparent = false;
-  bool debug = false;
+  DebugConfig debug;
   std::string title = "Coconut";
   std::string initial_view = "home";
   std::string view_root = "views";
   std::string asset_root = "assets";
   std::string command_root = "commands";
+  std::string output_dir = "generated";
   std::map<std::string, ViewEntry> views;
 };
 
@@ -52,7 +60,6 @@ struct Config {
 /// Expected JSON shape (example):
 /// ```json
 /// {
-///   "browser": "auto",
 ///   "window_width": 1280,
 ///   "window_height": 640,
 ///   "window_min_width": 0,
@@ -62,7 +69,11 @@ struct Config {
 ///   "resizable": true,
 ///   "frameless": false,
 ///   "transparent": false,
-///   "debug": false,
+///   "debug": {
+///     "enabled": false,
+///     "showTransportDump": false,
+///     "logLevel": "info"
+///   },
 ///   "title": "Coconut",
 ///   "initial_view": "home",
 ///   "view_root": "views",
@@ -83,7 +94,6 @@ loadConfigJson(std::string_view config_path = "coconut.config.json");
 /// Expected Lua shape (example):
 /// ```lua
 /// return {
-///   browser = "auto",
 ///   window_width = 1280,
 ///   window_height = 640,
 ///   window_min_width = 0,
@@ -93,7 +103,11 @@ loadConfigJson(std::string_view config_path = "coconut.config.json");
 ///   resizable = true,
 ///   frameless = false,
 ///   transparent = false,
-///   debug = false,
+///   debug = {
+///     enabled = false,
+///     showTransportDump = false,
+///     logLevel = "info",
+///   },
 ///   title = "Coconut",
 ///   initial_view = "home",
 ///   view_root = "views",

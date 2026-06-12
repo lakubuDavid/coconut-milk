@@ -10,6 +10,9 @@ namespace coconut {
     /// Apply Windows-native window style (frameless, etc.) — stub.
     inline void platformApplyWindowStyle(webview_t /*wv*/, Config* /*cfg*/) {}
 
+    /// Install WebView2 navigation delegate for external URL interception — stub.
+    inline void platformInstallNavDelegate(webview_t /*wv*/) {}
+
     /// Set window background color (0-1 range) — stub.
     inline void platformSetWindowBackgroundColor(webview_t /*wv*/, float, float, float, float) {}
   }

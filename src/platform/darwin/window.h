@@ -12,6 +12,10 @@ namespace coconut {
     /// for correct ObjC++ calling conventions.
     void platformApplyWindowStyle(webview_t wv, Config* cfg);
 
+    /// Install WKNavigationDelegate for external URL interception.
+    /// Implementation in window_style.mm.
+    void platformInstallNavDelegate(webview_t wv);
+
     /// Set window background color (0-1 range).
     void platformSetWindowBackgroundColor(webview_t wv, float r, float g, float b, float a);
   }

@@ -1,8 +1,7 @@
 set shell := ["bash", "-uc"]
 
-DEFAULT_TARGET := "coconut-milk"
+DEFAULT_TARGET := "coconut"
 TEST_TARGET := "coconut-milk-tests"
-GENERATOR_TARGET := "coconut-milk-generators"
 
 # ── Install paths ───────────────────────────────────────────
 # Default: user-local tools directory.
@@ -35,13 +34,16 @@ run-ocr:
 	xmake build ocr-app
 	xmake run ocr-app
 
+run-lua-html:
+	xmake build lua-html-app
+	xmake run lua-html-app
+
 test:
 	xmake build {{TEST_TARGET}}
 	xmake run {{TEST_TARGET}}
 
-run-gen INP="samples/commands/hello.lua":
-	xmake build {{GENERATOR_TARGET}}
-	xmake run {{GENERATOR_TARGET}} "{{INP}}"
+run-gen:
+	xmake run coconut generate
 
 clean:
 	xmake clean
@@ -58,10 +60,10 @@ debug:
 format:
 	clang-format -i src/**/*.h src/**/*.cpp tests/**/*.cpp
 
-# Symlink coconut-milk + create-coconut-app into INSTALL_DIR.
+# Symlink coconut + create-coconut-app into INSTALL_DIR.
 install:
 	mkdir -p {{INSTALL_DIR}}
-	ln -sf "$(pwd)/build/macosx/x86_64/debug/coconut-milk" "{{INSTALL_DIR}}/coconut-milk"
+	ln -sf "$(pwd)/build/macosx/x86_64/debug/coconut" "{{INSTALL_DIR}}/coconut"
 	ln -sf "$(pwd)/scripts/create-coconut-app" "{{INSTALL_DIR}}/create-coconut-app"
 	@echo "installed to {{INSTALL_DIR}}:"
-	@ls -la "{{INSTALL_DIR}}/coconut-milk" "{{INSTALL_DIR}}/create-coconut-app"
+	@ls -la "{{INSTALL_DIR}}/coconut" "{{INSTALL_DIR}}/create-coconut-app"

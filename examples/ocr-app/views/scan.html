@@ -4,197 +4,235 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OCR Scanner</title>
-  <script src="https://cdn.jsdelivr.net/npm/@unocss/runtime"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
-    body { font-family: 'Inter', sans-serif; background: #0f172a; color: #e2e8f0; }
-  </style>
+  <!-- FOUC prevention: hide until UnoCSS applies styles -->
+  <style>[un-cloak]{display:none}</style>
+  <!-- Vendor libs -->
+  <link rel="stylesheet" href="../assets/lib/unocss-reset.css">
+  <script src="../assets/lib/unocss-runtime.min.js"></script>
+  <script defer src="../assets/lib/alpine.min.js"></script>
+  <!-- Google Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- App styles -->
+  <link rel="stylesheet" href="../assets/app.css">
 </head>
-<body class="min-h-screen flex flex-col items-center p-6">
+<body>
 
-  <div x-data="ocrApp()" class="w-full max-w-2xl">
-    <h1 class="text-3xl font-semibold text-center mb-2 text-emerald-400">OCR Scanner</h1>
-    <p class="text-center text-slate-400 mb-8 text-sm">Scan documents, receipts, and images using Tesseract</p>
+  <div x-data="ocrApp()" class="h-screen flex flex-col overflow-hidden" un-cloak>
 
-    <!-- Drop zone -->
-    <div
-      @dragover.prevent="dragging = true"
-      @dragleave.prevent="dragging = false"
-      @drop.prevent="handleDrop($event)"
-      :class="dragging ? 'border-emerald-400 bg-emerald-400/10' : 'border-slate-600 bg-slate-800/50'"
-      class="border-2 border-dashed rounded-xl p-10 text-center transition-all duration-200 cursor-pointer mb-6"
-      @click="$refs.fileInput.click()"
-    >
-      <input type="file" x-ref="fileInput" @change="handleFile($event)" accept="image/*" class="hidden" />
-      <div class="text-4xl mb-3">📄</div>
-      <p class="text-slate-300 font-medium">Drop an image here or click to browse</p>
-      <p class="text-slate-500 text-xs mt-1">Supports PNG, JPG, WEBP, BMP</p>
-    </div>
-
-    <!-- Preview -->
-    <div x-show="imageUrl" x-transition class="mb-6">
-      <div class="flex items-center justify-between mb-2">
-        <span class="text-sm text-slate-400">Preview</span>
-        <button @click="clearImage()" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded">Remove</button>
-      </div>
-      <img :src="imageUrl" class="w-full rounded-lg shadow-lg max-h-80 object-contain bg-slate-900" />
-    </div>
-
-    <!-- Scan button -->
-    <button
-      @click="scan()"
-      :disabled="!imagePath || scanning"
-      :class="!imagePath || scanning ? 'opacity-50 cursor-not-allowed' : 'hover:bg-emerald-600'"
-      class="w-full py-3 bg-emerald-500 text-white font-medium rounded-lg transition-colors mb-6"
-    >
-      <span x-show="!scanning">🔍 Scan Document</span>
-      <span x-show="scanning" class="flex items-center justify-center gap-2">
-        <span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-        Scanning...
-      </span>
-    </button>
-
-    <!-- Error -->
-    <div x-show="error" x-transition class="bg-red-500/10 border border-red-500/30 text-red-300 p-4 rounded-lg mb-6 text-sm">
-      <span class="font-semibold">Error:</span> <span x-text="error"></span>
-    </div>
-
-    <!-- Result -->
-    <div x-show="text" x-transition class="mb-6">
-      <div class="flex items-center justify-between mb-2">
-        <span class="text-sm text-slate-400">Extracted Text</span>
-        <div class="flex gap-2">
-          <button @click="copyText()" class="text-xs text-emerald-400 hover:text-emerald-300 px-3 py-1 rounded border border-emerald-500/30">Copy</button>
-          <button @click="downloadText()" class="text-xs text-emerald-400 hover:text-emerald-300 px-3 py-1 rounded border border-emerald-500/30">Download</button>
+    <!-- Header -->
+    <header class="flex items-center justify-between px-5 py-3 border-b border-[#1e2533] bg-[#0f1419] flex-shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00d4aa] to-[#00a080] flex items-center justify-center text-lg">📄</div>
+        <div>
+          <h1 class="text-base font-semibold text-[#e4e8ef]">OCR Scanner</h1>
+          <p class="text-[10px] text-[#6b7280]">Powered by Tesseract</p>
         </div>
       </div>
-      <textarea
-        x-model="text"
-        class="w-full h-48 bg-slate-800 border border-slate-700 rounded-lg p-4 text-sm text-slate-200 resize-none focus:outline-none focus:border-emerald-500"
-        placeholder="OCR result will appear here..."
-      ></textarea>
+      <nav class="flex items-center gap-1">
+        <button
+          @click="activeTab = 'scan'"
+          :class="activeTab === 'scan' ? 'bg-[#1a2332] text-[#00d4aa] border-[#00d4aa]/30' : 'text-[#8892a4] hover:text-[#e4e8ef] border-transparent'"
+          class="px-4 py-1.5 rounded-lg text-xs font-medium border transition-all"
+        >Scan</button>
+        <button
+          @click="activeTab = 'history'"
+          :class="activeTab === 'history' ? 'bg-[#1a2332] text-[#00d4aa] border-[#00d4aa]/30' : 'text-[#8892a4] hover:text-[#e4e8ef] border-transparent'"
+          class="px-4 py-1.5 rounded-lg text-xs font-medium border transition-all"
+        >History</button>
+        <button
+          @click="activeTab = 'settings'"
+          :class="activeTab === 'settings' ? 'bg-[#1a2332] text-[#00d4aa] border-[#00d4aa]/30' : 'text-[#8892a4] hover:text-[#e4e8ef] border-transparent'"
+          class="px-4 py-1.5 rounded-lg text-xs font-medium border transition-all"
+        >Settings</button>
+      </nav>
+    </header>
+
+    <!-- Scan Tab -->
+    <div x-show="activeTab === 'scan'" x-transition class="flex-1 overflow-hidden flex flex-col p-5 gap-4">
+
+      <!-- Drop zone -->
+      <div
+        @dragover.prevent="dragging = true"
+        @dragleave.prevent="dragging = false"
+        @drop.prevent="handleDrop($event)"
+        :class="dragging ? 'border-[#00d4aa] bg-[#00d4aa]/5' : 'border-[#2a3444] bg-[#111827]/50'"
+        class="border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200 cursor-pointer flex-shrink-0"
+        @click="$refs.fileInput.click()"
+      >
+        <input type="file" x-ref="fileInput" @change="handleFile($event)" accept="image/*" class="hidden" />
+        <div class="text-3xl mb-2">📷</div>
+        <p class="text-sm text-[#9ca3af] font-medium">Drop image here or click to browse</p>
+        <p class="text-[10px] text-[#4b5563] mt-1">PNG, JPG, WEBP, BMP</p>
+      </div>
+
+      <!-- Preview -->
+      <div x-show="imageUrl" x-transition class="flex-shrink-0">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs text-[#6b7280]">Preview</span>
+          <button @click="clearImage()" class="text-[10px] text-[#ef4444] hover:text-[#dc2626] px-2 py-0.5 rounded border border-[#ef4444]/30">Remove</button>
+        </div>
+        <img :src="imageUrl" class="w-full h-28 object-contain rounded-lg bg-[#111827]" />
+      </div>
+
+      <!-- Scan button -->
+      <button
+        @click="scan()"
+        :disabled="!imagePath || scanning"
+        :class="!imagePath || scanning ? 'opacity-40 cursor-not-allowed' : 'hover:opacity-90'"
+        class="w-full py-2.5 bg-gradient-to-r from-[#00d4aa] to-[#00b894] text-[#0a0e14] font-semibold rounded-lg text-sm transition-opacity flex-shrink-0"
+      >
+        <span x-show="!scanning">🔍 Scan Document</span>
+        <span x-show="scanning" class="flex items-center justify-center gap-2">
+          <span class="w-3.5 h-3.5 border-2 border-[#0a0e14]/30 border-t-[#0a0e14] rounded-full animate-spin"></span>
+          Scanning...
+        </span>
+      </button>
+
+      <!-- Error -->
+      <div x-show="error" x-transition class="bg-[#ef4444]/10 border border-[#ef4444]/20 text-[#fca5a5] p-3 rounded-lg text-xs flex-shrink-0">
+        <span class="font-semibold">Error:</span> <span x-text="error"></span>
+      </div>
+
+      <!-- Result -->
+      <div x-show="text" x-transition class="flex-1 min-h-0 flex flex-col">
+        <div class="flex items-center justify-between mb-2 flex-shrink-0">
+          <span class="text-xs text-[#6b7280]">Extracted Text</span>
+          <div class="flex gap-2">
+            <button @click="copyText()" class="text-[10px] text-[#00d4aa] hover:text-[#00b894] px-2.5 py-0.5 rounded border border-[#00d4aa]/20">Copy</button>
+            <button @click="saveText()" class="text-[10px] text-[#00d4aa] hover:text-[#00b894] px-2.5 py-0.5 rounded border border-[#00d4aa]/20">Save</button>
+            <button @click="saveToHistory()" class="text-[10px] text-[#a78bfa] hover:text-[#8b5cf6] px-2.5 py-0.5 rounded border border-[#a78bfa]/20">Save to History</button>
+          </div>
+        </div>
+        <textarea
+          x-model="text"
+          class="flex-1 w-full bg-[#111827] border border-[#1f2937] rounded-lg p-3 text-xs text-[#d1d5db] resize-none focus:outline-none focus:border-[#00d4aa]/50 min-h-0"
+          placeholder="OCR result will appear here..."
+        ></textarea>
+      </div>
     </div>
 
-    <!-- Window size -->
-    <div class="text-center text-xs text-slate-600 mt-4">
-      Window: <span x-text="windowW"></span> × <span x-text="windowH"></span>
+    <!-- History Tab -->
+    <div x-show="activeTab === 'history'" x-transition class="flex-1 overflow-hidden flex flex-col p-5">
+      <div class="flex items-center justify-between mb-4 flex-shrink-0">
+        <h2 class="text-sm font-semibold text-[#e4e8ef]">Scan History</h2>
+        <button @click="clearHistory()" class="text-[10px] text-[#ef4444] hover:text-[#dc2626] px-2.5 py-1 rounded border border-[#ef4444]/20">Clear All</button>
+      </div>
+
+      <!-- Empty state -->
+      <div x-show="history.length === 0" class="flex-1 flex flex-col items-center justify-center text-center">
+        <div class="text-4xl mb-3">📭</div>
+        <p class="text-sm text-[#6b7280]">No scans yet</p>
+        <p class="text-[10px] text-[#4b5563] mt-1">Scanned documents will appear here</p>
+      </div>
+
+      <!-- History list -->
+      <div x-show="history.length > 0" class="flex-1 overflow-y-auto space-y-2 scroll-hide">
+        <template x-for="(item, index) in history" :key="index">
+          <div class="bg-[#111827] border border-[#1f2937] rounded-lg p-3 hover:border-[#2a3444] transition-colors">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex-1 min-w-0">
+                <p class="text-xs text-[#9ca3af] break-words" x-text="item.text.substring(0, 80) + (item.text.length > 80 ? '...' : '')"></p>
+                <p class="text-[10px] text-[#4b5563] mt-1" x-text="item.date"></p>
+              </div>
+              <div class="flex gap-1 flex-shrink-0">
+                <button @click="loadFromHistory(item)" class="text-[10px] text-[#00d4aa] hover:text-[#00b894] px-2 py-0.5 rounded border border-[#00d4aa]/20">Load</button>
+                <button @click="deleteFromHistory(index)" class="text-[10px] text-[#ef4444] hover:text-[#dc2626] px-2 py-0.5 rounded border border-[#ef4444]/20">Delete</button>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
     </div>
+
+    <!-- Settings Tab -->
+    <div x-show="activeTab === 'settings'" x-transition class="flex-1 overflow-hidden flex flex-col p-5">
+      <h2 class="text-sm font-semibold text-[#e4e8ef] mb-4">Settings</h2>
+
+      <div class="space-y-3 overflow-y-auto scroll-hide">
+
+        <!-- OCR Language -->
+        <div class="bg-[#111827] border border-[#1f2937] rounded-lg p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-xs font-medium text-[#e4e8ef]">OCR Language</p>
+              <p class="text-[10px] text-[#6b7280] mt-0.5">Language for text recognition</p>
+            </div>
+            <select x-model="settings.language" @change="saveSettings()">
+              <option value="eng">English</option>
+              <option value="deu">German</option>
+              <option value="fra">French</option>
+              <option value="spa">Spanish</option>
+              <option value="ita">Italian</option>
+              <option value="por">Portuguese</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- PSM Mode -->
+        <div class="bg-[#111827] border border-[#1f2937] rounded-lg p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-xs font-medium text-[#e4e8ef]">Page Segmentation</p>
+              <p class="text-[10px] text-[#6b7280] mt-0.5">How to segment the image</p>
+            </div>
+            <select x-model="settings.psm" @change="saveSettings()">
+              <option value="3">Auto (default)</option>
+              <option value="6">Single block</option>
+              <option value="4">Single line</option>
+              <option value="11">Sparse text</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Auto Copy -->
+        <div class="bg-[#111827] border border-[#1f2937] rounded-lg p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-xs font-medium text-[#e4e8ef]">Auto Copy</p>
+              <p class="text-[10px] text-[#6b7280] mt-0.5">Copy text to clipboard after scan</p>
+            </div>
+            <button
+              @click="settings.autoCopy = !settings.autoCopy; saveSettings()"
+              :class="settings.autoCopy ? 'on' : 'off'"
+              class="toggle"
+            >
+              <span class="toggle-knob"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Dark Mode -->
+        <div class="bg-[#111827] border border-[#1f2937] rounded-lg p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-xs font-medium text-[#e4e8ef]">Dark Mode</p>
+              <p class="text-[10px] text-[#6b7280] mt-0.5">Always dark theme</p>
+            </div>
+            <button
+              @click="settings.darkMode = !settings.darkMode; saveSettings()"
+              :class="settings.darkMode ? 'on' : 'off'"
+              class="toggle"
+            >
+              <span class="toggle-knob"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- About -->
+        <div class="bg-[#111827] border border-[#1f2937] rounded-lg p-4">
+          <p class="text-xs font-medium text-[#e4e8ef]">About</p>
+          <p class="text-[10px] text-[#6b7280] mt-1">OCR Scanner v1.0.0</p>
+          <p class="text-[10px] text-[#4b5563] mt-0.5">Powered by Tesseract OCR</p>
+        </div>
+
+      </div>
+    </div>
+
   </div>
 
-  <script>
-    function ocrApp() {
-      return {
-        dragging: false,
-        imageUrl: null,
-        imagePath: null,
-        text: '',
-        error: null,
-        scanning: false,
-        windowW: 0,
-        windowH: 0,
-
-        async init() {
-          await coconut.ready()
-          // Listen for window resize events from Lua
-          coconut.on('window_resized', (payload) => {
-            this.windowW = payload.w
-            this.windowH = payload.h
-          })
-        },
-
-        handleDrop(e) {
-          this.dragging = false
-          const file = e.dataTransfer.files[0]
-          if (file) this.loadFile(file)
-        },
-
-        handleFile(e) {
-          const file = e.target.files[0]
-          if (file) this.loadFile(file)
-        },
-
-        loadFile(file) {
-          this.clearImage()
-          this.imageUrl = URL.createObjectURL(file)
-          // Save to temp path for Tesseract
-          this.saveToTemp(file)
-        },
-
-        async saveToTemp(file) {
-          // Read file as base64 and send to Lua to save
-          const reader = new FileReader()
-          reader.onload = async () => {
-            const base64 = reader.result.split(',')[1]
-            try {
-              const result = await coconut.call('ocr_save_temp', {
-                name: file.name,
-                data: base64,
-              })
-              if (result.ok) {
-                this.imagePath = result.path
-              } else {
-                this.error = result.error || 'Failed to save image'
-              }
-            } catch (e) {
-              this.error = e.message || 'Failed to save image'
-            }
-          }
-          reader.readAsDataURL(file)
-        },
-
-        async scan() {
-          if (!this.imagePath) return
-          this.scanning = true
-          this.error = null
-          this.text = ''
-
-          try {
-            const result = await coconut.call('ocr_scan', { image_path: this.imagePath })
-            if (result.ok) {
-              this.text = result.text
-            } else {
-              this.error = result.error || 'OCR failed'
-            }
-          } catch (e) {
-            this.error = e.message || 'Scan failed'
-          }
-
-          this.scanning = false
-        },
-
-        clearImage() {
-          this.imageUrl = null
-          this.imagePath = null
-          this.text = ''
-          this.error = null
-        },
-
-        copyText() {
-          navigator.clipboard.writeText(this.text)
-            .then(() => alert('Copied to clipboard'))
-            .catch(() => alert('Failed to copy'))
-        },
-
-        async downloadText() {
-          const filename = 'ocr-output.txt'
-          try {
-            const result = await coconut.call('ocr_save_text', {
-              text: this.text,
-              filename: filename,
-            })
-            if (result.ok) {
-              alert('Saved to: ' + result.path)
-            } else {
-              alert('Failed to save: ' + (result.error || 'unknown'))
-            }
-          } catch (e) {
-            alert('Failed to save: ' + e.message)
-          }
-        },
-      }
-    }
-  </script>
+  <script src="../assets/app.js"></script>
+  <script src="../assets/lib/unocss-runtime.min.js"></script>
 
 </body>
 </html>

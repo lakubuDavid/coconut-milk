@@ -124,11 +124,11 @@ export async function hello(params) {
 
 ```bash
 # Single file
-./bin/coconut-milk-generators commands/hello.lua --out-dir generated
+coconut generate commands/hello.lua --out-dir generated
 
 # All files (from project root)
 for f in commands/*.lua; do
-  ./bin/coconut-milk-generators "$f" --out-dir generated
+  coconut generate "$f" --out-dir generated
 done
 ```
 
@@ -136,7 +136,7 @@ done
 
 ## Build pipeline
 
-The generator is a C++ binary (`coconut-milk-generators`) that parses Lua files using a simple state machine. It scans for `---@command` tags and extracts the function signature, parameters, and return types.
+The generator is a C++ binary (`coconut generate`) that parses Lua files using a simple state machine. It scans for `---@command` tags and extracts the function signature, parameters, and return types.
 
 ### Parser behavior
 

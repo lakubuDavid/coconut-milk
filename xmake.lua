@@ -42,7 +42,7 @@ target("webview")
     set_languages("c11", "c++17")
     set_targetdir("$(buildir)/lib")
 
-target("coconut-milk")
+target("coconut")
     set_kind("binary")
     set_rundir("$(projectdir)")
     before_build(function (target)
@@ -52,6 +52,7 @@ target("coconut-milk")
     add_includedirs("thirdparty/webview/core/include")
     add_frameworks("Cocoa", "WebKit", "Foundation")
     add_files("src/*.cpp")
+    add_files("src/generators/*.cpp")
     add_files("src/platform/scheme_handler.cpp")
     if is_plat("macosx") then
         add_files("src/platform/darwin/*.cpp")
@@ -68,7 +69,7 @@ target("coconut-milk")
 
 target("calculator-vue")
     set_kind("binary")
-    set_basename("coconut-milk")
+    set_basename("coconut")
     set_rundir("$(projectdir)/examples/calculator-vue")
     before_build(function (target)
         os.run("xmake coconut_bridge_embeds")
@@ -77,6 +78,7 @@ target("calculator-vue")
     add_includedirs("thirdparty/webview/core/include")
     add_frameworks("Cocoa", "WebKit", "Foundation")
     add_files("src/*.cpp")
+    add_files("src/generators/*.cpp")
     add_files("src/platform/scheme_handler.cpp")
     if is_plat("macosx") then
         add_files("src/platform/darwin/*.cpp")
@@ -94,7 +96,7 @@ target("calculator-vue")
 
 target("ocr-app")
     set_kind("binary")
-    set_basename("coconut-milk")
+    set_basename("coconut")
     set_rundir("$(projectdir)/examples/ocr-app")
     before_build(function (target)
         os.run("xmake coconut_bridge_embeds")
@@ -103,6 +105,7 @@ target("ocr-app")
     add_includedirs("thirdparty/webview/core/include")
     add_frameworks("Cocoa", "WebKit", "Foundation")
     add_files("src/*.cpp")
+    add_files("src/generators/*.cpp")
     add_files("src/platform/scheme_handler.cpp")
     if is_plat("macosx") then
         add_files("src/platform/darwin/*.cpp")
@@ -117,14 +120,34 @@ target("ocr-app")
     add_packages("nlohmann_json")
     add_deps("webview")
 
--- Generators experiment target
-
-target("coconut-milk-generators")
+target("lua-html-app")
     set_kind("binary")
-    set_targetdir("$(projectdir)/bin")
-    set_rundir("$(projectdir)")
+    set_basename("coconut")
+    set_rundir("$(projectdir)/examples/lua-html-app")
+    before_build(function (target)
+        os.run("xmake coconut_bridge_embeds")
+    end)
     add_includedirs("src")
+    add_includedirs("thirdparty/webview/core/include")
+    add_frameworks("Cocoa", "WebKit", "Foundation")
+    add_files("src/*.cpp")
     add_files("src/generators/*.cpp")
+    add_files("src/platform/scheme_handler.cpp")
+    if is_plat("macosx") then
+        add_files("src/platform/darwin/*.cpp")
+        add_files("src/platform/darwin/*.mm")
+    elseif is_plat("windows") then
+        add_files("src/platform/win/*.cpp")
+    elseif is_plat("linux") then
+        add_files("src/platform/linux/*.cpp")
+    end
+    add_packages("sol2")
+    add_packages("luajit")
+    add_packages("nlohmann_json")
+    add_deps("webview")
+
+-- Generator sources are compiled as part of the main `coconut` target.
+-- No standalone generator binary.
 
 -- Test target
 target("coconut-milk-tests")

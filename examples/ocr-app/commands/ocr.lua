@@ -12,32 +12,49 @@ local function ocr_save_temp(params, ctx)
     return { ok = false, error = "no image data" }
   end
 
-  -- Decode base64
-  local decoded = data
   local ext = name:match("%.([^.]+)$") or "png"
   local path = os.tmpname() .. "." .. ext
 
-  -- Write as binary (base64 is already decoded by the bridge if needed)
-  -- For now, we write the raw base64 and tesseract may handle it if
-  -- the image is valid. Actually, we need to decode base64.
+  -- Write base64 data to a temp file, then decode with base64 -d.
+  local b64_path = os.tmpname()
+  local b64_out = io.open(b64_path, "w")
+  if not b64_out then
+    return { ok = false, error = "failed to write base64 temp file" }
+  end
+  b64_out:write(data)
+  b64_out:close()
+
   local decoded_bin = os.tmpname()
-  os.execute("echo " .. data .. " | base64 -d > " .. decoded_bin)
-  
+  local cmd = string.format("base64 -d < '%s' > '%s'", b64_path, decoded_bin)
+  local ok = os.execute(cmd)
+  os.remove(b64_path)
+
+  if not ok then
+    return { ok = false, error = "base64 decode failed" }
+  end
+
   local handle = io.open(decoded_bin, "rb")
   if not handle then
-    return { ok = false, error = "failed to decode image" }
+    return { ok = false, error = "failed to open decoded image" }
   end
   local bin = handle:read("*a")
   handle:close()
 
+  if #bin == 0 then
+    os.remove(decoded_bin)
+    return { ok = false, error = "decoded image is empty" }
+  end
+
   local out = io.open(path, "wb")
   if not out then
-    return { ok = false, error = "failed to write temp file" }
+    os.remove(decoded_bin)
+    return { ok = false, error = "failed to write image file" }
   end
   out:write(bin)
   out:close()
 
   os.remove(decoded_bin)
+
   return { ok = true, path = path }
 end
 
@@ -53,10 +70,13 @@ local function ocr_scan(params, ctx)
 
   -- Create a temporary output path
   local tmp = os.tmpname() .. ".txt"
+  -- Use stdin to feed the image to tesseract.  This avoids file-handle
+  -- inheritance issues that can occur when forking from a multi-threaded
+  -- process (the webview runtime) on macOS.
   local cmd = string.format(
-    'tesseract "%s" "%s" 2>&1',
-    path:gsub('"', '\\"'),
-    tmp:gsub("%.txt$", "")
+    'tesseract - "%s" < "%s" 2>&1',
+    tmp:gsub("%.txt$", ""),
+    path:gsub('"', '\\"')
   )
 
   local handle = io.popen(cmd)

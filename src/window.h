@@ -46,6 +46,11 @@ void addView(Window *window, std::string name, View *view);
 /// Must be called once after the webview window exists.
 void applyWindowStyle(Window *window);
 
+/// Install the WKNavigationDelegate to intercept external URLs.
+/// Must be called AFTER the initial view is loaded to avoid
+/// interfering with the first page load (white screen bug).
+void installNavDelegate(Window* window);
+
 /// Set window background color (0-1 range).
 void setWindowBackgroundColor(Window* window, float r, float g, float b, float a = 1.0f);
 

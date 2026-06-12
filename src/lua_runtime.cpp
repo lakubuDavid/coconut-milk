@@ -486,7 +486,7 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
   {
     std::ifstream probe("main.lua");
     if (!probe.is_open()) {
-      debug::log("no main.lua, skipping entry-point config");
+      debug::info("no main.lua, skipping entry-point config");
       return false;
     }
   }

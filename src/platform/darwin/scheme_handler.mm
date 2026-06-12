@@ -7,6 +7,7 @@
 
 #include "debug.h"
 #include "fs.h"
+#include "routes.h"
 
 #include <cstdint>
 #include <format>
@@ -80,9 +81,35 @@ static id startURLSchemeTask(id self, SEL _cmd, id webView, id task) {
 
     std::string url(urlCStr);
     std::string relPath = stripScheme(url);
-    std::string filePath = fs::resolve(g_root_dir, relPath);
 
-    debug::info(std::format("scheme_handler: GET {} -> {}", url, filePath));
+    // ── View name routing ───────────────────────────────────────────
+    // If the path matches a registered view name, navigate to that view
+    // via the bridge instead of serving a file.  Uses the platform-agnostic
+    // routes module so no duplication across platform handlers.
+    {
+      std::string viewName = routes::resolve(relPath);
+      if (!viewName.empty()) {
+        debug::info(std::format("scheme_handler: route -> view '{}'", viewName));
+        NSString* js = [NSString stringWithFormat:
+            @"coconut.emit('navigate', {view:'%s'})", viewName.c_str()];
+        debug::info(std::format("scheme_handler: evaluateJS '{}'", [js UTF8String]));
+        [(WKWebView*)webView evaluateJavaScript:js completionHandler:nil];
+        debug::info("scheme_handler: responding 204 (no content)");
+        NSHTTPURLResponse* resp = [[NSHTTPURLResponse alloc]
+            initWithURL:urlObj statusCode:204
+            HTTPVersion:@"HTTP/1.1" headerFields:nil];
+        [taskObj didReceiveResponse:resp];
+        [taskObj didFinish];
+        return nil;
+      }
+    }
+
+    // ── Log file serving attempt ────────────────────────────────────
+    debug::info(std::format("scheme_handler: trying file '{}'", relPath));
+
+    // ── File serving ────────────────────────────────────────────────
+    std::string filePath = fs::resolve(g_root_dir, relPath);
+    debug::info(std::format("scheme_handler: file resolved to '{}'", filePath));
 
     auto result = fs::readBytes(filePath);
     if (!result) {

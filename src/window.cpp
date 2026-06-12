@@ -118,9 +118,29 @@ void showWindow(Window *window) {
         webview_set_html(window->webview, "<h1>File view: missing path</h1>");
       }
       break;
-    case VIEW_KIND_HTML:
-      webview_set_html(window->webview, view->html.c_str());
+    case VIEW_KIND_HTML: {
+      debug::info(std::format("showWindow: VIEW_KIND_HTML, html size={} bytes",
+                              view->html.size()));
+      debug::info(std::format("showWindow: html begins with: '{}'",
+                              view->html.substr(0, 80)));
+      // Write HTML to temp file and navigate via file:// URL.
+      // loadHTMLString:baseURL:nil does NOT trigger WKNavigationDelegate
+      // for the initial load — using file:// fixes this AND gives the
+      // page a proper base URL for sub-resources.
+      auto tmpPath = std::filesystem::temp_directory_path() / "coconut-view.html";
+      std::ofstream tmpFile(tmpPath);
+      if (tmpFile.is_open()) {
+        tmpFile << view->html;
+        tmpFile.close();
+        auto fileUrl = "file://" + tmpPath.string();
+        debug::info(std::format("showWindow: navigating to {}", fileUrl));
+        webview_navigate(window->webview, fileUrl.c_str());
+      } else {
+        debug::warn("showWindow: failed to write temp HTML, falling back to set_html");
+        webview_set_html(window->webview, view->html.c_str());
+      }
       break;
+    }
     case VIEW_KIND_URL:
       if (!view->path.empty()) {
         // Navigate to the external URL.
@@ -219,6 +239,16 @@ std::vector<std::string> getViewNames(Window* window) {
     names.push_back(name);
   }
   return names;
+}
+
+/// Install the navigation delegate for external URL interception.
+/// Must be called AFTER the initial view is loaded.
+/// Dispatches to the platform-specific implementation.
+void installNavDelegate(Window* window) {
+  if (window == nullptr || window->webview == nullptr) {
+    return;
+  }
+  platformInstallNavDelegate(window->webview);
 }
 
 } // namespace coconut::window

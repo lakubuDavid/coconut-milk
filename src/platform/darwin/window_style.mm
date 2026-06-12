@@ -9,6 +9,9 @@
 #include "debug.h"
 #include "platform/darwin/window.h"
 
+#include <format>
+#include <string>
+
 // ═══════════════════════════════════════════════════════════════════════
 // ObjC classes (file scope — must be outside C++ namespace)
 // ═══════════════════════════════════════════════════════════════════════
@@ -27,15 +30,32 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
   @autoreleasepool {
     NSURL* nsURL = [navigationAction.request URL];
     if (!nsURL) {
+      coconut::debug::info("navDelegate: nil URL, allowing");
       decisionHandler(WKNavigationActionPolicyAllow);
       return;
     }
 
+    NSString* urlStr = [nsURL absoluteString];
+    WKNavigationType navType = [navigationAction navigationType];
+
+    // Map navigation type to readable string
+    const char* typeStr = "unknown";
+    switch (navType) {
+      case WKNavigationTypeLinkActivated:    typeStr = "link"; break;
+      case WKNavigationTypeFormSubmitted:    typeStr = "form"; break;
+      case WKNavigationTypeBackForward:      typeStr = "backfwd"; break;
+      case WKNavigationTypeReload:           typeStr = "reload"; break;
+      case WKNavigationTypeFormResubmitted:  typeStr = "formresubmit"; break;
+      case WKNavigationTypeOther:            typeStr = "other"; break;
+    }
+
+    coconut::debug::info(std::format("navDelegate: type={} url={}", typeStr, [urlStr UTF8String]));
+
     // Only intercept user-initiated navigations (link clicks, form submits).
     // Always allow sub-resource loads (CSS, JS, images, AJAX, initial page load).
-    WKNavigationType navType = [navigationAction navigationType];
     if (navType != WKNavigationTypeLinkActivated &&
         navType != WKNavigationTypeFormSubmitted) {
+      coconut::debug::info("navDelegate: sub-resource or initial load, allowing");
       decisionHandler(WKNavigationActionPolicyAllow);
       return;
     }
@@ -61,15 +81,32 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
     }
 
     if (allow) {
+      coconut::debug::info(std::format("navDelegate: ALLOW {} (internal scheme)", [urlStr UTF8String]));
       decisionHandler(WKNavigationActionPolicyAllow);
       return;
     }
 
     // ── External URL: open in system browser ─────────────────────────
     // Cancel the webview navigation and open in the default browser.
+    coconut::debug::info(std::format("navDelegate: OPEN IN BROWSER {}", [urlStr UTF8String]));
     [[NSWorkspace sharedWorkspace] openURL:nsURL];
     decisionHandler(WKNavigationActionPolicyCancel);
   }
+}
+
+- (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
+  coconut::debug::info(std::format("navDelegate: didFinishNavigation for {}",
+      [[[webView URL] absoluteString] UTF8String]));
+}
+
+- (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error {
+  coconut::debug::info(std::format("navDelegate: didFailNavigation: {}",
+      [[error localizedDescription] UTF8String]));
+}
+
+- (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {
+  coconut::debug::info(std::format("navDelegate: didFailProvisionalNavigation: {}",
+      [[error localizedDescription] UTF8String]));
 }
 
 @end
@@ -83,13 +120,18 @@ namespace coconut::window {
 /// Track whether the WKNavigationDelegate has been installed.
 static BOOL _navDelegateInstalled = NO;
 
+/// Strong reference to keep the WKNavigationDelegate alive.
+/// WKWebView's navigationDelegate property is weak, so without this
+/// the delegate would be deallocated by ARC after installNavDelegate returns.
+static CoconutNavDelegate* s_strongNavDelegate = nil;
+
 /// Recursively log all subviews in a view hierarchy.
 static void logAllSubviews(NSView* view, int depth) {
   if (!view) return;
   
   NSString* className = NSStringFromClass([view class]);
   std::string indent(depth * 2, ' ');
-  debug::info(indent + "view: " + std::string([className UTF8String]) + " tag=" + std::to_string(view.tag));
+  debug::log(indent + "view: " + std::string([className UTF8String]) + " tag=" + std::to_string(view.tag));
   
   for (NSView* subview in view.subviews) {
     logAllSubviews(subview, depth + 1);
@@ -105,12 +147,12 @@ static void hideTitlebarElements(NSView* view) {
     
     // Hide NSTitlebarView (contains traffic lights)
     if ([className isEqualToString:@"NSTitlebarView"]) {
-      debug::info("found NSTitlebarView, hiding it");
+      debug::log("found NSTitlebarView, hiding it");
       subview.hidden = YES;
     }
     // Hide title text field
     if ([subview isKindOfClass:[NSTextField class]]) {
-      debug::info("found NSTextField (title), hiding it");
+      debug::log("found NSTextField (title), hiding it");
       subview.hidden = YES;
     }
     // Recurse
@@ -134,7 +176,7 @@ static void hideTrafficLights(NSWindow* win) {
     return;
   }
   
-  debug::info("found NSThemeFrame, logging hierarchy...");
+  debug::log("found NSThemeFrame, logging hierarchy...");
   logAllSubviews(themeFrame, 0);
   hideTitlebarElements(themeFrame);
   debug::info("traffic lights hidden");
@@ -183,12 +225,19 @@ void installNavDelegate(NSWindow* win) {
     return;
   }
   
-  CoconutNavDelegate* delegate = [[CoconutNavDelegate alloc] init];
+  s_strongNavDelegate = [[CoconutNavDelegate alloc] init];
+  coconut::debug::info(std::format("installNavDelegate: WKWebView={:#x}",
+      reinterpret_cast<uintptr_t>(wkWebView)));
   // Use the direct property setter instead of KVC to avoid issues
-  [(WKWebView*)wkWebView setNavigationDelegate:delegate];
+  [(WKWebView*)wkWebView setNavigationDelegate:s_strongNavDelegate];
+  
+  // Verify the delegate was set by reading it back
+  id currentDelegate = [(WKWebView*)wkWebView navigationDelegate];
+  coconut::debug::info(std::format("installNavDelegate: delegate match={}",
+      currentDelegate == s_strongNavDelegate ? "yes" : "no"));
   
   _navDelegateInstalled = YES;
-  debug::info("installNavDelegate: WKNavigationDelegate installed");
+  coconut::debug::info("installNavDelegate: WKNavigationDelegate installed");
 }
 
 void platformApplyWindowStyle(webview_t wv, Config* cfg) {
@@ -199,10 +248,6 @@ void platformApplyWindowStyle(webview_t wv, Config* cfg) {
     debug::warn("platformApplyWindowStyle: no native window handle");
     return;
   }
-
-  // Install WKNavigationDelegate to intercept external URLs.
-  // Disabled: causes white screen on first load
-  // installNavDelegate(win);
 
   // ── Frameless ────────────────────────────────────────────────────────
   if (cfg->frameless) {
@@ -242,6 +287,16 @@ void platformApplyWindowStyle(webview_t wv, Config* cfg) {
 
     debug::info("platformApplyWindowStyle: transparent");
   }
+}
+
+void platformInstallNavDelegate(webview_t wv) {
+  if (!wv) return;
+  NSWindow* win = (__bridge NSWindow*)webview_get_window(wv);
+  if (!win) {
+    debug::warn("platformInstallNavDelegate: no native window");
+    return;
+  }
+  installNavDelegate(win);
 }
 
 } // namespace coconut::window

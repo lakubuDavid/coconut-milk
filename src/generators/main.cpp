@@ -1,9 +1,11 @@
 #include "./command_definition.hpp"
+#include "./generate.h"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -42,9 +44,6 @@ static std::string configStringField(const std::string& text,
 }
 
 static std::string deriveModulePath(const std::string& filePath) {
-  // Extract just the stem (filename without extension, no directory prefix).
-  // The .g.lua file is in the command_root, and that directory is added to
-  // package.path, so require("example") resolves to command_root/example.lua.
   std::string stem = fs::path(filePath).stem().string();
   return stem;
 }
@@ -53,222 +52,14 @@ static std::string outputStem(const std::string& filePath) {
   return fs::path(filePath).stem().string();
 }
 
-static void printUsage(const char* prog) {
-  std::cerr << "Usage:\n";
-  std::cerr << "  " << prog << " <input.lua> [--out-dir <dir>]\n";
-  std::cerr << "  " << prog << " new <app-name> [--dir <dir>]\n";
-  std::cerr << "\n";
-  std::cerr << "Commands:\n";
-  std::cerr
-      << "  <input.lua>     Parse @command annotations and generate:\n";
-  std::cerr
-      << "                    <stem>.g.lua  — Lua command registration\n";
-  std::cerr
-      << "                    <stem>.d.ts   — TypeScript declarations\n";
-  std::cerr
-      << "                    <stem>.g.js   — JS wrappers with JSDoc\n";
-  std::cerr << "  new <app-name>  Scaffold a new Coconut Milk app\n";
-  std::cerr << "\n";
-  std::cerr
-      << "Options:\n";
-  std::cerr
-      << "  --out-dir <dir>  Output directory for generated files\n";
-  std::cerr
-      << "  --dir <dir>      Target directory for scaffold\n";
-}
-
-/// Scaffold a new Coconut Milk project.
-static int scaffoldNew(const std::string& appName,
-                       const std::string& targetDir) {
-  fs::path root(targetDir);
-  fs::create_directories(root / "views");
-  fs::create_directories(root / "commands");
-  fs::create_directories(root / "assets");
-
-  // coconut.config.lua
-  {
-    std::ofstream f(root / "coconut.config.lua");
-    f << R"(-- Coconut Milk configuration for )" << appName << R"(
-
-browser = "auto"
-window_width = 1280
-window_height = 640
-initial_view = "home"
-view_root = "views"
-asset_root = "assets"
-command_root = "commands"
-output_dir = "generated"
-)";
-    std::cout << "  wrote " << (root / "coconut.config.lua") << "\n";
-  }
-
-  // main.lua
-  {
-    std::ofstream f(root / "main.lua");
-    f << R"(--- )" << appName
-      << R"( — Coconut Milk entry point.
-
-function coconut.views()
-  return {
-    home = View.load("views/home.html"),
-  }
-end
-
-function coconut.config(ctx)
-  ctx:setBrowser("auto")
-     :setWindowSize({ w = 1280, h = 640 })
-     :setInitialView("home")
-  return ctx
-end
-
-function coconut.commands(ctx)
-  -- Register commands here: ctx:bind("name", handler_fn)
-end
-
-function coconut.events(name, payload, ctx)
-  if name == "navigate" then
-    ctx:show(payload.view)
-  end
-end
-)";
-    std::cout << "  wrote " << (root / "main.lua") << "\n";
-  }
-
-  // views/home.html
-  {
-    std::ofstream f(root / "views/home.html");
-    f << R"(<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>)" << appName
-      << R"(</title>
-  <style>
-    * { margin:0;padding:0;box-sizing:border-box; }
-    body { font-family:-apple-system,sans-serif; background:#0f0f13; color:#e4e4e7; padding:2rem; }
-    h1 { color:#a78bfa; margin-bottom:1rem; }
-    p { color:#a1a1aa; line-height:1.6; }
-  </style>
-</head>
-<body>
-  <h1>)" << appName
-      << R"(</h1>
-  <p>Your Coconut Milk app is running.</p>
-  <script>
-    (async () => {
-      await coconut.ready();
-      console.log('[coconut] bridge ready');
-    })();
-  </script>
-</body>
-</html>
-)";
-    std::cout << "  wrote " << (root / "views/home.html") << "\n";
-  }
-
-  // .gitkeep in empty dirs (commands/, assets/)
-  {
-    auto touch = [](const fs::path& p) {
-      std::ofstream f(p);
-      f << "";
-    };
-    touch(root / "commands/.gitkeep");
-    touch(root / "assets/.gitkeep");
-  }
-
-  // README
-  {
-    std::ofstream f(root / "README.md");
-    f << "# " << appName << "\n\n"
-      << "A Coconut Milk desktop app.\n\n"
-      << "## Getting Started\n\n"
-      << "```bash\n"
-      << "# Clone Coconut Milk and symlink or copy this app into its project root.\n"
-      << "# Then from the Coconut Milk root:\n"
-      << "just run\n"
-      << "```\n";
-    std::cout << "  wrote " << (root / "README.md") << "\n";
-  }
-
-  std::cout << "\nScaffolded '" << appName << "' in " << targetDir << "/\n";
-  std::cout << "  views/   — HTML views\n";
-  std::cout << "  commands/ — Lua command modules\n";
-  std::cout << "  assets/   — Static assets\n";
-  return 0;
-}
-
-// -----------------------------------------------------------------------
-// Main
-// -----------------------------------------------------------------------
-
-int main(int argc, char** argv) {
-  if (argc < 2) {
-    printUsage(argv[0]);
-    return 1;
-  }
-
-  std::string first = argv[1];
-
-  // ---- Scaffold a new app ----
-  if (first == "new") {
-    if (argc < 3) {
-      std::cerr << "Error: missing app name. Usage: "
-                << argv[0] << " new <app-name>\n";
-      return 1;
-    }
-    std::string appName = argv[2];
-    std::string targetDir = appName;
-    for (int i = 3; i < argc; ++i) {
-      if (std::string(argv[i]) == "--dir" && i + 1 < argc) {
-        targetDir = argv[++i];
-      }
-    }
-    return scaffoldNew(appName, targetDir);
-  }
-
-  // ---- Parse @command annotations and generate glue ----
-  std::string inputPath = first;
-  std::string outDir = "generated";
-
-  // Load output_dir from config if present
-  {
-    std::ifstream luaCfg("coconut.config.lua");
-    if (luaCfg.is_open()) {
-      std::stringstream buf;
-      buf << luaCfg.rdbuf();
-      std::string d = configStringField(buf.str(), "output_dir");
-      if (!d.empty())
-        outDir = d;
-    } else {
-      std::ifstream jsonCfg("coconut.config.json");
-      if (jsonCfg.is_open()) {
-        std::stringstream buf;
-        buf << jsonCfg.rdbuf();
-        std::string d = configStringField(buf.str(), "output_dir");
-        if (!d.empty())
-          outDir = d;
-      }
-    }
-  }
-
-  for (int i = 2; i < argc; ++i) {
-    std::string arg = argv[i];
-    if (arg == "--out-dir" && i + 1 < argc) {
-      outDir = argv[++i];
-    } else if (arg == "--help" || arg == "-h") {
-      printUsage(argv[0]);
-      return 0;
-    } else {
-      std::cerr << "Unknown argument: " << arg << "\n";
-      return 1;
-    }
-  }
-
+/// Process a single .lua command file and generate output files.
+static bool processCommandFile(const fs::path& inputPath,
+                               const std::string& outDir,
+                               std::vector<std::string>& allNames) {
   std::ifstream file(inputPath);
   if (!file.is_open()) {
     std::cerr << "Error: could not open " << inputPath << "\n";
-    return 1;
+    return false;
   }
 
   std::stringstream buffer;
@@ -279,23 +70,29 @@ int main(int argc, char** argv) {
 
   auto commands = coconut::generator::commentsFsm(buffer.str());
   if (commands.empty()) {
-    std::cerr << "No @command definitions found in " << inputPath << "\n";
-    return 0;
+    std::cout << "  (no @command definitions in " << inputPath << ")\n";
+    return true; // not an error
   }
 
-  std::string modulePath = deriveModulePath(inputPath);
-  std::string stem = outputStem(inputPath);
+  std::string modulePath = deriveModulePath(inputPath.string());
+  std::string stem = outputStem(inputPath.string());
 
   fs::create_directories(outDir);
 
+  // Collect command names for the aggregate file
+  for (const auto& cmd : commands) {
+    bool found = false;
+    for (const auto& n : allNames)
+      if (n == cmd.name) { found = true; break; }
+    if (!found) allNames.push_back(cmd.name);
+  }
+
   // .g.lua
   {
-    auto luaWrap =
-        coconut::generator::generateLuaWrapper(commands, modulePath);
+    auto luaWrap = coconut::generator::generateLuaWrapper(commands, modulePath);
     std::ofstream out(fs::path(outDir) / (stem + ".g.lua"));
     out << luaWrap;
-    std::cout << "  wrote " << (fs::path(outDir) / (stem + ".g.lua"))
-              << "\n";
+    std::cout << "  wrote " << (fs::path(outDir) / (stem + ".g.lua")) << "\n";
   }
 
   // .d.ts
@@ -303,8 +100,7 @@ int main(int argc, char** argv) {
     auto dts = coconut::generator::generateTSDefinition(commands);
     std::ofstream out(fs::path(outDir) / (stem + ".d.ts"));
     out << dts;
-    std::cout << "  wrote " << (fs::path(outDir) / (stem + ".d.ts"))
-              << "\n";
+    std::cout << "  wrote " << (fs::path(outDir) / (stem + ".d.ts")) << "\n";
   }
 
   // .g.js
@@ -312,12 +108,63 @@ int main(int argc, char** argv) {
     auto wrappers = coconut::generator::generateJSWrapper(commands);
     std::ofstream out(fs::path(outDir) / (stem + ".g.js"));
     out << wrappers;
-    std::cout << "  wrote " << (fs::path(outDir) / (stem + ".g.js"))
-              << "\n";
+    std::cout << "  wrote " << (fs::path(outDir) / (stem + ".g.js")) << "\n";
   }
 
-  std::cout << "Generated " << commands.size()
-            << " command(s) from " << inputPath << " → " << outDir
-            << "/\n";
+  std::cout << "  (" << commands.size() << " command(s) from " << inputPath << ")\n";
+  return true;
+}
+
+namespace coconut::generator {
+
+int runGenerate(const std::string& cmdRoot, const std::string& outDir) {
+  std::vector<std::string> allNames;
+
+  // Resolve the command root directory
+  fs::path cmdDir = cmdRoot;
+  if (!fs::is_directory(cmdDir)) {
+    std::cerr << "Error: command root '" << cmdRoot << "' is not a directory\n";
+    return 1;
+  }
+
+  // Process each .lua file in the command root
+  bool anySuccess = false;
+  for (const auto& entry : fs::directory_iterator(cmdDir)) {
+    if (entry.path().extension() != ".lua") continue;
+    std::string name = entry.path().filename().string();
+    // Skip generated files (.g.lua)
+    if (name.size() > 6 && name.substr(name.size() - 6) == ".g.lua") continue;
+
+    std::cout << "processing " << entry.path() << "\n";
+    if (processCommandFile(entry.path(), outDir, allNames)) {
+      anySuccess = true;
+    }
+  }
+
+  // Write aggregated commands.d.ts
+  if (!allNames.empty()) {
+    fs::create_directories(outDir);
+    std::ofstream agg(fs::path(outDir) / "commands.d.ts");
+    agg << "// Auto-generated by coconut-milk generator. Do not edit.\n";
+    agg << "// Aggregates all @command names from commands/*.lua.\n";
+    agg << "// Included via /// <reference> in scripts/coconut.d.ts.\n";
+    agg << "\n";
+    agg << "type CoconutCommandName =";
+    for (size_t i = 0; i < allNames.size(); ++i) {
+      agg << (i == 0 ? " " : " | ") << "\"" << allNames[i] << "\"";
+    }
+    agg << ";\n";
+    std::cout << "  wrote " << (fs::path(outDir) / "commands.d.ts") << "\n";
+  }
+
+  if (!anySuccess) {
+    std::cerr << "No command files processed in " << cmdRoot << "\n";
+    return 1;
+  }
+
+  std::cout << "Done. Generated " << allNames.size()
+            << " unique command(s) to " << outDir << "/\n";
   return 0;
 }
+
+} // namespace coconut::generator

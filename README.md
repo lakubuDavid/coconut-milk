@@ -47,8 +47,8 @@ end
 ### Build & run
 
 ```bash
-xmake build coconut-milk
-xmake run coconut-milk
+xmake build coconut
+xmake run coconut
 ```
 
 Or with the `calculator-vue` example:
@@ -64,7 +64,7 @@ just run-vue-prod # runs with pre-built production assets
 just install
 ```
 
-Symlinks `coconut-milk` and `create-coconut-app` to `$HOME/tools/` (configurable).
+Symlinks `coconut` and `create-coconut-app` to `$HOME/tools/` (configurable).
 
 ### Scaffold a new app
 
@@ -140,7 +140,7 @@ create-coconut-app my-app --template vite --framework vue
 
 ### Build pipeline
 
-Annotated Lua command files → **coconut-milk-generators** → typed wrappers:
+Annotated Lua command files → **coconut generate** → typed wrappers:
 
 ```
 commands/notes.lua

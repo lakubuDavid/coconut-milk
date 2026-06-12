@@ -1,0 +1,30 @@
+Reservation Confirmation #VET-20250422-AJZI
+
+Add label Updates [Gmail]
+
+no-reply@lakubudavid.me 1:12 PM
+To hello@lakubudavid.me
+
+Reservation Confirmation
+
+Reservation #+VET-20250422-AJZI
+
+Status: ONCOMING
+Date: 4/23/2025
+Time: 11:00 - 11:30
+Pet Details
+
+Name: Josh
+Species: kiwi
+
+Client Information
+
+Name: David Lakubu (Vet)
+
+Email: hello@lakubudavid.me
+
+Check Reservation Status
+
+If you need to reschedule or cancel your appointment, please contact us at least 24 hours in advance.
+
+& Reply @ Forward
