@@ -6,6 +6,10 @@ TEST_TARGET := "coconut-milk-tests"
 # ── Install paths ───────────────────────────────────────────
 INSTALL_DIR := "$HOME/tools"
 
+# Resolve binary path once (avoids --workdir fragility)
+# Binary lives at a predictable path after xmake build
+BIN := justfile_directory() / "build/macosx/x86_64/debug/coconut"
+
 default:
 	@just --list
 
@@ -18,9 +22,7 @@ run:
 run-gen:
 	xmake run coconut generate
 
-# ── Examples (run core binary from example directory) ───────
-
-BIN := $(shell xmake show --target={{DEFAULT_TARGET}} --program= 2>/dev/null || echo "$(pwd)/build/macosx/x86_64/debug/coconut")
+# ── Examples (cd into example dir, run binary directly) ─────
 
 run-editor: build build-editor-bundle
 	cd examples/code-editor && {{BIN}}
