@@ -111,11 +111,12 @@ Result platformMessageBox(const std::string& title,
   return result;
 }
 
-// ── Open file (NSOpenPanel) ─────────────────────────────────────────────
+// ── Open file / directory (NSOpenPanel) ─────────────────────────────────
 
 Result platformOpenFile(const std::string& title,
                         const std::vector<Filter>& filters,
-                        bool multi) {
+                        bool multi,
+                        bool chooseDir) {
   Result result{};
 
   Class panelClass = objc_getClass("NSOpenPanel");
@@ -136,14 +137,15 @@ Result platformOpenFile(const std::string& title,
 
   // Can choose directories
   SEL setDirsSel = sel_registerName("setCanChooseDirectories:");
-  ((void(*)(id, SEL, BOOL))objc_msgSend)(panel, setDirsSel, (BOOL)NO);
+  ((void(*)(id, SEL, BOOL))objc_msgSend)(panel, setDirsSel,
+      chooseDir ? (BOOL)YES : (BOOL)NO);
 
   // Multi selection
   SEL setMultiSel = sel_registerName("setAllowsMultipleSelection:");
   ((void(*)(id, SEL, BOOL))objc_msgSend)(panel, setMultiSel, multi ? (BOOL)YES : (BOOL)NO);
 
-  // File filters
-  if (!filters.empty()) {
+  // Don't show file-types filter when picking directories — it's confusing
+  if (!chooseDir && !filters.empty()) {
     SEL setAllowedSel = sel_registerName("setAllowedFileTypes:");
     id typesArray = ((id(*)(id, SEL))objc_msgSend)(
         ((id(*)(id, SEL))objc_msgSend)(
@@ -152,7 +154,6 @@ Result platformOpenFile(const std::string& title,
 
     for (const auto& filter : filters) {
       for (const auto& pattern : filter.patterns) {
-        // Strip leading "*." to get extension
         std::string ext = pattern;
         if (ext.size() > 2 && ext.substr(0, 2) == "*.") {
           ext = ext.substr(2);
@@ -191,12 +192,22 @@ Result platformOpenFile(const std::string& title,
 
     if (!result.paths.empty()) {
       result.path = result.paths[0];
+      // Check if the selected path is a directory via NSFileManager
+      Class fmClass = objc_getClass("NSFileManager");
+      id fm = ((id(*)(id, SEL))objc_msgSend)(
+          (id)fmClass, sel_registerName("defaultManager"));
+      id nsPath = nsString(result.path);
+      SEL fileExistsSel = sel_registerName("fileExistsAtPath:isDirectory:");
+      BOOL isDir = NO;
+      ((void(*)(id, SEL, id, BOOL*))objc_msgSend)(
+          fm, fileExistsSel, nsPath, &isDir);
+      result.is_dir = (isDir == YES);
     }
     result.confirmed = true;
   }
 
-  debug::info(std::format("dialog::openFile('{}') → confirmed={}, paths={}",
-                           title, result.confirmed, result.paths.size()));
+  debug::info(std::format("dialog::openFile('{}') → confirmed={}, paths={}, is_dir={}",
+                           title, result.confirmed, result.paths.size(), result.is_dir));
   return result;
 }
 

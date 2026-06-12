@@ -70,11 +70,11 @@ local function save_file(payload, ctx)
   return { error = "could not write file: " .. payload.path }
 end
 
--- Show open file dialog
+-- Show open dialog (files + folders)
 local function open_dialog(payload, ctx)
-  local result = coconut.dialog.open("Open File", {})
+  local result = coconut.dialog.open("Open File or Folder", false, true)
   if result.confirmed and result.path and result.path ~= "" then
-    return { path = result.path }
+    return { path = result.path, is_dir = result.is_dir }
   end
   return { cancelled = true }
 end

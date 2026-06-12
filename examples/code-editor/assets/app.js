@@ -207,9 +207,29 @@
   function openDialog() {
     coconut.call('editor_open_dialog').then(function (result) {
       if (result.path) {
-        openFile(result.path);
+        if (result.is_dir) {
+          // Load directory in the file tree
+          loadDirectory(result.path);
+        } else {
+          openFile(result.path);
+        }
       }
     });
+  }
+
+  function loadDirectory(path) {
+    // Clear tree and load new root
+    loadedDirs = {};
+    fileTree.innerHTML = '';
+    loadedDirs['.'] = [];
+    loadedDirs[path] = [];
+    coconut.call('editor_list_dir', { path: path }).then(function (entries) {
+      loadedDirs[path] = entries;
+      renderTree(entries, fileTree, 0);
+    }).catch(function (err) {
+      console.error('loadDirectory failed:', err);
+    });
+    showEmpty();
   }
 
   function saveAsDialog() {

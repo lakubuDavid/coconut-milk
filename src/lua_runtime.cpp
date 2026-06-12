@@ -96,13 +96,16 @@ void _bindCoconutLuaApi(Runtime *runtime) {
     sol::state_view lua = va.lua_state();
     std::string title = "Open File";
     bool multi = false;
+    bool chooseDir = false;
     std::vector<dialog::Filter> filters;
     if (va.size() >= 1 && va[0].is<std::string>()) title = va[0].as<std::string>();
     if (va.size() >= 2 && va[1].is<bool>()) multi = va[1].as<bool>();
-    auto r = dialog::openFile(title, filters, multi);
+    if (va.size() >= 3 && va[2].is<bool>()) chooseDir = va[2].as<bool>();
+    auto r = dialog::openFile(title, filters, multi, chooseDir);
     sol::table t = lua.create_table();
     t["confirmed"] = r.confirmed;
     t["path"] = r.path;
+    t["is_dir"] = r.is_dir;
     sol::table paths = lua.create_table();
     for (size_t i = 0; i < r.paths.size(); ++i) paths[i + 1] = r.paths[i];
     t["paths"] = paths;

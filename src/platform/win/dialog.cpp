@@ -14,7 +14,9 @@ Result platformMessageBox(const std::string& title,
 
 Result platformOpenFile(const std::string& title,
                         const std::vector<Filter>& filters,
-                        bool multi) {
+                        bool multi,
+                        bool chooseDir) {
+  (void)chooseDir;
   debug::warn("Win32 dialog::openFile() not yet implemented");
   return Result{};
 }

@@ -12,7 +12,8 @@ Result platformMessageBox(const std::string& title,
 
 Result platformOpenFile(const std::string& title,
                         const std::vector<Filter>& filters,
-                        bool multi);
+                        bool multi,
+                        bool chooseDir = false);
 
 Result platformSaveFile(const std::string& title,
                         const std::string& defaultName,

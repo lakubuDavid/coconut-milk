@@ -23,8 +23,9 @@ Result messageBox(const std::string& title,
 
 Result openFile(const std::string& title,
                 const std::vector<Filter>& filters,
-                bool multi) {
-  return platformOpenFile(title, filters, multi);
+                bool multi,
+                bool chooseDir) {
+  return platformOpenFile(title, filters, multi, chooseDir);
 }
 
 Result saveFile(const std::string& title,
