@@ -50,24 +50,29 @@ std::string toString(Status s) {
 
 // ── Default implementation ────────────────────────────────────────────
 //
-// This fallback assumes all permissions are granted.  Platform-specific
-// implementations (darwin/permissions.mm, win/permissions.cpp,
-// linux/permissions.cpp) override these at link time by providing
-// stronger symbols with the same names.
+// No platform-specific code exists yet.  All functions return
+// NotApplicable / false.  Platform implementations (darwin/permissions.mm,
+// win/permissions.cpp, linux/permissions.cpp) override these at link time.
 //
-// The default is intentionally permissive so the module works everywhere
-// even before platform code is written.
+// Tests that expect Granted will FAIL until platform code is added —
+// this is intentional: red tests prove the feature is not implemented.
 
-Result check(Permission /*p*/) {
-  return Result{ .status = Status::Granted, .message = "" };
+Result check(Permission p) {
+  return Result{
+    .status = Status::NotApplicable,
+    .message = "no platform implementation for " + toString(p),
+  };
 }
 
-Result request(Permission /*p*/) {
-  return Result{ .status = Status::Granted, .message = "" };
+Result request(Permission p) {
+  return Result{
+    .status = Status::NotApplicable,
+    .message = "no platform implementation for " + toString(p),
+  };
 }
 
-bool isAvailable(Permission /*p*/) {
-  return true;
+bool isAvailable(Permission) {
+  return false;
 }
 
 } // namespace coconut::permissions
