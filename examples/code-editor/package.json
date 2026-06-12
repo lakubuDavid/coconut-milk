@@ -2,7 +2,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build-bundle": "bun build lib/editor.mjs --outfile assets/editor-bundle.js --format esm"
+    "build-bundle": "bun build lib/editor.mjs --outfile assets/editor-bundle.js --format iife"
   },
   "dependencies": {
     "codemirror": "^6.0.1",
