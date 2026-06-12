@@ -36,6 +36,9 @@ run-lua-html: build
 run-vue: build
 	cd examples/calculator-vue && {{BIN}}
 
+run-atlas: build
+	cd examples/atlas-tool && {{BIN}}
+
 # Build the CodeMirror 6 bundle for the code-editor example
 build-editor-bundle:
 	cd examples/code-editor && bun run build-bundle

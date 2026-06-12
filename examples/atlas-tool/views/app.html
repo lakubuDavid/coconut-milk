@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atlas Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/line-highlight/prism-line-highlight.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/match-braces/prism-match-braces.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/toolbar/prism-toolbar.min.css" rel="stylesheet">
+<link rel="stylesheet" href="coconut://assets/app.css">
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+<style>[un-cloak]{display:none}</style>
+</head>
+<body>
+<div x-data="projectManager()">
+  <header>
+    <h1>atlas-tool</h1>
+    <button class="header-btn" @click="newProject()">New</button>
+    <button class="header-btn" @click="saveCurrent()">Save</button>
+    <button class="header-btn" @click="showSave = true">Save As</button>
+    <button class="header-btn" @click="refreshList(); showLoad = true">Load</button>
+    <span class="header-name" x-text="currentName()"></span>
+  </header>
+
+  <template x-if="showSave">
+    <div class="overlay" @click.self="showSave = false">
+      <div class="dialog">
+        <div class="dialog-header">
+          <span>Save project</span>
+          <button @click="showSave = false" style="background:none;border:none;cursor:pointer;font-size:14px;color:#999;">&times;</button>
+        </div>
+        <div class="dialog-body">
+          <input type="text" x-model="saveName" @keydown.enter="doSave()" placeholder="project name">
+        </div>
+        <div class="dialog-footer">
+          <button class="output-btn" @click="showSave = false">Cancel</button>
+          <button class="pack-btn" style="width:auto;margin:0;" @click="doSave()">Save</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template x-if="showLoad">
+    <div class="overlay" @click.self="showLoad = false">
+      <div class="dialog">
+        <div class="dialog-header">
+          <span>Load project</span>
+          <button @click="showLoad = false" style="background:none;border:none;cursor:pointer;font-size:14px;color:#999;">&times;</button>
+        </div>
+        <div class="dialog-body">
+          <template x-if="list.length === 0">
+            <p style="color:#aaa;font-size:11px;text-align:center;padding:16px;">no saved projects</p>
+          </template>
+          <div class="project-list">
+            <template x-for="(p, i) in list" :key="p.name">
+              <div class="project-row">
+                <span class="name" @click="doLoad(p.name)"><span x-text="p.name"></span></span>
+                <span class="date" x-text="p.date"></span>
+                <span class="del" @click.stop="doDelete(i, p.name)">&times;</span>
+              </div>
+            </template>
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <button class="output-btn" @click="showLoad = false">Close</button>
+        </div>
+      </div>
+    </div>
+  </template>
+</div>
+
+<div class="app-body">
+  <nav class="app-nav">
+    <button class="nav-item active" data-tool="atlasPacker">
+      <span class="nav-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6"/><path d="M21 15v6"/><path d="M15 21h6"/><path d="M10 16a2 2 0 1 1 4 0"/><path d="M10 8a2 2 0 1 1 4 0"/></svg>
+      </span>
+      <span class="nav-label">Atlas<br>Packer</span>
+    </button>
+    <button class="nav-item" data-tool="tilesetResizer">
+      <span class="nav-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
+      </span>
+      <span class="nav-label">Tileset<br>Resizer</span>
+    </button>
+  </nav>
+
+  <div class="app-content">
+    <!-- === Atlas Packer === -->
+    <div id="atlasPackerPage" class="tool-page active">
+      <div class="layout">
+        <div class="sidebar" id="atlasLeftSidebar">
+          <div class="sidebar-section" id="atlasSettingsSection">
+            <h2>Settings</h2>
+            <div class="settings-row">
+              <label>Columns</label>
+              <input type="number" id="colsInput" value="8" min="1" max="32">
+            </div>
+            <div class="settings-row">
+              <label>Padding</label>
+              <input type="number" id="paddingInput" value="2" min="0" max="32">
+            </div>
+            <div class="settings-row">
+              <label>Fit mode</label>
+              <select id="fitMode">
+                <option value="contain">contain</option>
+                <option value="cover">cover</option>
+                <option value="stretch">stretch</option>
+              </select>
+            </div>
+            <div class="settings-row">
+              <label>Keep original size</label>
+              <input type="checkbox" id="keepOriginalSize">
+            </div>
+            <div class="settings-row">
+              <label>Transparent BG</label>
+              <input type="checkbox" id="transparentBg" checked>
+            </div>
+            <div class="settings-row">
+              <label>BG color</label>
+              <input type="color" id="bgColor" value="#ffffff" disabled>
+            </div>
+            <div class="settings-row">
+              <label>Export name</label>
+              <input type="text" id="exportName" value="atlas">
+            </div>
+            <button class="pack-btn" id="packBtn" disabled>Pack</button>
+          </div>
+          <div class="resize-handle-v" id="atlasSettingsHandle"></div>
+          <div class="sidebar-section" id="atlasExportSection">
+            <h2>Export</h2>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;">
+              <button class="output-btn" id="downloadPngBtn" disabled>PNG</button>
+              <button class="output-btn" id="downloadMetaBtn" disabled>JSON</button>
+              <button class="output-btn" id="downloadAllBtn" disabled>ZIP</button>
+            </div>
+          </div>
+        </div>
+        <div class="resize-handle-h" id="atlasLeftHandle"></div>
+
+        <div class="main" id="atlasMain">
+          <div class="tabs">
+            <button class="tab active" data-tab="image">Image</button>
+            <button class="tab" data-tab="meta">Metadata</button>
+          </div>
+
+          <div id="atlasInfo" style="display:none;flex-shrink:0;padding:5px 16px;border-bottom:1px solid #ccc;background:#fafafa;font-size:10px;color:#666;font-family:'JetBrains Mono',monospace;align-items:center;">
+            <span id="infoCanvas"></span>
+            <span style="margin:0 8px;color:#ccc;">|</span>
+            <span id="infoCell"></span>
+            <button class="output-btn" id="resetAtlasZoom" style="margin-left:auto;padding:3px 8px;font-size:10px;">Reset view</button>
+          </div>
+
+          <div id="imagePane" class="preview-area empty">
+            <span>add sprites &amp; pack</span>
+            <canvas id="atlasCanvas" style="display:none;" class="zoomable-canvas"></canvas>
+          </div>
+
+          <div id="metaPane" class="meta-pane" style="display:none;">
+            <div class="empty-state">no atlas data</div>
+            <pre id="metaOutput" style="display:none;" class="line-numbers match-braces" data-download-link data-download-link-label="Download"><code class="language-json" id="metaCode"></code></pre>
+          </div>
+        </div>
+        <div class="resize-handle-h" id="atlasRightHandle"></div>
+
+        <div class="sidebar right" id="atlasRightSidebar">
+          <div class="sidebar-section" id="atlasImportSection">
+            <h2>Import</h2>
+            <div class="import-row">
+              <div class="import-dropdown" id="importDropdown">
+                <button class="import-btn" id="importToggle" style="border-color:#ccc;">▼</button>
+                <div class="import-dropdown-menu" id="importMenu">
+                  <button class="import-dropdown-item" data-action="zip">import zip</button>
+                  <button class="import-dropdown-item" data-action="folder">import folder</button>
+                </div>
+              </div>
+              <button class="import-btn" id="importBtn">+ Add files</button>
+            </div>
+            <input type="file" id="fileInput" accept="image/*" multiple style="display:none;">
+            <input type="file" id="zipInput" accept=".zip" style="display:none;">
+            <input type="file" id="folderInput" accept="image/*" multiple style="display:none;" webkitdirectory>
+          </div>
+          <div class="resize-handle-v" id="atlasImportHandle"></div>
+          <div class="sidebar-section grow" id="atlasSpritesSection">
+            <h2>Sprites <span class="count-badge" id="spriteCount">0</span></h2>
+            <div class="sprite-list" id="spriteList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- === Tileset Resizer === -->
+    <div id="tilesetResizerPage" class="tool-page">
+      <div class="layout">
+        <div class="sidebar" id="tilesetLeftSidebar">
+          <div class="sidebar-section" id="tilesetSourceSection">
+            <h2>Source</h2>
+            <div class="settings-row">
+              <label>Tileset</label>
+              <button class="import-btn" id="tilesetImportBtn" style="width:auto;flex:0;">Choose file</button>
+              <input type="file" id="tilesetFileInput" accept="image/*" style="display:none;">
+            </div>
+            <div class="settings-row">
+              <label>Tile width</label>
+              <input type="number" id="origTileW" value="16" min="1">
+            </div>
+            <div class="settings-row">
+              <label>Tile height</label>
+              <input type="number" id="origTileH" value="16" min="1">
+            </div>
+            <div class="settings-row">
+              <label>Spacing</label>
+              <input type="number" id="origSpacing" value="0" min="0">
+            </div>
+            <div class="settings-row">
+              <label>Margin</label>
+              <input type="number" id="origMargin" value="0" min="0">
+            </div>
+          </div>
+          <div class="resize-handle-v" id="tilesetSourceHandle"></div>
+          <div class="sidebar-section" id="tilesetTargetSection">
+            <h2>Target</h2>
+            <div class="settings-row">
+              <label>Tile width</label>
+              <input type="number" id="targetTileW" value="32" min="1">
+            </div>
+            <div class="settings-row">
+              <label>Tile height</label>
+              <input type="number" id="targetTileH" value="32" min="1">
+            </div>
+            <div class="settings-row">
+              <label>Spacing</label>
+              <input type="number" id="targetSpacing" value="0" min="0">
+            </div>
+            <div class="settings-row">
+              <label>Margin</label>
+              <input type="number" id="targetMargin" value="0" min="0">
+            </div>
+            <div class="settings-row">
+              <label>Scale mode</label>
+              <select id="scaleMode">
+                <option value="nearest">nearest-neighbor</option>
+                <option value="smooth">smooth</option>
+              </select>
+            </div>
+            <button class="pack-btn" id="processTilesetBtn" disabled>Process</button>
+          </div>
+          <div class="resize-handle-v" id="tilesetTargetHandle"></div>
+          <div class="sidebar-section" id="tilesetExportSection">
+            <h2>Export</h2>
+            <div class="settings-row">
+              <label>File name</label>
+              <input type="text" id="tilesetExportName" value="tileset">
+            </div>
+            <button class="output-btn" id="downloadTilesetBtn" disabled style="width:100%;">Download PNG</button>
+          </div>
+        </div>
+        <div class="resize-handle-h" id="tilesetLeftHandle"></div>
+
+        <div class="main" id="tilesetMain">
+          <div class="tileset-preview-layout">
+            <div class="preview-half">
+              <div class="preview-header" style="display:flex;align-items:center;justify-content:space-between;">
+                <span>Original</span>
+                <button class="output-btn" id="resetOriginalZoom" style="padding:3px 8px;font-size:10px;">Reset</button>
+              </div>
+              <div class="preview-canvas-wrap" id="originalWrap">
+                <canvas id="tilesetOriginalCanvas" class="zoomable-canvas"></canvas>
+                <span class="empty-label" id="tilesetEmptyLabel">no tileset loaded</span>
+              </div>
+              <div class="preview-meta" id="originalMeta"></div>
+            </div>
+            <div class="resize-handle-h" id="tilesetPreviewHandle"></div>
+            <div class="preview-half" id="tilesetResizedHalf">
+              <div class="preview-header" style="display:flex;align-items:center;justify-content:space-between;">
+                <span>Resized</span>
+                <button class="output-btn" id="resetResizedZoom" style="padding:3px 8px;font-size:10px;">Reset</button>
+              </div>
+              <div class="preview-canvas-wrap" id="resizedWrap">
+                <canvas id="tilesetResizedCanvas" class="zoomable-canvas"></canvas>
+                <span class="empty-label" id="resizedEmptyLabel">process to preview</span>
+              </div>
+              <div class="preview-meta" id="resizedMeta"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-json.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/line-highlight/prism-line-highlight.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/match-braces/prism-match-braces.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/download-button/prism-download-button.min.js"></script>
+<script src="coconut://assets/app.js"></script>
+</body>
+</html>
