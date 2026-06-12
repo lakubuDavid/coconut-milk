@@ -207,6 +207,31 @@ void _bindCoconutLuaApi(Runtime *runtime) {
     return fs::resolve(root, relpath);
   });
 
+  // Convert a single DirEntry to a Lua table
+  auto dirEntry_to_table = [runtime](const fs::DirEntry& de) -> sol::table {
+    sol::table t = (*runtime->lua_state).create_table();
+    t["name"]   = de.name;
+    t["path"]   = de.path;
+    t["is_dir"] = de.is_dir;
+    return t;
+  };
+
+  // List directory contents
+  fs_mod.set_function("listDir",
+      [runtime, dirEntry_to_table](const std::string& path) -> sol::table {
+        auto result = fs::listDir(path);
+        sol::table entries = (*runtime->lua_state).create_table();
+        if (result) {
+          for (size_t i = 0; i < result->size(); ++i) {
+            entries[i + 1] = dirEntry_to_table((*result)[i]);
+          }
+        } else {
+          debug::warn(std::format("fs.listDir: {} ({})",
+                       result.error().message, path));
+        }
+        return entries;
+      });
+
   coconut["fs"] = fs_mod;
 
   runtime->lua_state->set("coconut", coconut);

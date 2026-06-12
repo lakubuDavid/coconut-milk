@@ -38,6 +38,10 @@ run-lua-html:
 	xmake build lua-html-app
 	xmake run lua-html-app
 
+run-editor:
+	xmake build code-editor
+	xmake run code-editor
+
 test:
 	xmake build {{TEST_TARGET}}
 	xmake run {{TEST_TARGET}}

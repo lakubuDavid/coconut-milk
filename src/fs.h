@@ -45,6 +45,17 @@ namespace coconut {
     std::string resolve(const std::string& root,
                         const std::string& relpath);
 
+    /// Directory entry for listDir results.
+    struct DirEntry {
+      std::string name;
+      std::string path;    ///< full filesystem path
+      bool        is_dir;
+    };
+
+    /// List the contents of a directory.
+    /// Returns a vector of DirEntry sorted by name (directories first).
+    std::expected<std::vector<DirEntry>, Error> listDir(const std::string& path);
+
   }  // namespace fs
 }  // namespace coconut
 

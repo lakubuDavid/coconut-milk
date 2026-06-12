@@ -1,5 +1,6 @@
 #include "fs.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -117,6 +118,45 @@ std::string resolve(const std::string& root, const std::string& relpath) {
   }
   auto r = std::filesystem::path(root);
   return (r / p).lexically_normal().string();
+}
+
+std::expected<std::vector<DirEntry>, Error> listDir(const std::string& path) {
+  auto dir = std::filesystem::path(path);
+  if (!std::filesystem::exists(dir)) {
+    return std::unexpected(Error{
+      .code = ErrorCode::MissingFile,
+      .message = "directory not found: " + path});
+  }
+  if (!std::filesystem::is_directory(dir)) {
+    return std::unexpected(Error{
+      .code = ErrorCode::WebViewError,
+      .message = "not a directory: " + path});
+  }
+
+  std::vector<DirEntry> entries;
+  try {
+    for (auto const& entry : std::filesystem::directory_iterator(dir)) {
+      auto const& p = entry.path();
+      DirEntry de;
+      de.name   = p.filename().string();
+      de.path   = p.lexically_normal().string();
+      de.is_dir = entry.is_directory();
+      entries.push_back(std::move(de));
+    }
+  } catch (const std::exception& e) {
+    return std::unexpected(Error{
+      .code = ErrorCode::WebViewError,
+      .message = std::string("listDir error: ") + e.what()});
+  }
+
+  // Sort: directories first, then by name
+  std::sort(entries.begin(), entries.end(),
+      [](const DirEntry& a, const DirEntry& b) {
+        if (a.is_dir != b.is_dir) return a.is_dir > b.is_dir;
+        return a.name < b.name;
+      });
+
+  return entries;
 }
 
 }  // namespace coconut::fs

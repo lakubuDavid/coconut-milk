@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coconut Code Editor</title>
+  <link rel="stylesheet" href="coconut://assets/lib/codemirror.min.css">
+  <link rel="stylesheet" href="coconut://assets/lib/dracula.min.css">
+  <link rel="stylesheet" href="coconut://assets/app.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Toolbar -->
+    <div id="toolbar">
+      <button onclick="openDialog()">📂 Open</button>
+      <button onclick="saveCurrent()">💾 Save</button>
+      <button onclick="saveAsDialog()">💾 Save As</button>
+      <span id="file-path" class="file-path"></span>
+    </div>
+
+    <div id="main">
+      <!-- Sidebar: file tree -->
+      <aside id="sidebar">
+        <div class="sidebar-header">Files</div>
+        <div id="file-tree"></div>
+      </aside>
+
+      <!-- Main content: editor or preview -->
+      <main id="content">
+        <div id="editor-area">
+          <textarea id="editor-textarea"></textarea>
+        </div>
+        <div id="preview-area" style="display:none">
+          <div class="preview-header">Preview</div>
+          <div id="preview-content"></div>
+        </div>
+        <div id="empty-state">
+          <div class="empty-icon">📝</div>
+          <div>Select a file from the tree to start editing</div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="coconut://assets/lib/codemirror.min.js"></script>
+  <script src="coconut://assets/lib/mode/javascript/javascript.min.js"></script>
+  <script src="coconut://assets/lib/mode/lua/lua.min.js"></script>
+  <script src="coconut://assets/lib/mode/css/css.min.js"></script>
+  <script src="coconut://assets/lib/mode/xml/xml.min.js"></script>
+  <script src="coconut://assets/lib/mode/markdown/markdown.min.js"></script>
+  <script src="coconut://assets/lib/mode/clike/clike.min.js"></script>
+  <script src="coconut://assets/lib/mode/python/python.min.js"></script>
+  <script src="coconut://assets/lib/addon/edit/closebrackets.min.js"></script>
+  <script src="coconut://assets/lib/addon/selection/active-line.min.js"></script>
+  <script src="coconut://assets/app.js"></script>
+</body>
+</html>
