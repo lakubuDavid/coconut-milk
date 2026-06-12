@@ -160,11 +160,8 @@ function clearAll() {
 /* ─── DOM refs ─── */
 const fileInput = document.getElementById('fileInput');
 const zipInput = document.getElementById('zipInput');
-const folderInput = document.getElementById('folderInput');
 const importBtn = document.getElementById('importBtn');
-const importToggle = document.getElementById('importToggle');
-const importDropdown = document.getElementById('importDropdown');
-const importMenu = document.getElementById('importMenu');
+const importZipBtn = document.getElementById('importZipBtn');
 const spriteList = document.getElementById('spriteList');
 const spriteCount = document.getElementById('spriteCount');
 const colsInput = document.getElementById('colsInput');
@@ -312,33 +309,11 @@ document.querySelectorAll('.tab').forEach(tab => {
 });
 
 /* ─── Import dropdown ─── */
-importToggle.addEventListener('click', e => {
-  e.stopPropagation();
-  const wasOpen = importMenu.classList.contains('show');
-  importMenu.classList.remove('show');
-  if (!wasOpen) {
-    const rect = importDropdown.getBoundingClientRect();
-    importMenu.style.left = rect.left + 'px';
-    importMenu.style.top = rect.bottom + 'px';
-    importMenu.classList.add('show');
-  }
-});
-document.addEventListener('click', () => importMenu.classList.remove('show'));
-importMenu.querySelectorAll('.import-dropdown-item').forEach(item => {
-  item.addEventListener('click', e => {
-    e.stopPropagation();
-    importMenu.classList.remove('show');
-    const action = item.dataset.action;
-    if (action === 'zip') zipInput.click();
-    else if (action === 'folder') folderInput.click();
-  });
-});
-
 importBtn.addEventListener('click', () => fileInput.click());
+importZipBtn.addEventListener('click', () => zipInput.click());
 
 /* ─── File handling ─── */
 fileInput.addEventListener('change', () => { handleFiles(fileInput.files); fileInput.value = ''; });
-folderInput.addEventListener('change', () => { handleFiles(folderInput.files); folderInput.value = ''; });
 zipInput.addEventListener('change', async () => {
   if (!zipInput.files.length) return;
   const zipFile = zipInput.files[0];

@@ -172,18 +172,11 @@
           <div class="sidebar-section" id="atlasImportSection">
             <h2>Import</h2>
             <div class="import-row">
-              <div class="import-dropdown" id="importDropdown">
-                <button class="import-btn" id="importToggle" style="border-color:#ccc;">▼</button>
-                <div class="import-dropdown-menu" id="importMenu">
-                  <button class="import-dropdown-item" data-action="zip">import zip</button>
-                  <button class="import-dropdown-item" data-action="folder">import folder</button>
-                </div>
-              </div>
-              <button class="import-btn" id="importBtn">+ Add files</button>
+              <button class="import-btn" id="importBtn">+ Add sprites</button>
+              <button class="import-btn" id="importZipBtn">Import ZIP</button>
             </div>
             <input type="file" id="fileInput" accept="image/*" multiple style="display:none;">
             <input type="file" id="zipInput" accept=".zip" style="display:none;">
-            <input type="file" id="folderInput" accept="image/*" multiple style="display:none;" webkitdirectory>
           </div>
           <div class="resize-handle-v" id="atlasImportHandle"></div>
           <div class="sidebar-section grow" id="atlasSpritesSection">
