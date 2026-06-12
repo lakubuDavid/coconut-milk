@@ -28,40 +28,6 @@ task("coconut_bridge_embeds")
     end)
 
 -- =================================================================
--- Helper: shared coconut binary target
---
--- Every example is the same binary running from a different cwd.
--- The helper eliminates ~28 lines of boilerplate per target.
--- =================================================================
-
-local function coconut_example(name, rundir)
-    target(name)
-        set_kind("binary")
-        set_basename("coconut")
-        set_rundir(rundir)
-        before_build(function ()
-            if not os.isfile("src/embeds/coconut_embed.h") then
-                os.run("xmake coconut_bridge_embeds")
-            end
-        end)
-        add_includedirs("src", "thirdparty/webview/core/include")
-        add_frameworks("Cocoa", "WebKit", "Foundation")
-        add_files("src/*.cpp")
-        add_files("src/generators/*.cpp")
-        add_files("src/platform/scheme_handler.cpp")
-        if is_plat("macosx") then
-            add_files("src/platform/darwin/*.cpp")
-            add_files("src/platform/darwin/*.mm")
-        elseif is_plat("windows") then
-            add_files("src/platform/win/*.cpp")
-        elseif is_plat("linux") then
-            add_files("src/platform/linux/*.cpp")
-        end
-        add_packages("sol2", "luajit", "nlohmann_json")
-        add_deps("webview")
-end
-
--- =================================================================
 -- Third-party library targets
 -- =================================================================
 
@@ -74,22 +40,34 @@ target("webview")
     set_targetdir("$(buildir)/lib")
 
 -- =================================================================
--- Coconut binary (root project)
+-- Core coconut binary (the one binary used by all examples)
 -- =================================================================
 
-coconut_example("coconut", "$(projectdir)")
+target("coconut")
+    set_kind("binary")
+    add_includedirs("src", "thirdparty/webview/core/include")
+    before_build(function ()
+        if not os.isfile("src/embeds/coconut_embed.h") then
+            os.run("xmake coconut_bridge_embeds")
+        end
+    end)
+    add_frameworks("Cocoa", "WebKit", "Foundation")
+    add_files("src/*.cpp")
+    add_files("src/generators/*.cpp")
+    add_files("src/platform/scheme_handler.cpp")
+    if is_plat("macosx") then
+        add_files("src/platform/darwin/*.cpp")
+        add_files("src/platform/darwin/*.mm")
+    elseif is_plat("windows") then
+        add_files("src/platform/win/*.cpp")
+    elseif is_plat("linux") then
+        add_files("src/platform/linux/*.cpp")
+    end
+    add_packages("sol2", "luajit", "nlohmann_json")
+    add_deps("webview")
 
 -- =================================================================
--- Example apps - same binary, different working directory
--- =================================================================
-
-coconut_example("calculator-vue", "$(projectdir)/examples/calculator-vue")
-coconut_example("ocr-app",       "$(projectdir)/examples/ocr-app")
-coconut_example("lua-html-app",  "$(projectdir)/examples/lua-html-app")
-coconut_example("code-editor",   "$(projectdir)/examples/code-editor")
-
--- =================================================================
--- Test target
+-- Tests
 -- =================================================================
 
 target("coconut-milk-tests")

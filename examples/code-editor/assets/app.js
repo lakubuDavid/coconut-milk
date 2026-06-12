@@ -1,20 +1,20 @@
-// Coconut Code Editor — client-side logic
+// Coconut Code Editor — client-side logic (CodeMirror 6)
 (function () {
   'use strict';
 
   // ── State ─────────────────────────────────────────────────────────
   let currentFile = null;       // { path, name, type, text_type? }
-  let editor = null;            // CodeMirror instance
+  let editorView = null;       // CM6 EditorView instance
   let loadedDirs = {};          // cache: path -> entries[]
 
   // ── DOM refs ──────────────────────────────────────────────────────
-  const fileTree = document.getElementById('file-tree');
-  const editorArea = document.getElementById('editor-area');
-  const previewArea = document.getElementById('preview-area');
+  const fileTree     = document.getElementById('file-tree');
+  const editorArea   = document.getElementById('editor-area');
+  const editorContainer = document.getElementById('editor-container');
+  const previewArea  = document.getElementById('preview-area');
   const previewContent = document.getElementById('preview-content');
-  const emptyState = document.getElementById('empty-state');
-  const filePath = document.getElementById('file-path');
-  const textarea = document.getElementById('editor-textarea');
+  const emptyState   = document.getElementById('empty-state');
+  const filePath     = document.getElementById('file-path');
 
   // ── Helpers ───────────────────────────────────────────────────────
 
@@ -22,7 +22,6 @@
     editorArea.style.display = 'block';
     previewArea.style.display = 'none';
     emptyState.style.display = 'none';
-    if (editor) setTimeout(() => editor.refresh(), 50);
   }
 
   function showPreview() {
@@ -43,7 +42,29 @@
     return d.innerHTML;
   }
 
-  // ── File Tree ─────────────────────────────────────────────────────
+  // ── Editor lifecycle ──────────────────────────────────────────────
+
+  function setEditorContent(content, language, filename) {
+    // Destroy previous editor
+    if (editorView) {
+      editorView.destroy();
+      editorView = null;
+    }
+    editorContainer.innerHTML = '';
+
+    editorView = window.createCoconutEditor(editorContainer, {
+      content:  content || '',
+      language: language,
+      filename: filename,
+      onSave:   () => saveCurrent(),
+    });
+
+    showEditor();
+    // Focus after layout settles
+    setTimeout(() => editorView.focus?.(), 50);
+  }
+
+  // ── File tree (unchanged from CM5 version) ────────────────────────
 
   function renderTree(entries, container, level) {
     level = level || 0;
@@ -81,21 +102,8 @@
     const isOpen = icon.textContent === '\u25BC';
 
     if (isOpen) {
-      // Collapse
       icon.textContent = '\u25B6';
-      let next = item.nextSibling;
-      while (next && next.dataset && next.dataset.path) {
-        const sibling = next;
-        next = sibling.nextSibling;
-        if (sibling.dataset.path && sibling.dataset.path.startsWith(path + '/') ||
-            sibling.dataset.path && path.startsWith(sibling.dataset.path)) {
-          // Actually, just remove all siblings that are children
-        } else {
-          break;
-        }
-      }
-      // Simpler: find the children container
-      let childrenDiv = item.parentNode.querySelector('[data-parent="' + path + '"]');
+      const childrenDiv = item.parentNode.querySelector('[data-parent="' + path + '"]');
       if (childrenDiv) {
         childrenDiv.style.display = 'none';
         childrenDiv.dataset.collapsed = 'true';
@@ -105,16 +113,13 @@
 
     icon.textContent = '\u25BC';
 
-    // Check cache
     if (loadedDirs[path]) {
-      // Already loaded — show cached children
       let childrenDiv = item.parentNode.querySelector('[data-parent="' + path + '"]');
       if (childrenDiv) {
         childrenDiv.style.display = 'block';
         childrenDiv.dataset.collapsed = 'false';
         return;
       }
-      // Create new children container
       const container = document.createElement('div');
       container.className = 'tree-children open';
       container.dataset.parent = path;
@@ -124,7 +129,6 @@
       return;
     }
 
-    // Load from backend
     coconut.call('editor_list_dir', { path: path }).then(function (result) {
       loadedDirs[path] = result;
       const container = document.createElement('div');
@@ -155,7 +159,8 @@
     document.querySelectorAll('.tree-item.selected').forEach(function (el) {
       el.classList.remove('selected');
     });
-    document.querySelector('[data-path="' + escapeHtml(path) + '"]')?.classList.add('selected');
+    const sel = document.querySelector('[data-path="' + escapeHtml(path) + '"]');
+    if (sel) sel.classList.add('selected');
 
     coconut.call('editor_read_file', { path: path }).then(function (result) {
       if (result.error) {
@@ -167,30 +172,10 @@
       filePath.textContent = result.name + ' — ' + result.path;
 
       if (result.type === 'image') {
-        // Image preview via file:// URL
         previewContent.innerHTML = '<img src="file://' + result.path + '" alt="' + escapeHtml(result.name) + '">';
         showPreview();
       } else if (result.type === 'text') {
-        showEditor();
-        if (!editor) {
-          editor = CodeMirror.fromTextArea(textarea, {
-            lineNumbers: true,
-            theme: 'dracula',
-            indentUnit: 2,
-            tabSize: 2,
-            autoCloseBrackets: true,
-            styleActiveLine: true,
-            viewportMargin: Infinity,
-            extraKeys: {
-              'Ctrl-S': function () { saveCurrent(); },
-              'Cmd-S': function () { saveCurrent(); },
-            },
-          });
-        }
-        editor.setValue(result.content || '');
-        editor.setOption('mode', result.text_type || 'text');
-        editor.clearHistory();
-        editor.focus();
+        setEditorContent(result.content || '', result.text_type, result.name);
       }
     }).catch(function (err) {
       console.error('read_file failed:', err);
@@ -200,11 +185,11 @@
   // ── Saving ────────────────────────────────────────────────────────
 
   function saveCurrent() {
-    if (!currentFile || !editor) {
+    if (!currentFile || !editorView) {
       console.warn('Nothing to save');
       return;
     }
-    const content = editor.getValue();
+    const content = editorView.state.doc.toString();
     coconut.call('editor_save_file', { path: currentFile.path, content: content }).then(function (result) {
       if (result.ok) {
         filePath.textContent = currentFile.name + ' — saved ✓';
@@ -231,8 +216,7 @@
     const defaultName = currentFile ? currentFile.name : 'untitled.txt';
     coconut.call('editor_save_dialog', { default_name: defaultName }).then(function (result) {
       if (result.path) {
-        // Read current content and save to new path
-        const content = editor ? editor.getValue() : '';
+        const content = editorView ? editorView.state.doc.toString() : '';
         coconut.call('editor_save_file', { path: result.path, content: content }).then(function (res) {
           if (res.ok) {
             filePath.textContent = 'saved → ' + result.path;

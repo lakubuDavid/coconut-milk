@@ -4,8 +4,6 @@ DEFAULT_TARGET := "coconut"
 TEST_TARGET := "coconut-milk-tests"
 
 # ── Install paths ───────────────────────────────────────────
-# Default: user-local tools directory.
-# Industry standard: INSTALL_DIR := "/usr/local/bin"
 INSTALL_DIR := "$HOME/tools"
 
 default:
@@ -14,40 +12,37 @@ default:
 build:
 	xmake build {{DEFAULT_TARGET}}
 
-build-vue:
-	xmake build calculator-vue
-	cd examples/calculator-vue && bun run build
-
 run:
 	xmake run {{DEFAULT_TARGET}}
 
-run-vue:
-	xmake build calculator-vue
-	COCONUT_DEV=1 xmake run calculator-vue
+run-gen:
+	xmake run coconut generate
 
-run-vue-prod:
-	xmake build calculator-vue
-	cd examples/calculator-vue && bun run build
-	xmake run calculator-vue
+# ── Examples (run core binary from example directory) ───────
 
-run-ocr:
-	xmake build ocr-app
-	xmake run ocr-app
+run-editor: build build-editor-bundle
+	xmake run --workdir=$(pwd)/examples/code-editor {{DEFAULT_TARGET}}
 
-run-lua-html:
-	xmake build lua-html-app
-	xmake run lua-html-app
+run-ocr: build
+	xmake run --workdir=$(pwd)/examples/ocr-app {{DEFAULT_TARGET}}
 
-run-editor:
-	xmake build code-editor
-	xmake run code-editor
+run-lua-html: build
+	xmake run --workdir=$(pwd)/examples/lua-html-app {{DEFAULT_TARGET}}
+
+run-vue: build
+	xmake run --workdir=$(pwd)/examples/calculator-vue {{DEFAULT_TARGET}}
+
+# Build the CodeMirror 6 bundle for the code-editor example
+build-editor-bundle:
+	cd examples/code-editor && bun run build-bundle
+
+# ── Tests ───────────────────────────────────────────────────
 
 test:
 	xmake build {{TEST_TARGET}}
 	xmake run {{TEST_TARGET}}
 
-run-gen:
-	xmake run coconut generate
+# ── Housekeeping ────────────────────────────────────────────
 
 clean:
 	xmake clean
@@ -64,7 +59,6 @@ debug:
 format:
 	clang-format -i src/**/*.h src/**/*.cpp tests/**/*.cpp
 
-# Symlink coconut + create-coconut-app into INSTALL_DIR.
 install:
 	mkdir -p {{INSTALL_DIR}}
 	ln -sf "$(pwd)/build/macosx/x86_64/debug/coconut" "{{INSTALL_DIR}}/coconut"

@@ -63,11 +63,18 @@ body {
   flex: 1; position: relative; overflow: hidden;
 }
 
-/* ── CodeMirror overrides ──────────────────────────────────────── */
+/* ── CodeMirror 6 overrides ──────────────────────────────────── */
 #editor-area { height: 100%; display: none; }
-.CodeMirror {
-  height: 100% !important;
+#editor-container { height: 100%; }
+.cm-editor {
+  height: 100%;
   font-size: 14px; line-height: 1.5;
+}
+.cm-editor .cm-scroller {
+  overflow: auto;
+}
+.cm-editor.cm-focused {
+  outline: none;
 }
 
 /* ── Image preview ─────────────────────────────────────────────── */
