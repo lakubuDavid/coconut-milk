@@ -88,10 +88,12 @@ target("coconut-milk-tests")
         "src/dialog.cpp",
         "src/error.cpp",
         "src/fs.cpp",
+        "src/permissions.cpp",
         "src/lifecycle.cpp",
         "src/lua_runtime.cpp",
         "src/window.cpp",
         "src/webview_transport.cpp",
+        "src/routes.cpp",
         "src/platform/scheme_handler.cpp"
     )
     if is_plat("macosx") then

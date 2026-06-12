@@ -28,6 +28,16 @@ void require_equal(const std::string &lhs, const std::string &rhs, const char *l
 void require_equal(int lhs, int rhs, const char *lhs_expr, const char *rhs_expr, const char *file, int line);
 void require_equal(coconut::ErrorCode lhs, coconut::ErrorCode rhs, const char *lhs_expr, const char *rhs_expr, const char *file, int line);
 
+template <typename T>
+void require_equal(T lhs, T rhs, const char *lhs_expr, const char *rhs_expr, const char *file, int line) {
+  if (lhs != rhs) {
+    throw std::runtime_error(std::string(file) + ":" + std::to_string(line) +
+                             ": equality failed: " + lhs_expr + " == " + rhs_expr +
+                             " (lhs=" + std::to_string(static_cast<int>(lhs)) +
+                             ", rhs=" + std::to_string(static_cast<int>(rhs)) + ")");
+  }
+}
+
 int run_all();
 
 } // namespace coconut::test

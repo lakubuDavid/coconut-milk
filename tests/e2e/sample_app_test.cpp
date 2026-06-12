@@ -17,7 +17,6 @@
 COCONUT_TEST(e2e, full_app_startup_lifecycle) {
   // 1. Config defaults
   coconut::Config cfg{};
-  COCONUT_REQUIRE_EQ(cfg.browser, std::string("auto"));
   COCONUT_REQUIRE_EQ(cfg.initial_view, std::string("home"));
 
   // 2. Window

@@ -8,7 +8,6 @@
 COCONUT_TEST(unit, config_defaults) {
   coconut::Config config{};
 
-  COCONUT_REQUIRE_EQ(config.browser, std::string("auto"));
   COCONUT_REQUIRE_EQ(config.window_width, 1280);
   COCONUT_REQUIRE_EQ(config.window_height, 640);
   COCONUT_REQUIRE_EQ(config.initial_view, std::string("home"));
@@ -43,7 +42,6 @@ loadFromString(const std::string& json_text) {
 
 COCONUT_TEST(unit, config_load_json_with_views) {
   const char* json = R"({
-    "browser": "webkit",
     "window_width": 1024,
     "initial_view": "dashboard",
     "views": {
@@ -60,7 +58,6 @@ COCONUT_TEST(unit, config_load_json_with_views) {
   coconut::Config cfg = result.value();
 
   // Scalar overrides
-  COCONUT_REQUIRE_EQ(cfg.browser, std::string("webkit"));
   COCONUT_REQUIRE_EQ(cfg.window_width, 1024);
   COCONUT_REQUIRE_EQ(cfg.window_height, 640);   // kept default
 
