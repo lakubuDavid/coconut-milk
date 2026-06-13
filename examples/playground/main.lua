@@ -18,16 +18,19 @@ function coconut.views()
   }
 end
 
--- ── Startup smoke tests (logged but not shown in UI) ────────────────────
+-- ── Startup smoke tests ─────────────────────────────────────────────────
 
-function coconut.on_ready()
-  coconut.info("playground ready")
-  coconut.info("HOME = " .. tostring(coconut.env.HOME))
-  coconut.info("cwd  = " .. coconut.env.cwd)
-
-  -- test clipboard read (silent)
-  local cb = coconut.clipboard.readText()
-  coconut.info("clipboard = " .. (#cb > 0 and cb:sub(1, 40) or "(empty)"))
+local w = _coconut_window
+coconut.info("_coconut_window type = " .. type(w))
+if w then
+  coconut.info("_coconut_window.minimize = " .. type(w.minimize))
+  coconut.info("_coconut_window.resize = " .. type(w.resize))
+  coconut.info("_coconut_window.setPosition = " .. type(w.setPosition))
+  -- try calling minimize to see if it works
+  local ok, err = pcall(function() w:minimize() end)
+  coconut.info("w:minimize() = " .. tostring(ok) .. ", err=" .. tostring(err))
+  ok, err = pcall(function() w:resize(400, 300) end)
+  coconut.info("w:resize(400,300) = " .. tostring(ok) .. ", err=" .. tostring(err))
 end
 
 -- ── Navigation handler ───────────────────────────────────────────────────
