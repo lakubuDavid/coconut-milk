@@ -866,9 +866,10 @@ void wireWindowHandle(Runtime* runtime) {
   // Wire the app pointer so window operations can access the webview.
   runtime->context->window_handle->app = runtime->app;
 
-  // ctx.window is already registered as a sol::property getter on
-  // the CoconutContext usertype (see _bindUserType), so Lua reads it
-  // from C++ via the getter.  No need to set it from Lua side.
+  // Expose the window handle as a Lua global so commands registered via
+  // _registerBuiltinCommands (which use a Lua script) can access it
+  // directly without going through ctx.window (property getter).
+  runtime->lua_state->set("_coconut_window", runtime->context->window_handle);
 
   debug::info("wired ctx.window to CoconutWindowHandle");
 }

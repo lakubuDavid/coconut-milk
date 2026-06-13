@@ -258,6 +258,15 @@ CMD.win_reload = async () => {
   show('#r-win-reload', 'reload triggered')
 }
 
+CMD.win_debug = async () => {
+  try {
+    const info = await call('__coconut_window_ctl', { cmd: 'debug' })
+    show('#r-win', JSON.stringify(info, null, 2))
+  } catch (e) {
+    show('#r-win', `debug error: ${e.message || e}`, false)
+  }
+}
+
 // ── JSON ─────────────────────────────────────────────────────────────────
 
 CMD.json_parse = () => {

@@ -25,13 +25,12 @@ end
 
 ---@command __coconut_window_ctl
 local function window_ctl(params, ctx)
-  local win = _G.__playground_win or ctx.window
+  local win = _G.__playground_win or _coconut_window
+  if not win then return { ok = false, error = "no window handle" } end
   _G.__playground_win = win
   local cmd = params.cmd
-  -- diagnostic
   if cmd == "debug" then
     return {
-      ctx_type = type(ctx),
       win_type = type(win),
       has_minimize = type(win.minimize) == "function",
       has_resize = type(win.resize) == "function",
