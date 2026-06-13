@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "coconut-milk",
-  "updatedAt": "2026-06-13T20:30:00.000Z",
+  "updatedAt": "2026-06-13T21:00:00.000Z",
   "tasks": [
     {
       "id": "task-1781366119344-ek6z4w9",
@@ -150,10 +150,10 @@
     {
       "id": "task-1781369200000-fix-tests",
       "title": "Fix 11 failing tests — config JSON validation + FS edge cases",
-      "description": "Pre-existing failures: config view kind validation (5), FS path resolution (3), platform style JSON validation (2), bridge null config (1). All are config parser / FS interface mismatch issues.",
-      "status": "pending",
+      "description": "All 11 pre-existing failures fixed: config view kind validation now returns errors, target_archs parsed from JSON, frameless/transparent type validation, fs::create/bridge::create null checks, fs::resolve dot handling, fs::listDir dotfile inclusion.",
+      "status": "completed",
       "createdAt": "2026-06-13T20:30:00.000Z",
-      "updatedAt": "2026-06-13T20:30:00.000Z"
+      "updatedAt": "2026-06-13T21:00:00.000Z"
     },
     {
       "id": "task-1781369200001-bundle-codesign",
