@@ -303,6 +303,8 @@ void _bindCoconutLuaApi(Runtime *runtime) {
         return entries;
       });
 
+  coconut["fs"] = fs_mod;
+
   // ── Environment table: coconut.env ──────────────────────────
   // Uses __index metamethod so coconut.env.HOME lazily calls getenv().
   {
@@ -770,17 +772,22 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
   }
 
   // ── Auto-load generated commands ──────────────────────────────────
-  // Scan the command root directory for .g.lua files.  Each .g.lua
-  // exports a register(ctx) function that calls ctx:bind() for each
-  // command defined in the corresponding .lua module.
+  // Scan the command root directory and the generated directory for
+  // .g.lua files.  Each .g.lua exports a register(ctx) function that
+  // calls ctx:bind() for each command defined in the corresponding .lua
+  // module.
   {
     std::string cmdRoot = cfg ? cfg->command_root : "commands";
-    debug::info(std::format("scanning {}/ for .g.lua files...", cmdRoot));
+    std::string genDir  = "generated";
+    debug::info(std::format("scanning {}/ and {}/ for .g.lua files...",
+                            cmdRoot, genDir));
 
-    // Add command root to package.path so the .g.lua's require() works.
-    // The leading ; ensures proper path separation (Lua's package.path
-    // doesn't always end with ;).
-    std::string pkgPath = ";" + cmdRoot + "/?.lua;" + cmdRoot + "/?/init.lua";
+    // Add directories to package.path so the .g.lua's require() works.
+    std::string pkgPath = ";"
+        + cmdRoot + "/?.lua;"
+        + cmdRoot + "/?/init.lua;"
+        + genDir  + "/?.lua;"
+        + genDir  + "/?/init.lua";
     lua.script("package.path = package.path .. '" + pkgPath + "'");
 
     sol::object ctx_obj = lua["ctx"];
@@ -788,8 +795,12 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
       debug::warn("ctx not available, skipping command auto-load");
     } else {
       int loaded = 0;
+      std::vector<std::string> dirsToScan = {cmdRoot, genDir};
       try {
-        for (auto& entry : std::filesystem::directory_iterator(cmdRoot)) {
+        for (const auto& scanDir : dirsToScan) {
+        if (!std::filesystem::is_directory(scanDir)) continue;
+
+        for (auto& entry : std::filesystem::directory_iterator(scanDir)) {
           auto path = entry.path();
           if (path.extension() != ".lua") continue;
           auto stem = path.stem().string();
@@ -833,8 +844,9 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
             debug::info(std::format("registered {} commands", cmdName));
           }
         }
+      }
       } catch (const std::filesystem::filesystem_error& err) {
-        debug::info(std::format("no {}/ directory or empty", cmdRoot));
+        debug::info(std::format("no {}/ or {}/ directory", cmdRoot, genDir));
       }
       if (loaded > 0) {
         debug::info(std::format("loaded {} command module(s)", loaded));

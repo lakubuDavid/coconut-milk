@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coconut Milk Playground</title>
+  <link rel="stylesheet" href="coconut://assets/style.css" />
+</head>
+<body>
+
+  <!-- ════════ Header ════════ -->
+  <header class="header">
+    <div class="header-top">
+      <span class="logo">🥥</span>
+      <h1>Coconut Milk <span class="subtitle">Playground</span></h1>
+      <span class="badge" id="status-badge">connecting…</span>
+    </div>
+    <p class="desc">Test every framework feature interactively</p>
+  </header>
+
+  <!-- ════════ Tabs ════════ -->
+  <nav class="tabs" id="tabs" role="tablist">
+    <button class="tab active" data-tab="system"    role="tab" aria-selected="true">System</button>
+    <button class="tab"        data-tab="clipboard" role="tab">Clipboard</button>
+    <button class="tab"        data-tab="dialogs"   role="tab">Dialogs</button>
+    <button class="tab"        data-tab="files"     role="tab">File&nbsp;Sys</button>
+    <button class="tab"        data-tab="window"    role="tab">Window</button>
+    <button class="tab"        data-tab="json"      role="tab">JSON</button>
+    <button class="tab"        data-tab="events"    role="tab">Events</button>
+  </nav>
+
+  <!-- ════════ Panels ════════ -->
+
+  <!-- ── SYSTEM ── -->
+  <section class="panel active" id="panel-system" role="tabpanel">
+    <div class="card">
+      <h2>🌐 Environment</h2>
+      <div class="btn-row">
+        <button class="btn" data-cmd="env_home">HOME</button>
+        <button class="btn" data-cmd="env_user">USER</button>
+        <button class="btn" data-cmd="env_cwd">cwd</button>
+        <button class="btn" data-cmd="env_homedir">homedir</button>
+        <button class="btn" data-cmd="env_sep">pathSep</button>
+      </div>
+      <div class="result" id="r-env">Click a button to read an env var</div>
+    </div>
+
+    <div class="card">
+      <h2>🔗 Open URL</h2>
+      <div class="input-row">
+        <input type="text" id="url-input" value="https://example.com" class="input" />
+        <button class="btn" data-cmd="open_url">Open URL</button>
+      </div>
+      <div class="result" id="r-url">Opens URL in system browser</div>
+    </div>
+
+    <div class="card">
+      <h2>🔔 Notifications</h2>
+      <div class="input-row">
+        <input type="text" id="notif-title" value="Coconut Milk" class="input" style="width:8rem" />
+        <input type="text" id="notif-body" value="Hello from Playground!" class="input" style="flex:1" />
+        <button class="btn" data-cmd="notify">Send</button>
+      </div>
+      <div class="result" id="r-notify">Sends a system notification</div>
+    </div>
+
+    <div class="card">
+      <h2>📝 Logging</h2>
+      <div class="btn-row">
+        <button class="btn" data-cmd="log_info">info</button>
+        <button class="btn" data-cmd="log_warn">warn</button>
+        <button class="btn" data-cmd="log_error">error</button>
+        <button class="btn" data-cmd="log_debug">debug</button>
+      </div>
+      <div class="result" id="r-log">Logs to the Coconut console</div>
+    </div>
+  </section>
+
+  <!-- ── CLIPBOARD ── -->
+  <section class="panel" id="panel-clipboard" role="tabpanel">
+    <div class="card">
+      <h2>📋 Read Clipboard</h2>
+      <button class="btn" data-cmd="cb_read">Read</button>
+      <div class="result" id="r-cb-read">Click to read clipboard contents</div>
+    </div>
+
+    <div class="card">
+      <h2>✏️ Write Clipboard</h2>
+      <div class="input-row">
+        <input type="text" id="cb-write-input" value="Coconut Milk Playground!" class="input" />
+        <button class="btn" data-cmd="cb_write">Write</button>
+        <button class="btn" data-cmd="cb_read_after">Read back</button>
+      </div>
+      <div class="result" id="r-cb-write">Write text to system clipboard</div>
+    </div>
+  </section>
+
+  <!-- ── DIALOGS ── -->
+  <section class="panel" id="panel-dialogs" role="tabpanel">
+    <div class="card">
+      <h2>💬 Message Dialog</h2>
+      <div class="input-row">
+        <input type="text" id="dlg-msg" value="Hello from Coconut Milk!" class="input" />
+        <select id="dlg-kind" class="input" style="width:8rem">
+          <option value="info">info</option>
+          <option value="warn">warn</option>
+          <option value="error">error</option>
+          <option value="question">question</option>
+        </select>
+        <button class="btn" data-cmd="dlg_message">Show</button>
+      </div>
+      <div class="result" id="r-dlg-msg">Shows a native message dialog</div>
+    </div>
+
+    <div class="card">
+      <h2>📂 Open File Dialog</h2>
+      <div class="btn-row">
+        <button class="btn" data-cmd="dlg_open_file">Open file</button>
+        <button class="btn" data-cmd="dlg_open_dir">Open folder</button>
+        <button class="btn" data-cmd="dlg_open_multi">Multi select</button>
+      </div>
+      <div class="result" id="r-dlg-open">Click to open a native file picker</div>
+    </div>
+
+    <div class="card">
+      <h2>💾 Save Dialog</h2>
+      <div class="input-row">
+        <input type="text" id="dlg-save-name" value="test.txt" class="input" style="width:12rem" />
+        <button class="btn" data-cmd="dlg_save">Save</button>
+      </div>
+      <div class="result" id="r-dlg-save">Click to open a native save dialog</div>
+    </div>
+  </section>
+
+  <!-- ── FILE SYSTEM ── -->
+  <section class="panel" id="panel-files" role="tabpanel">
+    <div class="card">
+      <h2>📄 Read File</h2>
+      <div class="input-row">
+        <input type="text" id="fs-read-path" value="coconut.config.lua" class="input" />
+        <button class="btn" data-cmd="fs_read">Read</button>
+      </div>
+      <pre class="result pre" id="r-fs-read">Click to read a file</pre>
+    </div>
+
+    <div class="card">
+      <h2>✏️ Write File</h2>
+      <div class="input-row">
+        <input type="text" id="fs-write-path" value="_playground_test.txt" class="input" style="width:14rem" />
+        <input type="text" id="fs-write-content" value="Hello from Coconut Milk!" class="input" style="flex:1" />
+        <button class="btn" data-cmd="fs_write">Write</button>
+      </div>
+      <div class="result" id="r-fs-write">Writes text to a file</div>
+    </div>
+
+    <div class="card">
+      <h2>🔍 File Ops</h2>
+      <div class="btn-row">
+        <button class="btn" data-cmd="fs_exists">Exists</button>
+        <button class="btn" data-cmd="fs_resolve">Resolve</button>
+        <button class="btn" data-cmd="fs_listdir">List Dir</button>
+      </div>
+      <div class="result" id="r-fs-ops">Test file operations</div>
+    </div>
+  </section>
+
+  <!-- ── WINDOW ── -->
+  <section class="panel" id="panel-window" role="tabpanel">
+    <div class="card">
+      <h2>🪟 Window Controls</h2>
+      <div class="btn-row wrap">
+        <button class="btn" data-cmd="win_minimize">Minimize</button>
+        <button class="btn" data-cmd="win_maximize">Maximize</button>
+        <button class="btn" data-cmd="win_fullscreen_on">Fullscreen</button>
+        <button class="btn" data-cmd="win_fullscreen_off">Exit F/S</button>
+        <button class="btn" data-cmd="win_resize_small">640×480</button>
+        <button class="btn" data-cmd="win_resize_large">1024×768</button>
+      </div>
+      <div class="result" id="r-win">Window control buttons</div>
+    </div>
+
+    <div class="card">
+      <h2>📐 Resize + Position</h2>
+      <div class="input-row">
+        <label class="label-sm">W</label>
+        <input type="number" id="win-w" value="800" class="input num" />
+        <label class="label-sm">H</label>
+        <input type="number" id="win-h" value="600" class="input num" />
+        <label class="label-sm">X</label>
+        <input type="number" id="win-x" value="100" class="input num" />
+        <label class="label-sm">Y</label>
+        <input type="number" id="win-y" value="100" class="input num" />
+        <button class="btn" data-cmd="win_setpos">Move</button>
+        <button class="btn" data-cmd="win_resize">Resize</button>
+      </div>
+      <div class="result" id="r-win-pos">Set position and size</div>
+    </div>
+
+    <div class="card">
+      <h2>🔄 Reload</h2>
+      <button class="btn" data-cmd="win_reload">Reload View</button>
+      <div class="result" id="r-win-reload">Reload the current view</div>
+    </div>
+  </section>
+
+  <!-- ── JSON ── -->
+  <section class="panel" id="panel-json" role="tabpanel">
+    <div class="card">
+      <h2>🔁 JSON Roundtrip</h2>
+      <div class="input-row">
+        <input type="text" id="json-input" value='{"hello":"world","num":42}' class="input mono" />
+        <button class="btn" data-cmd="json_parse">Parse</button>
+        <button class="btn" data-cmd="json_roundtrip">Roundtrip</button>
+      </div>
+      <pre class="result pre" id="r-json">Parse or roundtrip JSON</pre>
+    </div>
+  </section>
+
+  <!-- ── EVENTS ── -->
+  <section class="panel" id="panel-events" role="tabpanel">
+    <div class="card">
+      <h2>📡 Custom Command</h2>
+      <div class="input-row">
+        <input type="text" id="echo-input" value="ping" class="input" />
+        <button class="btn" data-cmd="echo_cmd">Echo</button>
+      </div>
+      <div class="result" id="r-echo">Calls a custom Lua command via ctx:bind</div>
+    </div>
+
+    <div class="card">
+      <h2>📨 Frontend Events</h2>
+      <div class="input-row">
+        <input type="text" id="evt-input" value="hello from JS" class="input" />
+        <button class="btn" data-cmd="evt_send">Send Event</button>
+        <button class="btn" data-cmd="evt_listen">Listen</button>
+      </div>
+      <div class="result" id="r-evts">Test coconut.emit / coconut.on</div>
+    </div>
+  </section>
+
+  <!-- ════════ Footer log ════════ -->
+  <footer class="footer">
+    <div class="footer-header">
+      <span>Log</span>
+      <button class="btn-sm" data-cmd="log_clear">Clear</button>
+    </div>
+    <pre class="log-area" id="log-area">Ready.</pre>
+  </footer>
+
+  <script src="coconut://assets/app.js"></script>
+</body>
+</html>
