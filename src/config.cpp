@@ -3,6 +3,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include <unistd.h>  // getcwd(3)
+
 #include <sol/state.hpp>
 #include <sol/table.hpp>
 
@@ -10,6 +12,19 @@
 #include <fstream>
 #include <string>
 #include <string_view>
+
+// ── Config path resolution ─────────────────────────────────────────────────
+
+/// Resolve a relative path against the actual working directory (getcwd).
+/// This avoids issues when the binary is launched through a symlink and
+/// std::filesystem::current_path() resolves to the symlink directory.
+static std::string resolveConfigPath(std::string_view relative) {
+  if (relative.empty()) return {};
+  if (relative[0] == '/') return std::string(relative);
+  char cwd[4096];
+  if (::getcwd(cwd, sizeof(cwd)) == nullptr) return std::string(relative);
+  return std::string(cwd) + "/" + std::string(relative);
+}
 
 namespace coconut {
 
@@ -261,11 +276,12 @@ static void parsePlatformConfig(const nlohmann::json& j, PlatformConfig& cfg) {
 
 std::expected<Config, Error>
 loadConfigJson(std::string_view config_path) {
-  std::ifstream f{std::string(config_path)};
+  std::string abs_path = resolveConfigPath(config_path);
+  std::ifstream f{abs_path};
   if (!f.is_open()) {
     return std::unexpected(Error{.code = ErrorCode::MissingFile,
                                  .message = "failed to open config file",
-                                 .details = std::string(config_path)});
+                                 .details = abs_path});
   }
 
   try {
@@ -344,12 +360,13 @@ loadConfigJson(std::string_view config_path) {
 
 std::expected<Config, Error>
 loadConfigLua(std::string_view config_path) {
+  std::string abs_path = resolveConfigPath(config_path);
   {
-    std::ifstream probe{std::string(config_path)};
+    std::ifstream probe{abs_path};
     if (!probe.is_open()) {
       return std::unexpected(Error{.code = ErrorCode::MissingFile,
                                    .message = "failed to open config file",
-                                   .details = std::string(config_path)});
+                                   .details = abs_path});
     }
   }
 
@@ -357,7 +374,7 @@ loadConfigLua(std::string_view config_path) {
     sol::state lua;
     lua.open_libraries(sol::lib::base, sol::lib::table);
 
-    auto result = lua.safe_script_file(std::string(config_path),
+    auto result = lua.safe_script_file(abs_path,
                                        sol::script_pass_on_error);
     if (!result.valid()) {
       sol::error err = result;

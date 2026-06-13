@@ -8,6 +8,7 @@
 #include "config.h"
 #include "debug.h"
 #include "platform/darwin/window.h"
+#include "platform/darwin/open_url.h"
 
 #include <format>
 #include <string>
@@ -89,7 +90,7 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
     // ── External URL: open in system browser ─────────────────────────
     // Cancel the webview navigation and open in the default browser.
     coconut::debug::info(std::format("navDelegate: OPEN IN BROWSER {}", [urlStr UTF8String]));
-    [[NSWorkspace sharedWorkspace] openURL:nsURL];
+    coconut::open_url::open([urlStr UTF8String]);
     decisionHandler(WKNavigationActionPolicyCancel);
   }
 }

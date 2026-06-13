@@ -4,7 +4,13 @@
 #include <string>
 
 namespace coconut::open_url {
+
 bool platformOpenUrl(const std::string& url);
+
+inline bool open(const std::string& url) {
+    return platformOpenUrl(url);
+}
+
 } // namespace coconut::open_url
 
 #endif // COCONUT_PLATFORM_WIN_OPEN_URL_H

@@ -61,13 +61,24 @@ void *coconut_create_standard_window(int x, int y, int w, int h) {
 /// Detect if running inside a .app bundle.
 /// Returns a pointer to a static buffer with the Resources path, or NULL.
 /// The returned string is valid until the next call (single-threaded use).
+/// Only returns a path when the bundle is a real .app wrapper
+/// (not a standalone binary with an embedded plist).
 const char *coconut_bundle_resource_path() {
   @autoreleasepool {
     NSBundle *bundle = [NSBundle mainBundle];
+
+    // Must have a bundle identifier (from Info.plist)
     NSString *bid = bundle.bundleIdentifier;
     if (bid == nil || [bid length] == 0) {
       return NULL;
     }
+
+    // Must be inside a .app bundle, not a standalone binary
+    NSString *bpath = bundle.bundlePath;
+    if (bpath == nil || ![bpath hasSuffix:@".app"]) {
+      return NULL;
+    }
+
     NSString *resPath = bundle.resourcePath;
     if (resPath == nil) {
       return NULL;

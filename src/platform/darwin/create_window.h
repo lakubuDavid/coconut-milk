@@ -22,19 +22,6 @@ void* coconut_create_standard_window(int x, int y, int w, int h);
 /// Returns empty string if not inside a bundle.
 const char* coconut_bundle_resource_path();
 
-/// Apply darwin.* config fields to the live NSBundle.
-/// Safe to call even if not inside a bundle.
-/// @param bundle_identifier  CFBundleIdentifier (or nullptr to skip)
-/// @param notification_alert_style  NSUserNotificationAlertStyle value (or nullptr)
-/// @param usage_desc_keys   Array of NS*UsageDescription key names (or nullptr)
-/// @param usage_desc_values Array of corresponding description strings (or nullptr)
-/// @param usage_desc_count Number of entries (0 if arrays are nullptr)
-void coconut_apply_darwin_config(const char* bundle_identifier,
-                                const char* notification_alert_style,
-                                const char** usage_desc_keys,
-                                const char** usage_desc_values,
-                                int usage_desc_count);
-
 #ifdef __cplusplus
 } // extern "C"
 #endif
@@ -55,28 +42,6 @@ inline void* createStandardWindow(int x, int y, int w, int h) {
 inline std::string detectBundleResourcePath() {
     const char* p = coconut_bundle_resource_path();
     return p ? std::string(p) : std::string();
-}
-
-/// Apply darwin.* config to the live NSBundle.
-/// Wraps coconut_apply_darwin_config with C++ strings/vectors.
-inline void applyDarwinConfig(const std::string& bundle_identifier,
-                             const std::string& notification_alert_style,
-                             const std::map<std::string, std::string>& usage_descriptions) {
-    if (bundle_identifier.empty() && notification_alert_style.empty() && usage_descriptions.empty()) {
-        return;  // nothing to apply
-    }
-    std::vector<const char*> keys;
-    std::vector<const char*> vals;
-    for (const auto& [k, v] : usage_descriptions) {
-        keys.push_back(k.c_str());
-        vals.push_back(v.c_str());
-    }
-    coconut_apply_darwin_config(
-        bundle_identifier.c_str(),
-        notification_alert_style.c_str(),
-        keys.empty() ? nullptr : keys.data(),
-        vals.empty() ? nullptr : vals.data(),
-        static_cast<int>(keys.size()));
 }
 
 } // namespace platform

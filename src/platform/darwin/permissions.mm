@@ -8,6 +8,7 @@
 #import <ScreenCaptureKit/ScreenCaptureKit.h>
 
 #include "permissions.h"
+#include "open_url.h"
 
 #include <unistd.h>
 
@@ -126,6 +127,9 @@ static Status requestPhotos() {
   return toPHStatus(result);
 }
 
+// Forward declaration — defined after requestPlatform to keep file order clean
+static void openSystemSettings(const char* url);
+
 // ── Check: Permission → Status ─────────────────────────────────────────
 
 static Status checkPlatform(Permission p) {
@@ -241,11 +245,10 @@ static Status requestPlatform(Permission p) {
 
     case Permission::ScreenRecording:
     case Permission::FullDiskAccess:
-      [[NSWorkspace sharedWorkspace] openURL:
-          [NSURL URLWithString:
-              @"x-apple.systempreferences:"
-              @"com.apple.preference.security"
-              @"?Privacy_ScreenCapture"]];
+      openSystemSettings(
+          "x-apple.systempreferences:"
+          "com.apple.preference.security"
+          "?Privacy_ScreenCapture");
       return Status::NotDetermined;
 
     case Permission::Location:
@@ -297,6 +300,39 @@ bool isAvailable(Permission p) {
       return false;
   }
   return false;
+}
+
+// ── Darwin bootstrap ───────────────────────────────────────────────────
+
+void applyDarwinConfig(const std::string& bundle_identifier,
+                       const std::string& notification_alert_style,
+                       const std::map<std::string, std::string>& usage_descriptions) {
+  @autoreleasepool {
+    NSBundle* bundle = [NSBundle mainBundle];
+    NSMutableDictionary* info = (NSMutableDictionary *)[bundle infoDictionary];
+    if (!info) return;
+
+    if (!bundle_identifier.empty()) {
+      [info setObject:[NSString stringWithUTF8String:bundle_identifier.c_str()]
+                forKey:@"CFBundleIdentifier"];
+    }
+
+    if (!notification_alert_style.empty()) {
+      [info setObject:[NSString stringWithUTF8String:notification_alert_style.c_str()]
+                forKey:@"NSUserNotificationAlertStyle"];
+    }
+
+    for (const auto& [k, v] : usage_descriptions) {
+      [info setObject:[NSString stringWithUTF8String:v.c_str()]
+                forKey:[NSString stringWithUTF8String:k.c_str()]];
+    }
+  }
+}
+
+// ── System URL opener (delegates to open_url module) ──────────────────
+
+static void openSystemSettings(const char* url) {
+  coconut::open_url::open(url);
 }
 
 } // namespace coconut::permissions

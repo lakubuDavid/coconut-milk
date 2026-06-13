@@ -3,12 +3,12 @@
 
 #include <string>
 
-namespace coconut::open_url {
-
-/// Open the given URL in the system-default browser.
-/// Returns true on success, false on failure.
-bool open(const std::string& url);
-
-} // namespace coconut::open_url
+#if defined(__APPLE__)
+  #include "platform/darwin/open_url.h"
+#elif defined(_WIN32)
+  #include "platform/win/open_url.h"
+#elif defined(__linux__)
+  #include "platform/linux/open_url.h"
+#endif
 
 #endif // COCONUT_OPEN_URL_H

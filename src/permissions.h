@@ -1,7 +1,9 @@
 #ifndef PERMISSIONS_H
 #define PERMISSIONS_H
 
+#include <map>
 #include <string>
+#include <string_view>
 
 namespace coconut::permissions {
 
@@ -73,6 +75,24 @@ Result request(Permission p);
 /// Returns false for permissions that don't exist on this OS
 /// (e.g. Contacts on Linux, ScreenRecording on Windows).
 bool isAvailable(Permission p);
+
+// ── Darwin bootstrap (macOS only) ─────────────────────────────────────
+
+#if defined(__APPLE__)
+/// Apply darwin.* config fields to the live NSBundle.
+/// Sets CFBundleIdentifier, NSUserNotificationAlertStyle, and
+/// NS*UsageDescription plist keys at runtime.
+///
+/// This must be called before any UI is presented so the OS sees
+/// the correct values in the bundle info dictionary.
+///
+/// @param bundle_identifier       CFBundleIdentifier string (empty = skip)
+/// @param notification_alert_style NSUserNotificationAlertStyle value (empty = skip)
+/// @param usage_descriptions      Map of NS*UsageDescription key → description text
+void applyDarwinConfig(const std::string& bundle_identifier,
+                       const std::string& notification_alert_style,
+                       const std::map<std::string, std::string>& usage_descriptions);
+#endif
 
 } // namespace coconut::permissions
 

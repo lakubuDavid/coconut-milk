@@ -5,6 +5,7 @@
 #include "debug.h"
 #include "generators/generate.h"
 #include "lifecycle.h"
+#include "permissions.h"
 #include "routes.h"
 #include "lua_runtime.h"
 #include "window.h"
@@ -131,7 +132,7 @@ int main(int argc, char* argv[]) {
 
     std::string notifStyle = dn.ns.notification_alert_style;
 
-    coconut::platform::applyDarwinConfig(
+    coconut::permissions::applyDarwinConfig(
         bid, notifStyle, dn.ns.usage_descriptions);
     if (!bid.empty()) {
       debug::info(std::format("darwin: applied CFBundleIdentifier='{}'", bid));
