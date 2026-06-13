@@ -19,18 +19,14 @@ function coconut.views()
 end
 
 -- ── Startup smoke tests ─────────────────────────────────────────────────
+-- ── Window handle diagnostics ───────────────────────────────────────────
 
 local w = _coconut_window
 coconut.info("_coconut_window type = " .. type(w))
 if w then
-  coconut.info("_coconut_window.minimize = " .. type(w.minimize))
-  coconut.info("_coconut_window.resize = " .. type(w.resize))
-  coconut.info("_coconut_window.setPosition = " .. type(w.setPosition))
-  -- try calling minimize to see if it works
-  local ok, err = pcall(function() w:minimize() end)
-  coconut.info("w:minimize() = " .. tostring(ok) .. ", err=" .. tostring(err))
-  ok, err = pcall(function() w:resize(400, 300) end)
-  coconut.info("w:resize(400,300) = " .. tostring(ok) .. ", err=" .. tostring(err))
+  coconut.info("  .minimize = " .. type(w.minimize))
+  coconut.info("  .resize   = " .. type(w.resize))
+  coconut.info("  .setPosition = " .. type(w.setPosition))
 end
 
 -- ── Navigation handler ───────────────────────────────────────────────────

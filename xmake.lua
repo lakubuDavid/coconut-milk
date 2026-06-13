@@ -62,6 +62,8 @@ target("coconut")
     if is_plat("macosx") then
         add_files("src/platform/darwin/*.cpp")
         add_files("src/platform/darwin/*.mm")
+        -- Embed Info.plist so NSBundle has a bundle identifier for native notifications
+        add_ldflags("-Wl,-sectcreate,__TEXT,__info_plist,$(projectdir)/res/Info.plist", {force = true})
     elseif is_plat("windows") then
         add_files("src/platform/win/*.cpp")
     elseif is_plat("linux") then

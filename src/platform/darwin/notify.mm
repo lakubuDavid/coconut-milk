@@ -16,7 +16,10 @@ bool platformNotify(const std::string& title, const std::string& body) {
       note.title = [NSString stringWithUTF8String:title.c_str()];
     if (!body.empty())
       note.informativeText = [NSString stringWithUTF8String:body.c_str()];
-    [[NSUserNotificationCenter defaultUserNotificationCenter] deliverNotification:note];
+    note.soundName = NSUserNotificationDefaultSoundName;
+
+    [[NSUserNotificationCenter defaultUserNotificationCenter]
+        deliverNotification:note];
 #pragma clang diagnostic pop
     return true;
   } @catch (NSException*) {

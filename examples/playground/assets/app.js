@@ -69,6 +69,7 @@ document.addEventListener('click', async (e) => {
   const btn = e.target.closest('[data-cmd]')
   if (!btn) return
   e.preventDefault()
+  btn.dataset.label = btn.textContent
   btn.disabled = true
   btn.textContent = '…'
   try {

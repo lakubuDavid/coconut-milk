@@ -98,6 +98,44 @@ void _registerBuiltinCommands(Runtime *runtime) {
       if ok then return { ok = true, data = entries } end
       return { ok = false, error = tostring(entries) }
     end)
+    ctx:bind("ping", function()
+      return "pong"
+    end)
+    ctx:bind("getViews", function()
+      local names, i = {}, 1
+      for name in pairs(coconut.views()) do
+        names[i] = name; i = i + 1
+      end
+      return names
+    end)
+    ctx:bind("fs_read_text", function(params)
+      local ok, data = pcall(coconut.fs.readText, params.path)
+      if ok then return { ok = true, data = data } end
+      return { ok = false, error = tostring(data) }
+    end)
+    ctx:bind("__coconut_window_ctl", function(params)
+      local w = _coconut_window
+      if not w then return { ok = false, error = "no window handle" } end
+      local cmd = params.cmd
+      if cmd == "minimize" then
+        w:minimize()
+      elseif cmd == "maximize" then
+        w:maximize()
+      elseif cmd == "close" then
+        w:close()
+      elseif cmd == "fullscreen_on" then
+        w:setFullscreen(true)
+      elseif cmd == "fullscreen_off" then
+        w:setFullscreen(false)
+      elseif cmd == "resize" then
+        w:resize(params.w or 800, params.h or 600)
+      elseif cmd == "setPosition" then
+        w:setPosition(params.x or 0, params.y or 0)
+      elseif cmd == "reload" then
+        w:reload()
+      end
+      return { ok = true }
+    end)
   )";
 
   auto result = lua.script(src, sol::script_pass_on_error);
