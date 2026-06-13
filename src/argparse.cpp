@@ -11,197 +11,167 @@
 namespace coconut::argparse {
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Table-driven option definitions
 // ---------------------------------------------------------------------------
+
+/// Describes a single command-line option (flag).
+struct Option {
+  std::string_view name;         ///< "--long-name" or "-s"
+  bool             takes_value;  ///< whether this flag consumes the next arg
+  const char*      help;         ///< help text line
+  void (*apply)(Args&, const std::string& value);  ///< setter
+};
+
+/// Describes a subcommand.
+struct Subcommand {
+  std::string_view name;
+  const char*      help;
+  void (*apply)(Args&);          ///< sets the subcommand flag
+  void (*printHelp)(const char* prog);
+};
+
+// ── Setter implementations ────────────────────────────────────────────────
+
+static void setHelp(Args& a, const std::string&) { a.help = true; }
+static void setVersion(Args& a, const std::string&) { a.version = true; }
+static void setDebug(Args& a, const std::string&) { a.debug = true; }
+static void setBytecode(Args& a, const std::string&) { a.bytecode_config = true; }
+static void setWatch(Args& a, const std::string&) { a.watch = true; }
+static void setFrameless(Args& a, const std::string&) { a.override_frameless = true; }
+static void setTransparent(Args& a, const std::string&) { a.override_transparent = true; }
+
+static void setRoot(Args& a, const std::string& v) { a.root = v; }
+static void setOutDir(Args& a, const std::string& v) { a.out_dir = v; }
+static void setTemplate(Args& a, const std::string& v) { a.template_name = v; }
+static void setTitle(Args& a, const std::string& v) { a.override_title_given = true; a.override_title = v; }
+static void setWinWidth(Args& a, const std::string& v) { a.override_window_width = std::atoi(v.c_str()); }
+static void setWinHeight(Args& a, const std::string& v) { a.override_window_height = std::atoi(v.c_str()); }
+
+// Subcommand setters
+static void setGenerate(Args& a) { a.generate = true; }
+static void setBundle(Args& a) { a.bundle = true; }
+static void setNew(Args& a) { a.new_cmd = true; }
+static void setRun(Args& a) { a.run_cmd = true; }
+
+// ── Option table ──────────────────────────────────────────────────────────
+
+/// All flags, in display order (for --help).
+/// Names starting with "--" are long options; "-x" are short options.
+static const Option OPTIONS[] = {
+  {"-h",        false, "Show this help and exit",                          setHelp},
+  {"--help",    false, "Show this help and exit",                          setHelp},
+  {"-v",        false, "Show version and exit",                            setVersion},
+  {"--version", false, "Show version and exit",                            setVersion},
+  {"-d",        false, "Enable developer tools / debug mode",              setDebug},
+  {"--debug",   false, "Enable developer tools / debug mode",              setDebug},
+  {"-r",        true,  "Set project root directory",                       setRoot},
+  {"--root",    true,  "Set project root directory",                       setRoot},
+  {"-o",        true,  "Output directory for subcommands",                 setOutDir},
+  {"--out-dir", true,  "Output directory for subcommands",                 setOutDir},
+  {"-t",        true,  "Template for 'new' subcommand",                    setTemplate},
+  {"--template",true,  "Template for 'new' subcommand",                    setTemplate},
+  {"--title",   true,  "Override window title for 'run'",                  setTitle},
+  {"--window-width",  true,  "Override window width",                      setWinWidth},
+  {"--window-height", true,  "Override window height",                     setWinHeight},
+  {"--frameless",     false, "Enable frameless window",                    setFrameless},
+  {"--transparent",   false, "Enable transparent window",                  setTransparent},
+  {"--bytecode",      false, "Compile config to Lua bytecode (B2 opt-in)", setBytecode},
+  {"--watch",         false, "Watch for file changes and auto-regenerate", setWatch},
+};
+
+/// Subcommands, in display order.
+static const Subcommand SUBCOMMANDS[] = {
+  {"new",      "Scaffold a new Coconut Milk project",          setNew,      printNewHelp},
+  {"run",      "Run a Coconut Milk application",               setRun,      printRunHelp},
+  {"generate", "Generate command wrappers from @command annotations", setGenerate, printGenerateHelp},
+  {"bundle",   "Package app into a standalone distributable bundle",    setBundle,    printBundleHelp},
+};
+
+// ── Lookup helpers ────────────────────────────────────────────────────────
+
+/// Find an option by name. Returns nullptr if not found.
+static const Option* findOption(std::string_view name) {
+  for (const auto& opt : OPTIONS) {
+    if (opt.name == name) return &opt;
+  }
+  return nullptr;
+}
+
+/// Find a subcommand by name. Returns nullptr if not found.
+static const Subcommand* findSubcommand(std::string_view name) {
+  for (const auto& sc : SUBCOMMANDS) {
+    if (sc.name == name) return &sc;
+  }
+  return nullptr;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
 
 static const char* progname(const char* argv0) {
   const char* slash = std::strrchr(argv0, '/');
   return slash ? slash + 1 : argv0;
 }
 
-// ---------------------------------------------------------------------------
-// Parse
-// ---------------------------------------------------------------------------
+// ── Parse ─────────────────────────────────────────────────────────────────
 
 Args parse(int argc, char* argv[]) {
   Args args;
 
-  // Collect all positional (non-flag, non-option) arguments.
-  // The first one that isn't a known subcommand name is the project root.
-  // e.g. `coconut /path/to/project`  or  `coconut generate /path/to/other`
-  std::vector<std::string> positional;
-  for (int j = 1; j < argc; ++j) {
-    std::string_view a = argv[j];
-    // Skip flags AND their values
-    if (a == "-r" || a == "--root" || a == "-o" || a == "--out-dir" ||
-        a == "--window-width" || a == "--window-height" || a == "--title" ||
-        a == "-t" || a == "--template") {
-      ++j;  // skip the value arg too
-      continue;
-    }
-    if (a == "-h" || a == "--help" || a == "-v" || a == "--version" ||
-        a == "-d" || a == "--debug" || a == "--bytecode" ||
-        a == "--frameless" || a == "--transparent" || a == "--watch") {
-      continue;  // flag, no value
-    }
-    if (a == "generate") {
-      args.generate = true;
-      continue;
-    }
-    if (a == "bundle") {
-      args.bundle = true;
-      continue;
-    }
-    if (a == "new") {
-      args.new_cmd = true;
-      continue;
-    }
-    if (a == "run") {
-      args.run_cmd = true;
-      continue;
-    }
-    if (a[0] != '-') {
-      positional.push_back(argv[j]);
-    }
-  }
-
-  // First positional arg is either the project name (for "new") or
-  // the project root (for all other modes).
-  // Flag-based --root overrides the root.
-  bool root_given_by_flag = false;
-  for (int j = 1; j < argc; ++j) {
-    if (std::string_view(argv[j]) == "-r" || std::string_view(argv[j]) == "--root") {
-      root_given_by_flag = true;
-      break;
-    }
-  }
-  if (!positional.empty()) {
-    if (args.new_cmd) {
-      args.new_name = positional[0];
-    } else if (!root_given_by_flag) {
-      args.root = positional[0];
-    }
-  }
+  // We process arguments in a single pass.
+  // Positional args that aren't subcommands are collected as the project root.
+  // Subcommands are detected and their flag is set.
+  // Flags (starting with '-') are looked up in the option table.
 
   for (int i = 1; i < argc; ++i) {
     std::string_view a = argv[i];
 
-    // Skip known non-flag positional args (root / generate)
-    if (a == "generate") {
-      args.generate = true;
-      continue;
+    // -- separator: stop flag parsing, rest are positional
+    if (a == "--") {
+      // Collect remaining as positional (currently unused, just stop)
+      break;
     }
-    if (a == "bundle") {
-      args.bundle = true;
-      continue;
-    }
-    if (a == "new") {
-      args.new_cmd = true;
-      continue;
-    }
-    if (a == "run") {
-      args.run_cmd = true;
-      continue;
-    }
+
+    // Subcommand detection (non-flag arg that matches a subcommand name)
     if (a[0] != '-') {
-      continue;  // already handled as positional root
-    }
-    if (a == "-h" || a == "--help") {
-      args.help = true;
-      return args;  // help requested, stop parsing
-    }
-
-    if (a == "-v" || a == "--version") {
-      args.version = true;
-      return args;  // version requested, stop parsing
-    }
-
-    if (a == "-d" || a == "--debug") {
-      args.debug = true;
+      const Subcommand* sc = findSubcommand(a);
+      if (sc) {
+        sc->apply(args);
+        continue;
+      }
+      // Not a subcommand → positional root.
+      // If new_cmd is already set, this is the project name.
+      if (args.new_cmd) {
+        args.new_name = a;
+      } else {
+        args.root = a;
+      }
       continue;
     }
 
-    if (a == "-r" || a == "--root") {
+    // Flag parsing
+    const Option* opt = findOption(a);
+    if (!opt) {
+      std::println(stderr, "error: unknown option '{}'", a);
+      // Print relevant help
+      for (const auto& sc : SUBCOMMANDS) {
+        if (sc.apply == setGenerate && args.generate) { sc.printHelp(argv[0]); break; }
+        if (sc.apply == setBundle   && args.bundle)   { sc.printHelp(argv[0]); break; }
+        if (sc.apply == setNew      && args.new_cmd)  { sc.printHelp(argv[0]); break; }
+        if (sc.apply == setRun      && args.run_cmd)  { sc.printHelp(argv[0]); break; }
+      }
+      printHelp(argv[0]);
+      std::exit(1);
+    }
+
+    if (opt->takes_value) {
       if (i + 1 >= argc) {
-        std::println(stderr, "error: --root requires a path argument");
-        printHelp(progname(argv[0]));
+        std::println(stderr, "error: '{}' requires a value", a);
         std::exit(1);
       }
-      args.root = argv[++i];
-      continue;
+      opt->apply(args, argv[++i]);
+    } else {
+      opt->apply(args, std::string{});
     }
-
-    if (a == "-o" || a == "--out-dir") {
-      if (i + 1 >= argc) {
-        std::println(stderr, "error: --out-dir requires a path argument");
-        std::exit(1);
-      }
-      args.out_dir = argv[++i];
-      continue;
-    }
-
-    if (a == "--bytecode") {
-      args.bytecode_config = true;
-      continue;
-    }
-
-    if (a == "--watch") {
-      args.watch = true;
-      continue;
-    }
-
-    if (a == "-t" || a == "--template") {
-      if (i + 1 >= argc) {
-        std::println(stderr, "error: --template requires a name");
-        std::exit(1);
-      }
-      args.template_name = argv[++i];
-      continue;
-    }
-
-    // Config override flags (for run / default mode)
-    if (a == "--window-width") {
-      if (i + 1 >= argc) {
-        std::println(stderr, "error: --window-width requires a number");
-        std::exit(1);
-      }
-      args.override_window_width = std::atoi(argv[++i]);
-      continue;
-    }
-    if (a == "--window-height") {
-      if (i + 1 >= argc) {
-        std::println(stderr, "error: --window-height requires a number");
-        std::exit(1);
-      }
-      args.override_window_height = std::atoi(argv[++i]);
-      continue;
-    }
-    if (a == "--frameless") {
-      args.override_frameless = true;
-      continue;
-    }
-    if (a == "--transparent") {
-      args.override_transparent = true;
-      continue;
-    }
-    if (a == "--title") {
-      if (i + 1 >= argc) {
-        std::println(stderr, "error: --title requires a string");
-        std::exit(1);
-      }
-      args.override_title_given = true;
-      args.override_title = argv[++i];
-      continue;
-    }
-
-    // Unknown flag
-    std::println(stderr, "error: unknown option '{}'", a);
-    if (args.generate)      printGenerateHelp(progname(argv[0]));
-    else if (args.bundle)   printBundleHelp(progname(argv[0]));
-    else if (args.new_cmd)  printNewHelp(progname(argv[0]));
-    else if (args.run_cmd)  printRunHelp(progname(argv[0]));
-    else                    printHelp(progname(argv[0]));
-    std::exit(1);
   }
 
   return args;
@@ -210,6 +180,19 @@ Args parse(int argc, char* argv[]) {
 // ---------------------------------------------------------------------------
 // Help / Version
 // ---------------------------------------------------------------------------
+
+static void printCommonOptions() {
+  std::println("Options:");
+  for (const auto& opt : OPTIONS) {
+    // Only show each option once (prefer long names, skip short duplicates)
+    if (opt.name[0] == '-' && opt.name[1] == '-') {
+      if (opt.takes_value)
+        std::println("  {} <value>    {}", opt.name, opt.help);
+      else
+        std::println("  {}             {}", opt.name, opt.help);
+    }
+  }
+}
 
 void printHelp(const char* prog) {
   std::println("Usage: {} [options] [ROOT]", progname(prog));
@@ -220,22 +203,12 @@ void printHelp(const char* prog) {
   std::println("Arguments:");
   std::println("  ROOT   Project root directory (default: .)");
   std::println("");
-  std::println("Run options:");
-  std::println("  -h, --help           Show this help and exit");
-  std::println("  -v, --version        Show version and exit");
-  std::println("  -d, --debug          Enable developer tools / debug mode");
-  std::println("  -r, --root PATH      Set project root directory");
-  std::println("  --window-width N     Override window width");
-  std::println("  --window-height N    Override window height");
-  std::println("  --frameless          Enable frameless window");
-  std::println("  --transparent        Enable transparent window");
-  std::println("  --title STR          Override window title");
+  printCommonOptions();
   std::println("");
   std::println("Subcommands:");
-  std::println("  new <name>    Scaffold a new Coconut Milk project");
-  std::println("  run [ROOT]    Run the app (default when no subcommand)");
-  std::println("  generate      Generate command wrappers from @command annotations");
-  std::println("  bundle        Package app into a standalone distributable bundle");
+  for (const auto& sc : SUBCOMMANDS) {
+    std::println("  {:<12} {}", sc.name, sc.help);
+  }
   std::println("");
   std::println("The project root is searched for coconut.config.lua /");
   std::println("coconut.config.json and is the base for coconut:// assets.");
@@ -301,15 +274,7 @@ void printRunHelp(const char* prog) {
   std::println("Auto-detects the project by looking for coconut.config.lua");
   std::println("in the current directory or ROOT.");
   std::println("");
-  std::println("Options:");
-  std::println("  -h, --help           Show this help and exit");
-  std::println("  -d, --debug          Enable developer tools / debug mode");
-  std::println("  -r, --root PATH      Set project root directory");
-  std::println("  --window-width N     Override window width");
-  std::println("  --window-height N    Override window height");
-  std::println("  --frameless          Enable frameless window");
-  std::println("  --transparent        Enable transparent window");
-  std::println("  --title STR          Override window title");
+  printCommonOptions();
 }
 
 void printVersion(const char* prog) {
