@@ -39,9 +39,6 @@ run-vue: build
 run-atlas: build
 	cd examples/atlas-tool && {{BIN}}
 
-run-atlas-html: build
-	cd examples/atlas-html && {{BIN}}
-
 # Build the CodeMirror 6 bundle for the code-editor example
 build-editor-bundle:
 	cd examples/code-editor && bun run build-bundle
