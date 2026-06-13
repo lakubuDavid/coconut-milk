@@ -2,6 +2,7 @@
 #include "argparse.h"
 #include "bundle.h"
 #include "commands.h"
+#include "new_project.h"
 #include "config.h"
 #include "debug.h"
 #include "generators/generate.h"
@@ -34,13 +35,11 @@ int main(int argc, char* argv[]) {
   auto args = argparse::parse(argc, argv);
 
   if (args.help) {
-    if (args.generate) {
-      argparse::printGenerateHelp(argv[0]);
-    } else if (args.bundle) {
-      argparse::printBundleHelp(argv[0]);
-    } else {
-      argparse::printHelp(argv[0]);
-    }
+    if (args.generate)      argparse::printGenerateHelp(argv[0]);
+    else if (args.bundle)   argparse::printBundleHelp(argv[0]);
+    else if (args.new_cmd)  argparse::printNewHelp(argv[0]);
+    else if (args.run_cmd)  argparse::printRunHelp(argv[0]);
+    else                    argparse::printHelp(argv[0]);
     return 0;
   }
 
@@ -72,6 +71,21 @@ int main(int argc, char* argv[]) {
       }
     }
     return generator::runGenerate(cmdRoot, outDir);
+  }
+
+  // Subcommand: new — scaffold a new project
+  if (args.new_cmd) {
+    if (args.new_name.empty()) {
+      std::cerr << "error: project name is required. Usage: coconut new <name>" << std::endl;
+      return 1;
+    }
+    std::string error;
+    if (!coconut::scaffoldProject(args.new_name, args.template_name, error)) {
+      std::cerr << "error: " << error << std::endl;
+      return 1;
+    }
+    std::println("Project '{}' created. cd {} && coconut", args.new_name, args.new_name);
+    return 0;
   }
 
   // Subcommand: bundle
@@ -155,6 +169,14 @@ int main(int argc, char* argv[]) {
                             err.message, err.details));
     debug::info("Place coconut.config.lua (or coconut.config.json) in the working directory.");
   }
+
+  // Apply CLI config overrides (--frameless, --transparent, --title, etc.).
+  // These override whatever the config file says.
+  if (args.override_window_width > 0)  cfg.window_width  = args.override_window_width;
+  if (args.override_window_height > 0) cfg.window_height = args.override_window_height;
+  if (args.override_frameless)          cfg.frameless     = true;
+  if (args.override_transparent)        cfg.transparent   = true;
+  if (args.override_title_given)        cfg.title         = args.override_title;
 
   // Apply darwin.* config to NSBundle at runtime (notification permissions,
   // bundle identifier, etc.) so the OS sees the right values.

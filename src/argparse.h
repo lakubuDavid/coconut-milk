@@ -15,9 +15,21 @@ struct Args {
   bool debug     = false;
   bool generate       = false;  ///< "generate" subcommand
   bool bundle         = false;  ///< "bundle" subcommand
+  bool new_cmd        = false;  ///< "new" subcommand
+  bool run_cmd        = false;  ///< "run" subcommand
   bool bytecode_config = false; ///< compile config to .luac (B2 opt-in)
   std::string    root = ".";  ///< project root directory (default: CWD)
+  std::string    new_name;     ///< project name for "new" subcommand
+  std::string    template_name = "default";  ///< template for "new" subcommand
   std::string    out_dir = "generated";  ///< output dir for subcommands
+
+  // Config override flags (for "run" and default mode)
+  int  override_window_width  = 0;   ///< 0 = use config value
+  int  override_window_height = 0;   ///< 0 = use config value
+  bool override_frameless     = false;  ///< --frameless flag
+  bool override_transparent   = false;  ///< --transparent flag
+  bool override_title_given   = false;  ///< true when --title is supplied
+  std::string override_title;          ///< --title value
 };
 
 /// Parse command-line arguments.
@@ -32,6 +44,12 @@ void printGenerateHelp(const char* prog);
 
 /// Print bundle subcommand usage to stdout.
 void printBundleHelp(const char* prog);
+
+/// Print new subcommand usage to stdout.
+void printNewHelp(const char* prog);
+
+/// Print run subcommand usage to stdout.
+void printRunHelp(const char* prog);
 
 /// Print version to stdout.
 void printVersion(const char* prog);
