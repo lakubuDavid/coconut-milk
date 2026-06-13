@@ -238,6 +238,13 @@ static void parseManifestsConfig(const nlohmann::json& j, ManifestsConfig& cfg) 
   jsonCopyBool(j, "strip_dev_fields", cfg.strip_dev_fields);
   jsonCopyBool(j, "bytecode_config",  cfg.bytecode_config);
 
+  // target_archs: array of strings
+  if (j.contains("target_archs") && j["target_archs"].is_array()) {
+    for (const auto& a : j["target_archs"]) {
+      if (a.is_string()) cfg.target_archs.push_back(a.get<std::string>());
+    }
+  }
+
   if (j.contains("darwin_info_plist_extra") && j["darwin_info_plist_extra"].is_object()) {
     for (auto& [k, v] : j["darwin_info_plist_extra"].items())
       if (v.is_string()) cfg.darwin_info_plist_extra[k] = v.get<std::string>();
@@ -289,6 +296,41 @@ loadConfigJson(std::string_view config_path) {
     Config cfg{};
 
     // Global scalars
+    // Global scalars — validate types first
+    auto checkType = [&j](const char* key, bool is_bool) -> std::expected<void, Error> {
+      if (!j.contains(key)) return {};
+      if (is_bool) {
+        if (!j[key].is_boolean())
+          return std::unexpected(Error{ErrorCode::InvalidConfig,
+            std::string(key) + " must be a boolean"});
+      } else {
+        if (!j[key].is_number_integer() && !j[key].is_string())
+          return std::unexpected(Error{ErrorCode::InvalidConfig,
+            std::string(key) + " has an invalid type"});
+      }
+      return {};
+    };
+    {
+      auto e = checkType("frameless", true);
+      if (!e) return std::unexpected(e.error());
+    }
+    {
+      auto e = checkType("transparent", true);
+      if (!e) return std::unexpected(e.error());
+    }
+    {
+      auto e = checkType("resizable", true);
+      if (!e) return std::unexpected(e.error());
+    }
+    {
+      auto e = checkType("window_width", false);
+      if (!e) return std::unexpected(e.error());
+    }
+    {
+      auto e = checkType("window_height", false);
+      if (!e) return std::unexpected(e.error());
+    }
+
     jsonCopyInt(j, "window_width",      cfg.window_width);
     jsonCopyInt(j, "window_height",     cfg.window_height);
     jsonCopyInt(j, "window_min_width",  cfg.window_min_width);
@@ -340,10 +382,16 @@ loadConfigJson(std::string_view config_path) {
     if (j.contains("views") && j["views"].is_object()) {
       for (auto& [name, v] : j["views"].items()) {
         if (!v.is_object()) continue;
-        if (!v.contains("kind") || !v["kind"].is_string()) continue;
-        if (!v.contains("src")  || !v["src"].is_string())  continue;
+        if (!v.contains("kind") || !v["kind"].is_string())
+          return std::unexpected(Error{ErrorCode::InvalidConfig,
+            "view '" + name + "' is missing 'kind' or 'kind' is not a string"});
+        if (!v.contains("src") || !v["src"].is_string())
+          return std::unexpected(Error{ErrorCode::InvalidConfig,
+            "view '" + name + "' is missing 'src' or 'src' is not a string"});
         std::string kind = v["kind"].get<std::string>();
-        if (kind != "file" && kind != "html" && kind != "url") continue;
+        if (kind != "file" && kind != "html" && kind != "url")
+          return std::unexpected(Error{ErrorCode::InvalidConfig,
+            "view '" + name + "' has invalid kind '" + kind + "'"});
         cfg.views[name] = ViewEntry{kind, v["src"].get<std::string>()};
       }
     }

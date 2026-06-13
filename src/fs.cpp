@@ -9,10 +9,15 @@
 namespace coconut::fs {
 
 std::expected<Roots*, Error> create(Config* config) {
+  if (!config) {
+    return std::unexpected(Error{
+      .code = ErrorCode::InvalidConfig,
+      .message = "fs::create: config is null"});
+  }
   return new Roots{.configs = config,
-                   .view_root = config != nullptr ? config->view_root : std::string{},
-                   .asset_root = config != nullptr ? config->asset_root : std::string{},
-                   .command_root = config != nullptr ? config->command_root : std::string{}};
+                   .view_root = config->view_root,
+                   .asset_root = config->asset_root,
+                   .command_root = config->command_root};
 }
 
 void destroy(Roots* roots) {
@@ -112,6 +117,11 @@ bool exists(const std::string& path) {
 }
 
 std::string resolve(const std::string& root, const std::string& relpath) {
+  // Handle "." explicitly — preserve it as "/base/." instead of normalizing to "/base/"
+  if (relpath == ".") {
+    auto r = std::filesystem::path(root);
+    return r.lexically_normal().string() + "/.";
+  }
   auto p = std::filesystem::path(relpath);
   if (p.is_absolute()) {
     return p.lexically_normal().string();
@@ -134,6 +144,9 @@ std::expected<std::vector<DirEntry>, Error> listDir(const std::string& path) {
   }
 
   std::vector<DirEntry> entries;
+  // Include "." and ".." entries (directory_iterator skips them by default)
+  entries.push_back(DirEntry{".",  std::filesystem::absolute(dir).string(), true});
+  entries.push_back(DirEntry{"..", std::filesystem::absolute(dir.parent_path()).string(), true});
   try {
     for (auto const& entry : std::filesystem::directory_iterator(dir)) {
       auto const& p = entry.path();

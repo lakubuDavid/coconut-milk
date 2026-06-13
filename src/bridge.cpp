@@ -13,6 +13,11 @@
 namespace coconut::bridge {
 
 std::expected<State *, Error> create(Config *config) {
+  if (!config) {
+    return std::unexpected(Error{
+      .code = ErrorCode::InvalidConfig,
+      .message = "bridge::create: config is null"});
+  }
   return new State{.configs = config};
 }
 
