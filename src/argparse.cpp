@@ -41,6 +41,10 @@ Args parse(int argc, char* argv[]) {
       args.generate = true;
       continue;
     }
+    if (a == "bundle") {
+      args.bundle = true;
+      continue;
+    }
     if (a[0] != '-') {
       positional.push_back(argv[j]);
     }
@@ -65,6 +69,10 @@ Args parse(int argc, char* argv[]) {
     // Skip known non-flag positional args (root / generate)
     if (a == "generate") {
       args.generate = true;
+      continue;
+    }
+    if (a == "bundle") {
+      args.bundle = true;
       continue;
     }
     if (a[0] != '-') {
@@ -98,19 +106,22 @@ Args parse(int argc, char* argv[]) {
     if (a == "-o" || a == "--out-dir") {
       if (i + 1 >= argc) {
         std::println(stderr, "error: --out-dir requires a path argument");
-        printGenerateHelp(progname(argv[0]));
         std::exit(1);
       }
       args.out_dir = argv[++i];
       continue;
     }
 
+    if (a == "--bytecode") {
+      args.bytecode_config = true;
+      continue;
+    }
+
     // Unknown flag
     std::println(stderr, "error: unknown option '{}'", a);
-    if (args.generate)
-      printGenerateHelp(progname(argv[0]));
-    else
-      printHelp(progname(argv[0]));
+    if (args.generate)      printGenerateHelp(progname(argv[0]));
+    else if (args.bundle)   printBundleHelp(progname(argv[0]));
+    else                    printHelp(progname(argv[0]));
     std::exit(1);
   }
 
@@ -138,6 +149,7 @@ void printHelp(const char* prog) {
   std::println("");
   std::println("Subcommands:");
   std::println("  generate         Generate command wrappers from @command annotations");
+  std::println("  bundle           Package app into a standalone distributable bundle");
   std::println("");
   std::println("The project root is searched for coconut.config.lua /");
   std::println("coconut.config.json and is the base for coconut:// assets.");
@@ -156,6 +168,26 @@ void printGenerateHelp(const char* prog) {
   std::println("");
   std::println("Runs from the project root. Reads coconut.config.* for");
   std::println("command_root and output_dir settings.");
+}
+
+void printBundleHelp(const char* prog) {
+  std::println("Usage: {} bundle [options] [ROOT]", progname(prog));
+  std::println("");
+  std::println("Package the application into a standalone distributable bundle.");
+  std::println("");
+  std::println("The bundle command:");
+  std::println("  1. Strips dev-only fields from coconut.config.* (debug, manifests)");
+  std::println("  2. Writes the shippable config to the output directory");
+  std::println("  3. Generates platform manifests (Info.plist, app.manifest, .desktop)");
+  std::println("  4. Assembles directory structure + copies binary + assets");
+  std::println("");
+  std::println("Options:");
+  std::println("  -h, --help       Show this help and exit");
+  std::println("  -o, --out-dir    Output directory (default: bundle/)");
+  std::println("  --bytecode       Compile stripped config to Lua bytecode (B2 opt-in)");
+  std::println("");
+  std::println("Currently only step 1 (strip + write shippable config) is implemented.");
+  std::println("Steps 2-4 are scaffolded and return NotImplementedYet.");
 }
 
 void printVersion(const char* prog) {

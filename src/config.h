@@ -173,6 +173,19 @@ std::expected<Config, Error>
 loadConfig(std::string_view lua_path = "coconut.config.lua",
            std::string_view json_path = "coconut.config.json");
 
+/// Strip dev-only fields from a Config for shipping in a bundle.
+///
+/// Removes the following fields for the bundle version:
+///   - debug (whole block)
+///   - manifests (whole block — dev-time config, not runtime)
+///
+/// Platform config sub-blocks are preserved but their manifests
+/// sub-fields are stripped.
+///
+/// This is Option A (default). Option B2 (opt-in) additionally
+/// compiles the stripped config to Lua bytecode.
+Config stripConfig(const Config& cfg);
+
 } // namespace coconut
 
 #endif // CONFIG_H

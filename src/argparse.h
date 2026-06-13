@@ -13,9 +13,11 @@ struct Args {
   bool help      = false;
   bool version   = false;
   bool debug     = false;
-  bool generate  = false;  ///< "generate" subcommand
+  bool generate       = false;  ///< "generate" subcommand
+  bool bundle         = false;  ///< "bundle" subcommand
+  bool bytecode_config = false; ///< compile config to .luac (B2 opt-in)
   std::string    root = ".";  ///< project root directory (default: CWD)
-  std::string    out_dir = "generated";  ///< output dir for generate subcommand
+  std::string    out_dir = "generated";  ///< output dir for subcommands
 };
 
 /// Parse command-line arguments.
@@ -27,6 +29,9 @@ void printHelp(const char* prog);
 
 /// Print generate subcommand usage to stdout.
 void printGenerateHelp(const char* prog);
+
+/// Print bundle subcommand usage to stdout.
+void printBundleHelp(const char* prog);
 
 /// Print version to stdout.
 void printVersion(const char* prog);

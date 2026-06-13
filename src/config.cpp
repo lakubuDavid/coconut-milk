@@ -501,4 +501,28 @@ loadConfig(std::string_view lua_path, std::string_view json_path) {
   return result;
 }
 
+// ── Config stripping for bundle ─────────────────────────────────────────────
+
+/// Strip dev fields from a single PlatformConfig (manifests sub-block).
+static void stripPlatformConfig(PlatformConfig& p) {
+  p.manifests = ManifestsConfig{};  // reset to defaults (all empty/off)
+}
+
+Config stripConfig(const Config& cfg) {
+  Config out = cfg;
+
+  // Strip debug block (dev-only)
+  out.debug = DebugConfig{};
+
+  // Strip manifests block (dev-time bundling config)
+  out.manifests = ManifestsConfig{};
+
+  // Strip manifests sub-blocks from platform configs
+  stripPlatformConfig(out.darwin);
+  stripPlatformConfig(out.win);
+  stripPlatformConfig(out.linux);
+
+  return out;
+}
+
 } // namespace coconut

@@ -1,5 +1,6 @@
 #include "app.h"
 #include "argparse.h"
+#include "bundle.h"
 #include "commands.h"
 #include "config.h"
 #include "debug.h"
@@ -18,6 +19,7 @@
 #include "platform/darwin/create_window.h"
 #endif
 
+#include <print>
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -68,6 +70,39 @@ int main(int argc, char* argv[]) {
       }
     }
     return generator::runGenerate(cmdRoot, outDir);
+  }
+
+  // Subcommand: bundle
+  if (args.bundle) {
+    // Resolve the bundle output directory
+    std::string bundleDir = args.out_dir;
+    if (bundleDir == "generated") bundleDir = "bundle";
+
+    // Change to root if specified
+    if (args.root != ".") {
+      try {
+        std::filesystem::current_path(args.root);
+      } catch (const std::exception& e) {
+        std::cerr << "error: cannot change directory to '" << args.root << "': " << e.what() << std::endl;
+        return 1;
+      }
+    }
+
+    // Load full config (including dev fields for manifests generation)
+    auto cfg_result = coconut::loadConfig();
+    if (!cfg_result) {
+      const auto err = cfg_result.error();
+      std::cerr << "error: config load failed: " << err.message << " (" << err.details << ")" << std::endl;
+      return 1;
+    }
+
+    // Create bundle directory
+    std::filesystem::create_directories(bundleDir);
+
+    // Run bundle pipeline
+    auto result = coconut::bundle::bundle(cfg_result.value(), bundleDir, args.bytecode_config);
+    std::println("{}", result.message);
+    return result.ok ? 0 : 1;
   }
 
   // Detect if running inside a macOS .app bundle.
