@@ -26,6 +26,24 @@ end
 ---@command __coconut_window_ctl
 local function window_ctl(params, ctx)
   local cmd = params.cmd
+  -- diagnostic: return info about ctx.window
+  if cmd == "debug" then
+    local info = {
+      ctx_type = type(ctx),
+      has_window = ctx and ctx.window ~= nil or false,
+      window_type = ctx and type(ctx.window) or "nil",
+      has_app = ctx and ctx.window and ctx.window.app ~= nil or false,
+    }
+    -- safely check method existence
+    if ctx and ctx.window then
+      info.can_minimize = type(ctx.window.minimize) ~= "nil" and type(ctx.window.minimize) ~= "function"
+      -- wait wrong, should be == "function"
+      info.can_minimize = type(ctx.window.minimize) == "function"
+      info.can_resize = type(ctx.window.resize) == "function"
+      info.can_setPosition = type(ctx.window.setPosition) == "function"
+    end
+    return info
+  end
   if cmd == "minimize" then
     ctx.window:minimize()
   elseif cmd == "maximize" then
@@ -39,7 +57,7 @@ local function window_ctl(params, ctx)
   elseif cmd == "fullscreen_off" then
     ctx.window:setFullscreen(false)
   elseif cmd == "resize" then
-    ctx.window:resize({ w = params.w or 800, h = params.h or 600 })
+    ctx.window:resize(params.w or 800, params.h or 600)
   elseif cmd == "setPosition" then
     ctx.window:setPosition(params.x or 0, params.y or 0)
   elseif cmd == "reload" then
