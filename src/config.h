@@ -5,10 +5,82 @@
 #include <map>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "error.h"
 
 namespace coconut {
+
+// ── App identity (shared cross-platform defaults) ────────────────────────────
+
+/// Shared app identity fields.
+/// These are defaults used by all platforms unless overridden per-platform.
+struct AppConfig {
+  std::string name;         ///< Display name (used in menus, window titles, etc.)
+  std::string id;           ///< Conceptual app identifier (used as default CFBundleIdentifier, AppUserModelID, .desktop id)
+  std::string version;      ///< Version string (semver, e.g. "1.0.0")
+  std::string description;  ///< Short description for desktop entries
+  std::string category;     ///< High-level category (maps to per-platform taxonomy)
+};
+
+/// Icon references per platform.
+/// Icon formats differ per OS so these are kept platform-specific.
+struct IconConfig {
+  std::string icns_path;  ///< macOS: path to .icns file
+  std::string ico_path;    ///< Windows: path to .ico file
+  std::string png_path;    ///< Linux: path to .png file (or freedesktop icon name)
+};
+
+// ── Bundling / packaging hints ─────────────────────────────────────────────
+
+/// Bundling configuration (dev-time config, not runtime).
+struct ManifestsConfig {
+  /// Strip dev-only fields (generators, debug, manifests.*) from config
+  /// before shipping in the bundle. Default: true.
+  bool strip_dev_fields = true;
+
+  /// Compile the stripped config to .luac bytecode (B2 opt-in).
+  /// User must bundle separately per arch if using this.
+  bool bytecode_config = false;
+
+  /// Target architectures for multi-arch bundling.
+  /// e.g. {"x86_64", "arm64"} for fat binaries.
+  /// If empty, only the current host arch is bundled.
+  std::vector<std::string> target_archs;
+
+  /// Extra raw fields merged into the generated Info.plist (macOS).
+  std::map<std::string, std::string> darwin_info_plist_extra;
+
+  /// Entitlements plist content (macOS).
+  std::map<std::string, std::string> darwin_entitlements;
+
+  /// Extra raw fields merged into the generated .desktop file (Linux).
+  std::map<std::string, std::string> linux_desktop_extra;
+
+  /// AppStream metainfo sections (Linux).
+  std::map<std::string, std::string> linux_appstream;
+};
+
+// ── Platform-specific overrides ───────────────────────────────────────────────
+
+/// Per-platform overrides for window style and manifest identity.
+///
+/// Merge semantics:
+///   - Scalars (frameless, transparent, window_*) → replaced if present in platform block
+///   - Tables (app, manifests) → deep-merged (platform values override shared values)
+struct PlatformConfig {
+  // Window style overrides (optional per-platform)
+  std::optional<bool> frameless;
+  std::optional<bool> transparent;
+
+  // App identity overrides for this platform (deep-merged with shared app.*)
+  AppConfig app;
+
+  // Manifests for this platform (deep-merged with shared manifests.*)
+  ManifestsConfig manifests;
+};
+
+// ── Debug config ───────────────────────────────────────────────────────────
 
 /// Debug settings — off by default.
 struct DebugConfig {
@@ -17,15 +89,19 @@ struct DebugConfig {
   std::string logLevel   = "info"; ///< Minimum log level: debug|info|warn|error
 };
 
+// ── View entry ─────────────────────────────────────────────────────────────
+
 /// Describes a view as declared in the startup config file.
 ///
 /// At load time the framework converts these into runtime `window::View`
 /// objects by resolving the `src` (reading file content for file-based views,
 /// storing inline HTML for html-based views, etc.).
 struct ViewEntry {
-  std::string kind;  /// "file", "html", or "url"
-  std::string src;   /// file path, inline HTML string, or URL
+  std::string kind;  ///< "file", "html", or "url"
+  std::string src;   ///< file path, inline HTML string, or URL
 };
+
+// ── Main Config ─────────────────────────────────────────────────────────────
 
 /// Shared startup configuration.
 ///
@@ -50,77 +126,28 @@ struct Config {
   std::string command_root = "commands";
   std::string output_dir = "generated";
   std::map<std::string, ViewEntry> views;
+
+  // ── App identity (shared cross-platform defaults) ──────────────────────
+  AppConfig app;
+  IconConfig icon;
+
+  // ── Bundling / packaging hints ─────────────────────────────────────────
+  ManifestsConfig manifests;
+
+  // ── Platform-specific overrides ─────────────────────────────────────────
+  PlatformConfig darwin;
+  PlatformConfig win;
+  PlatformConfig linux;
 };
 
 /// Load startup configuration from a JSON file.
 ///
 /// Unknown keys are ignored.
 /// Missing keys keep the compiled defaults.
-///
-/// Expected JSON shape (example):
-/// ```json
-/// {
-///   "window_width": 1280,
-///   "window_height": 640,
-///   "window_min_width": 0,
-///   "window_min_height": 0,
-///   "window_max_width": 0,
-///   "window_max_height": 0,
-///   "resizable": true,
-///   "frameless": false,
-///   "transparent": false,
-///   "debug": {
-///     "enabled": false,
-///     "showTransportDump": false,
-///     "logLevel": "info"
-///   },
-///   "title": "Coconut",
-///   "initial_view": "home",
-///   "view_root": "views",
-///   "asset_root": "assets",
-///   "command_root": "commands",
-///   "views": {
-///     "home":  { "kind": "file", "src": "views/home.html" },
-///     "note":  { "kind": "file", "src": "views/note.html" },
-///     "about": { "kind": "html", "src": "<h1>About</h1>" }
-///   }
-/// }
-/// ```
 std::expected<Config, Error>
 loadConfigJson(std::string_view config_path = "coconut.config.json");
 
 /// Load startup configuration from a Lua file that returns a table.
-///
-/// Expected Lua shape (example):
-/// ```lua
-/// return {
-///   window_width = 1280,
-///   window_height = 640,
-///   window_min_width = 0,
-///   window_min_height = 0,
-///   window_max_width = 0,
-///   window_max_height = 0,
-///   resizable = true,
-///   frameless = false,
-///   transparent = false,
-///   debug = {
-///     enabled = false,
-///     showTransportDump = false,
-///     logLevel = "info",
-///   },
-///   title = "Coconut",
-///   initial_view = "home",
-///   view_root = "views",
-///   asset_root = "assets",
-///   command_root = "commands",
-///   views = {
-///     home = { kind = "file", src = "views/home.html" },
-///   },
-///   generators = {
-///     output_dir = "generated"
-///   }
-/// }
-/// ```
 std::expected<Config, Error>
 loadConfigLua(std::string_view config_path = "coconut.config.lua");
 

@@ -13,7 +13,208 @@
 
 namespace coconut {
 
-// ── JSON loader ──────────────────────────────────────────────────────────────
+// ── Lua helpers ─────────────────────────────────────────────────────────────
+
+/// Copy a scalar field from a sol::table_proxy if it exists and has the right type.
+template <typename T>
+static void luaCopy(const sol::table& src, const char* key, T& dst) {
+  sol::object val = src[key];
+  if (val.is<T>()) dst = val.as<T>();
+}
+
+// ── AppConfig parser (Lua) ─────────────────────────────────────────────────
+
+static void parseAppConfig(const sol::table& t, AppConfig& cfg) {
+  luaCopy(t, "name",         cfg.name);
+  luaCopy(t, "id",          cfg.id);
+  luaCopy(t, "version",     cfg.version);
+  luaCopy(t, "description", cfg.description);
+  luaCopy(t, "category",    cfg.category);
+}
+
+// ── IconConfig parser (Lua) ─────────────────────────────────────────────────
+
+static void parseIconConfig(const sol::table& t, IconConfig& cfg) {
+  luaCopy(t, "icns_path", cfg.icns_path);
+  luaCopy(t, "ico_path",  cfg.ico_path);
+  luaCopy(t, "png_path",  cfg.png_path);
+}
+
+// ── ManifestsConfig parser (Lua) ─────────────────────────────────────────────
+
+static void parseManifestsConfig(const sol::table& t, ManifestsConfig& cfg) {
+  luaCopy(t, "strip_dev_fields", cfg.strip_dev_fields);
+  luaCopy(t, "bytecode_config",  cfg.bytecode_config);
+
+  // target_archs: array of strings
+  {
+    sol::object obj = t["target_archs"];
+    if (obj.is<sol::table>()) {
+      sol::table arr = obj.as<sol::table>();
+      for (auto& [k, v] : arr) {
+        if (v.is<std::string>()) {
+          cfg.target_archs.push_back(v.as<std::string>());
+        }
+      }
+    }
+  }
+
+  // darwin_info_plist_extra: table → string map
+  {
+    sol::object obj = t["darwin_info_plist_extra"];
+    if (obj.is<sol::table>()) {
+      sol::table m = obj.as<sol::table>();
+      for (auto& [k, v] : m) {
+        if (v.is<std::string>()) {
+          cfg.darwin_info_plist_extra[k.as<std::string>()] = v.as<std::string>();
+        }
+      }
+    }
+  }
+
+  // darwin_entitlements
+  {
+    sol::object obj = t["darwin_entitlements"];
+    if (obj.is<sol::table>()) {
+      sol::table m = obj.as<sol::table>();
+      for (auto& [k, v] : m) {
+        if (v.is<std::string>()) {
+          cfg.darwin_entitlements[k.as<std::string>()] = v.as<std::string>();
+        }
+      }
+    }
+  }
+
+  // linux_desktop_extra
+  {
+    sol::object obj = t["linux_desktop_extra"];
+    if (obj.is<sol::table>()) {
+      sol::table m = obj.as<sol::table>();
+      for (auto& [k, v] : m) {
+        if (v.is<std::string>()) {
+          cfg.linux_desktop_extra[k.as<std::string>()] = v.as<std::string>();
+        }
+      }
+    }
+  }
+
+  // linux_appstream
+  {
+    sol::object obj = t["linux_appstream"];
+    if (obj.is<sol::table>()) {
+      sol::table m = obj.as<sol::table>();
+      for (auto& [k, v] : m) {
+        if (v.is<std::string>()) {
+          cfg.linux_appstream[k.as<std::string>()] = v.as<std::string>();
+        }
+      }
+    }
+  }
+}
+
+// ── PlatformConfig parser (Lua) ────────────────────────────────────────────
+
+static void parsePlatformConfig(const sol::table& t, PlatformConfig& cfg) {
+  // Window style scalars (replace if present)
+  {
+    sol::object obj = t["frameless"];
+    if (obj.is<bool>()) cfg.frameless = obj.as<bool>();
+  }
+  {
+    sol::object obj = t["transparent"];
+    if (obj.is<bool>()) cfg.transparent = obj.as<bool>();
+  }
+
+  // app: deep-merged
+  {
+    sol::object obj = t["app"];
+    if (obj.is<sol::table>()) {
+      parseAppConfig(obj.as<sol::table>(), cfg.app);
+    }
+  }
+
+  // manifests: deep-merged
+  {
+    sol::object obj = t["manifests"];
+    if (obj.is<sol::table>()) {
+      parseManifestsConfig(obj.as<sol::table>(), cfg.manifests);
+    }
+  }
+}
+
+// ── JSON helpers ─────────────────────────────────────────────────────────────
+
+/// Copy an int from nlohmann::json if it exists.
+static void jsonCopyInt(const nlohmann::json& src, const char* key, int& dst) {
+  if (src.contains(key) && src[key].is_number_integer()) dst = src[key].get<int>();
+}
+
+/// Copy a bool from nlohmann::json if it exists.
+static void jsonCopyBool(const nlohmann::json& src, const char* key, bool& dst) {
+  if (src.contains(key) && src[key].is_boolean()) dst = src[key].get<bool>();
+}
+
+/// Copy a string from nlohmann::json if it exists.
+static void jsonCopyStr(const nlohmann::json& src, const char* key, std::string& dst) {
+  if (src.contains(key) && src[key].is_string()) dst = src[key].get<std::string>();
+}
+
+// ── AppConfig parser (JSON) ─────────────────────────────────────────────────
+
+static void parseAppConfig(const nlohmann::json& j, AppConfig& cfg) {
+  jsonCopyStr(j, "name",         cfg.name);
+  jsonCopyStr(j, "id",          cfg.id);
+  jsonCopyStr(j, "version",     cfg.version);
+  jsonCopyStr(j, "description", cfg.description);
+  jsonCopyStr(j, "category",    cfg.category);
+}
+
+// ── IconConfig parser (JSON) ─────────────────────────────────────────────────
+
+static void parseIconConfig(const nlohmann::json& j, IconConfig& cfg) {
+  jsonCopyStr(j, "icns_path", cfg.icns_path);
+  jsonCopyStr(j, "ico_path",  cfg.ico_path);
+  jsonCopyStr(j, "png_path",  cfg.png_path);
+}
+
+// ── ManifestsConfig parser (JSON) ───────────────────────────────────────────
+
+static void parseManifestsConfig(const nlohmann::json& j, ManifestsConfig& cfg) {
+  jsonCopyBool(j, "strip_dev_fields", cfg.strip_dev_fields);
+  jsonCopyBool(j, "bytecode_config",  cfg.bytecode_config);
+
+  if (j.contains("darwin_info_plist_extra") && j["darwin_info_plist_extra"].is_object()) {
+    for (auto& [k, v] : j["darwin_info_plist_extra"].items())
+      if (v.is_string()) cfg.darwin_info_plist_extra[k] = v.get<std::string>();
+  }
+  if (j.contains("darwin_entitlements") && j["darwin_entitlements"].is_object()) {
+    for (auto& [k, v] : j["darwin_entitlements"].items())
+      if (v.is_string()) cfg.darwin_entitlements[k] = v.get<std::string>();
+  }
+  if (j.contains("linux_desktop_extra") && j["linux_desktop_extra"].is_object()) {
+    for (auto& [k, v] : j["linux_desktop_extra"].items())
+      if (v.is_string()) cfg.linux_desktop_extra[k] = v.get<std::string>();
+  }
+  if (j.contains("linux_appstream") && j["linux_appstream"].is_object()) {
+    for (auto& [k, v] : j["linux_appstream"].items())
+      if (v.is_string()) cfg.linux_appstream[k] = v.get<std::string>();
+  }
+}
+
+// ── PlatformConfig parser (JSON) ─────────────────────────────────────────────
+
+static void parsePlatformConfig(const nlohmann::json& j, PlatformConfig& cfg) {
+  if (j.contains("frameless") && j["frameless"].is_boolean())
+    cfg.frameless = j["frameless"].get<bool>();
+  if (j.contains("transparent") && j["transparent"].is_boolean())
+    cfg.transparent = j["transparent"].get<bool>();
+  if (j.contains("app") && j["app"].is_object())
+    parseAppConfig(j["app"], cfg.app);
+  if (j.contains("manifests") && j["manifests"].is_object())
+    parseManifestsConfig(j["manifests"], cfg.manifests);
+}
+
+// ── JSON loader ─────────────────────────────────────────────────────────────
 
 std::expected<Config, Error>
 loadConfigJson(std::string_view config_path) {
@@ -26,238 +227,73 @@ loadConfigJson(std::string_view config_path) {
 
   try {
     nlohmann::json j = nlohmann::json::parse(f);
-
     Config cfg{};
 
-    // --- scalar fields ---
+    // Global scalars
+    jsonCopyInt(j, "window_width",      cfg.window_width);
+    jsonCopyInt(j, "window_height",     cfg.window_height);
+    jsonCopyInt(j, "window_min_width",  cfg.window_min_width);
+    jsonCopyInt(j, "window_min_height", cfg.window_min_height);
+    jsonCopyInt(j, "window_max_width",  cfg.window_max_width);
+    jsonCopyInt(j, "window_max_height", cfg.window_max_height);
+    jsonCopyBool(j, "resizable",        cfg.resizable);
+    jsonCopyBool(j, "frameless",        cfg.frameless);
+    jsonCopyBool(j, "transparent",       cfg.transparent);
+    jsonCopyStr(j, "title",            cfg.title);
+    jsonCopyStr(j, "initial_view",     cfg.initial_view);
+    jsonCopyStr(j, "view_root",        cfg.view_root);
+    jsonCopyStr(j, "asset_root",       cfg.asset_root);
+    jsonCopyStr(j, "command_root",     cfg.command_root);
+    jsonCopyStr(j, "output_dir",       cfg.output_dir);
 
-    if (j.contains("window_width") && !j["window_width"].is_null()) {
-      if (!j["window_width"].is_number_integer()) {
-        return std::unexpected(
-            Error{.code = ErrorCode::InvalidConfig,
-                  .message = "config.window_width must be an integer",
-                  .details = j["window_width"].dump()});
-      }
-      cfg.window_width = j["window_width"].get<int>();
-    }
-
-    if (j.contains("window_height") && !j["window_height"].is_null()) {
-      if (!j["window_height"].is_number_integer()) {
-        return std::unexpected(
-            Error{.code = ErrorCode::InvalidConfig,
-                  .message = "config.window_height must be an integer",
-                  .details = j["window_height"].dump()});
-      }
-      cfg.window_height = j["window_height"].get<int>();
-    }
-
-    if (j.contains("window_min_width") && !j["window_min_width"].is_null()) {
-      if (!j["window_min_width"].is_number_integer()) {
-        return std::unexpected(
-            Error{.code = ErrorCode::InvalidConfig,
-                  .message = "config.window_min_width must be an integer",
-                  .details = j["window_min_width"].dump()});
-      }
-      cfg.window_min_width = j["window_min_width"].get<int>();
-    }
-
-    if (j.contains("window_min_height") && !j["window_min_height"].is_null()) {
-      if (!j["window_min_height"].is_number_integer()) {
-        return std::unexpected(
-            Error{.code = ErrorCode::InvalidConfig,
-                  .message = "config.window_min_height must be an integer",
-                  .details = j["window_min_height"].dump()});
-      }
-      cfg.window_min_height = j["window_min_height"].get<int>();
-    }
-
-    if (j.contains("window_max_width") && !j["window_max_width"].is_null()) {
-      if (!j["window_max_width"].is_number_integer()) {
-        return std::unexpected(
-            Error{.code = ErrorCode::InvalidConfig,
-                  .message = "config.window_max_width must be an integer",
-                  .details = j["window_max_width"].dump()});
-      }
-      cfg.window_max_width = j["window_max_width"].get<int>();
-    }
-
-    if (j.contains("window_max_height") && !j["window_max_height"].is_null()) {
-      if (!j["window_max_height"].is_number_integer()) {
-        return std::unexpected(
-            Error{.code = ErrorCode::InvalidConfig,
-                  .message = "config.window_max_height must be an integer",
-                  .details = j["window_max_height"].dump()});
-      }
-      cfg.window_max_height = j["window_max_height"].get<int>();
-    }
-
-    if (j.contains("resizable")) {
-      if (!j["resizable"].is_boolean()) {
-        return std::unexpected(
-            Error{.code = ErrorCode::InvalidConfig,
-                  .message = "config.resizable must be a boolean",
-                  .details = j["resizable"].dump()});
-      }
-      cfg.resizable = j["resizable"].get<bool>();
-    }
-
-    if (j.contains("frameless")) {
-      if (!j["frameless"].is_boolean()) {
-        return std::unexpected(
-            Error{.code = ErrorCode::InvalidConfig,
-                  .message = "config.frameless must be a boolean",
-                  .details = j["frameless"].dump()});
-      }
-      cfg.frameless = j["frameless"].get<bool>();
-    }
-
-    if (j.contains("transparent") && !j["transparent"].is_null()) {
-      if (!j["transparent"].is_boolean()) {
-        return std::unexpected(
-            Error{.code = ErrorCode::InvalidConfig,
-                  .message = "config.transparent must be a boolean",
-                  .details = j["transparent"].dump()});
-      }
-      cfg.transparent = j["transparent"].get<bool>();
-    }
-
-    if (j.contains("debug") && !j["debug"].is_null()) {
+    if (j.contains("debug")) {
       if (j["debug"].is_boolean()) {
-        // Backward compat: bool → enable master switch
         cfg.debug.enabled = j["debug"].get<bool>();
         cfg.debug.showTransportDump = cfg.debug.enabled;
       } else if (j["debug"].is_object()) {
-        auto d = j["debug"];
-        cfg.debug.enabled = d.value("enabled", false);
-        cfg.debug.showTransportDump = d.value("showTransportDump", false);
-        if (d.contains("logLevel") && d["logLevel"].is_string())
-          cfg.debug.logLevel = d["logLevel"].get<std::string>();
-      } else {
-        return std::unexpected(
-            Error{.code = ErrorCode::InvalidConfig,
-                  .message = "config.debug must be a bool or object",
-                  .details = j["debug"].dump()});
+        cfg.debug.enabled = j["debug"].value("enabled", false);
+        cfg.debug.showTransportDump = j["debug"].value("showTransportDump", false);
+        jsonCopyStr(j["debug"], "logLevel", cfg.debug.logLevel);
       }
     }
 
-    if (j.contains("title") && !j["title"].is_null()) {
-      if (!j["title"].is_string()) {
-        return std::unexpected(
-            Error{.code = ErrorCode::InvalidConfig,
-                  .message = "config.title must be a string",
-                  .details = j["title"].dump()});
-      }
-      cfg.title = j["title"].get<std::string>();
-    }
+    // app
+    if (j.contains("app") && j["app"].is_object())
+      parseAppConfig(j["app"], cfg.app);
 
-    if (j.contains("initial_view") && !j["initial_view"].is_null()) {
-      if (!j["initial_view"].is_string()) {
-        return std::unexpected(
-            Error{.code = ErrorCode::InvalidConfig,
-                  .message = "config.initial_view must be a string",
-                  .details = j["initial_view"].dump()});
-      }
-      cfg.initial_view = j["initial_view"].get<std::string>();
-    }
+    // icon
+    if (j.contains("icon") && j["icon"].is_object())
+      parseIconConfig(j["icon"], cfg.icon);
 
-    if (j.contains("view_root") && !j["view_root"].is_null()) {
-      if (!j["view_root"].is_string()) {
-        return std::unexpected(
-            Error{.code = ErrorCode::InvalidConfig,
-                  .message = "config.view_root must be a string",
-                  .details = j["view_root"].dump()});
-      }
-      cfg.view_root = j["view_root"].get<std::string>();
-    }
+    // manifests
+    if (j.contains("manifests") && j["manifests"].is_object())
+      parseManifestsConfig(j["manifests"], cfg.manifests);
 
-    if (j.contains("asset_root") && !j["asset_root"].is_null()) {
-      if (!j["asset_root"].is_string()) {
-        return std::unexpected(
-            Error{.code = ErrorCode::InvalidConfig,
-                  .message = "config.asset_root must be a string",
-                  .details = j["asset_root"].dump()});
-      }
-      cfg.asset_root = j["asset_root"].get<std::string>();
-    }
+    // darwin / win / linux
+    if (j.contains("darwin") && j["darwin"].is_object())
+      parsePlatformConfig(j["darwin"], cfg.darwin);
+    if (j.contains("win") && j["win"].is_object())
+      parsePlatformConfig(j["win"], cfg.win);
+    if (j.contains("linux") && j["linux"].is_object())
+      parsePlatformConfig(j["linux"], cfg.linux);
 
-    if (j.contains("command_root") && !j["command_root"].is_null()) {
-      if (!j["command_root"].is_string()) {
-        return std::unexpected(
-            Error{.code = ErrorCode::InvalidConfig,
-                  .message = "config.command_root must be a string",
-                  .details = j["command_root"].dump()});
-      }
-      cfg.command_root = j["command_root"].get<std::string>();
-    }
-
-    if (j.contains("output_dir") && !j["output_dir"].is_null()) {
-      if (!j["output_dir"].is_string()) {
-        return std::unexpected(
-            Error{.code = ErrorCode::InvalidConfig,
-                  .message = "config.output_dir must be a string",
-                  .details = j["output_dir"].dump()});
-      }
-      cfg.output_dir = j["output_dir"].get<std::string>();
-    } else if (j.contains("generators") && j["generators"].is_object()) {
-      auto& g = j["generators"];
-      if (g.contains("output_dir") && g["output_dir"].is_string()) {
-        cfg.output_dir = g["output_dir"].get<std::string>();
-      }
-    }
-
-    // --- views block (optional) ---
-
-    if (j.contains("views") && !j["views"].is_null()) {
-      if (!j["views"].is_object()) {
-        return std::unexpected(
-            Error{.code = ErrorCode::InvalidConfig,
-                  .message = "config.views must be an object",
-                  .details = j["views"].dump()});
-      }
-
+    // views
+    if (j.contains("views") && j["views"].is_object()) {
       for (auto& [name, v] : j["views"].items()) {
-        if (!v.is_object()) {
-          return std::unexpected(
-              Error{.code = ErrorCode::InvalidConfig,
-                    .message = "config.views entry must be an object",
-                    .details = v.dump()});
-        }
-
-        // Each view entry needs "kind" and "src"
-        if (!v.contains("kind") || !v["kind"].is_string()) {
-          return std::unexpected(Error{
-              .code = ErrorCode::InvalidConfig,
-              .message = "config.views." + name + " must have a string 'kind' field",
-              .details = v.dump()});
-        }
-        if (!v.contains("src") || !v["src"].is_string()) {
-          return std::unexpected(Error{
-              .code = ErrorCode::InvalidConfig,
-              .message = "config.views." + name + " must have a string 'src' field",
-              .details = v.dump()});
-        }
-
+        if (!v.is_object()) continue;
+        if (!v.contains("kind") || !v["kind"].is_string()) continue;
+        if (!v.contains("src")  || !v["src"].is_string())  continue;
         std::string kind = v["kind"].get<std::string>();
-        if (kind != "file" && kind != "html" && kind != "url") {
-          return std::unexpected(Error{
-              .code = ErrorCode::InvalidConfig,
-              .message =
-                  "config.views." + name + ".kind must be 'file', 'html', or 'url'",
-              .details = v.dump()});
-        }
-
-        cfg.views[name] = ViewEntry{
-            .kind = std::move(kind),
-            .src = v["src"].get<std::string>(),
-        };
+        if (kind != "file" && kind != "html" && kind != "url") continue;
+        cfg.views[name] = ViewEntry{kind, v["src"].get<std::string>()};
       }
     }
 
     return cfg;
   } catch (const std::exception& e) {
     return std::unexpected(Error{.code = ErrorCode::ParseError,
-                                 .message = "failed to parse config json",
-                                 .details = e.what()});
+                                .message = "failed to parse config json",
+                                .details = e.what()});
   }
 }
 
@@ -265,7 +301,6 @@ loadConfigJson(std::string_view config_path) {
 
 std::expected<Config, Error>
 loadConfigLua(std::string_view config_path) {
-  // Check file existence first for a clear error message.
   {
     std::ifstream probe{std::string(config_path)};
     if (!probe.is_open()) {
@@ -296,81 +331,113 @@ loadConfigLua(std::string_view config_path) {
     sol::table t = result;
     Config cfg{};
 
-    // Scalar fields with defaults
-    cfg.window_width = t["window_width"].get_or(1280);
-    cfg.window_height = t["window_height"].get_or(640);
-    cfg.window_min_width = t["window_min_width"].get_or(0);
+    // Global scalar fields
+    cfg.window_width      = t["window_width"].get_or(1280);
+    cfg.window_height     = t["window_height"].get_or(640);
+    cfg.window_min_width  = t["window_min_width"].get_or(0);
     cfg.window_min_height = t["window_min_height"].get_or(0);
-    cfg.window_max_width = t["window_max_width"].get_or(0);
+    cfg.window_max_width  = t["window_max_width"].get_or(0);
     cfg.window_max_height = t["window_max_height"].get_or(0);
-    cfg.resizable = t["resizable"].get_or(true);
-    cfg.frameless = t["frameless"].get_or(false);
-    cfg.transparent = t["transparent"].get_or(false);
+    cfg.resizable         = t["resizable"].get_or(true);
+    cfg.frameless         = t["frameless"].get_or(false);
+    cfg.transparent       = t["transparent"].get_or(false);
+    cfg.title             = t["title"].get_or<std::string>("Coconut");
+    cfg.initial_view      = t["initial_view"].get_or<std::string>("home");
+    cfg.view_root         = t["view_root"].get_or<std::string>("views");
+    cfg.asset_root        = t["asset_root"].get_or<std::string>("assets");
+    cfg.command_root       = t["command_root"].get_or<std::string>("commands");
+    cfg.output_dir        = t["output_dir"].get_or<std::string>(cfg.output_dir);
+
+    // debug
     {
       sol::object debugObj = t["debug"];
       if (debugObj.is<bool>()) {
         cfg.debug.enabled = debugObj.as<bool>();
         cfg.debug.showTransportDump = cfg.debug.enabled;
       } else if (debugObj.is<sol::table>()) {
-        sol::table dt = debugObj;
+        sol::table dt = debugObj.as<sol::table>();
         cfg.debug.enabled = dt["enabled"].get_or(false);
         cfg.debug.showTransportDump = dt["showTransportDump"].get_or(false);
         cfg.debug.logLevel = dt["logLevel"].get_or<std::string>("info");
       }
     }
-    cfg.title = t["title"].get_or<std::string>("Coconut");
-    cfg.initial_view = t["initial_view"].get_or<std::string>("home");
-    cfg.view_root = t["view_root"].get_or<std::string>("views");
-    cfg.asset_root = t["asset_root"].get_or<std::string>("assets");
-    cfg.command_root = t["command_root"].get_or<std::string>("commands");
-    // output_dir: top-level key, or generators.output_dir for backward compat
-    cfg.output_dir = t["output_dir"].get_or<std::string>(cfg.output_dir);
+
+    // generators.output_dir (backward compat)
     {
       sol::object gen = t["generators"];
       if (gen.is<sol::table>()) {
-        sol::table gt = gen.as<sol::table>();
-        cfg.output_dir = gt["output_dir"].get_or<std::string>(cfg.output_dir);
+        cfg.output_dir = gen.as<sol::table>()["output_dir"].get_or<std::string>(cfg.output_dir);
       }
     }
 
-    // Views block (optional)
-    sol::object views_obj = t["views"];
-    if (views_obj.is<sol::table>()) {
-      sol::table views = views_obj;
-      for (auto& [key, value] : views) {
-        if (!value.is<sol::table>()) continue;
-        sol::table vt = value;
-        std::string name = key.as<std::string>();
-        std::string kind = vt["kind"].get_or<std::string>("");
-        if (kind != "file" && kind != "html" && kind != "url") continue;
-        cfg.views[name] = ViewEntry{
-            .kind = std::move(kind),
-            .src = vt["src"].get_or<std::string>(""),
-        };
+    // app
+    {
+      sol::object obj = t["app"];
+      if (obj.is<sol::table>()) parseAppConfig(obj.as<sol::table>(), cfg.app);
+    }
+
+    // icon
+    {
+      sol::object obj = t["icon"];
+      if (obj.is<sol::table>()) parseIconConfig(obj.as<sol::table>(), cfg.icon);
+    }
+
+    // manifests
+    {
+      sol::object obj = t["manifests"];
+      if (obj.is<sol::table>()) parseManifestsConfig(obj.as<sol::table>(), cfg.manifests);
+    }
+
+    // darwin
+    {
+      sol::object obj = t["darwin"];
+      if (obj.is<sol::table>()) parsePlatformConfig(obj.as<sol::table>(), cfg.darwin);
+    }
+
+    // win
+    {
+      sol::object obj = t["win"];
+      if (obj.is<sol::table>()) parsePlatformConfig(obj.as<sol::table>(), cfg.win);
+    }
+
+    // linux
+    {
+      sol::object obj = t["linux"];
+      if (obj.is<sol::table>()) parsePlatformConfig(obj.as<sol::table>(), cfg.linux);
+    }
+
+    // views
+    {
+      sol::object views_obj = t["views"];
+      if (views_obj.is<sol::table>()) {
+        sol::table views = views_obj.as<sol::table>();
+        for (auto& [key, value] : views) {
+          if (!value.is<sol::table>()) continue;
+          sol::table vt = value.as<sol::table>();
+          std::string name = key.as<std::string>();
+          std::string kind = vt["kind"].get_or<std::string>("");
+          if (kind != "file" && kind != "html" && kind != "url") continue;
+          cfg.views[name] = ViewEntry{std::move(kind), vt["src"].get_or<std::string>("")};
+        }
       }
     }
 
     return cfg;
   } catch (const std::exception& e) {
     return std::unexpected(Error{.code = ErrorCode::LuaError,
-                                 .message = "lua config error",
-                                 .details = e.what()});
+                                .message = "lua config error",
+                                .details = e.what()});
   }
 }
 
-// ── Composite loader (Lua → JSON → defaults) ────────────────────────────────
+// ── Composite loader ─────────────────────────────────────────────────────────
 
 std::expected<Config, Error>
 loadConfig(std::string_view lua_path, std::string_view json_path) {
   auto result = loadConfigLua(lua_path);
   if (result) return result;
-
-  // Only fall back to JSON if the Lua file was simply missing.
-  if (result.error().code == ErrorCode::MissingFile) {
+  if (result.error().code == ErrorCode::MissingFile)
     return loadConfigJson(json_path);
-  }
-
-  // Propagate any real error (parse failure, invalid config, etc.)
   return result;
 }
 

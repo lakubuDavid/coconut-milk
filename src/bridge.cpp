@@ -112,6 +112,11 @@ static void dispatchRpcCallToLua(coconut::App* app, const rpc::Message& msg) {
 
   auto result = fn(paramsTable, app->lua_state->context);
 
+  if (!result.valid()) {
+    sol::error err = result;
+    debug::warn(std::format("bridge: cmd '{}' failed: {}", msg.name, err.what()));
+  }
+
   rpc::Message reply;
   reply.id = msg.id;
 
@@ -132,6 +137,7 @@ static void dispatchRpcCallToLua(coconut::App* app, const rpc::Message& msg) {
   } else {
     reply.type = rpc::Type::kError;
     sol::error err = result;
+    debug::warn(std::format("bridge: cmd '{}' failed: {}", msg.name, err.what()));
     reply.payload = {{"code", "LuaError"}, {"message", err.what()}};
   }
 

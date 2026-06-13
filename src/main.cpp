@@ -48,7 +48,12 @@ int main(int argc, char* argv[]) {
   if (args.generate) {
     // Change to root if specified
     if (args.root != ".") {
-      std::filesystem::current_path(args.root);
+      try {
+        std::filesystem::current_path(args.root);
+      } catch (const std::exception& e) {
+        std::cerr << "error: cannot change directory to '" << args.root << "': " << e.what() << std::endl;
+        return 1;
+      }
     }
 
     // Load config to get command_root and output_dir
@@ -64,10 +69,32 @@ int main(int argc, char* argv[]) {
     return generator::runGenerate(cmdRoot, outDir);
   }
 
+  // Detect if running inside a macOS .app bundle.
+  // If so, resolve project root to Contents/Resources/ so config,
+  // views, assets, and commands are found relative to the bundle.
+#if defined(__APPLE__)
+  {
+    auto bundle_path = coconut::platform::detectBundleResourcePath();
+    if (!bundle_path.empty()) {
+      try {
+        std::filesystem::current_path(bundle_path);
+      } catch (const std::exception& e) {
+        std::cerr << "error: cannot use bundle path '" << bundle_path << "': " << e.what() << std::endl;
+        return 1;
+      }
+    }
+  }
+#endif
+
   // Change to the specified root directory, if given.
   if (args.root != ".") {
     debug::info(std::format("changing root to '{}'", args.root));
-    std::filesystem::current_path(args.root);
+    try {
+      std::filesystem::current_path(args.root);
+    } catch (const std::exception& e) {
+      debug::error(std::format("cannot change directory to '{}': {}", args.root, e.what()));
+      return 1;
+    }
   }
 
   // C++ defaults (used when config file is absent).

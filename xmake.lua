@@ -1,6 +1,11 @@
 add_rules("plugin.compile_commands.autoupdate", {outputdir = ".", lsp = "clangd"})
 add_rules("mode.debug", "mode.release")
-add_requires("luajit 2.*", "sol2 ~3.3.*")
+if is_mode("release") then
+    add_requires("luajit 2.*", {configs = {shared = false, gc64 = true}})
+    add_requires("sol2 ~3.3.*")
+else
+    add_requires("luajit 2.*", "sol2 ~3.3.*")
+end
 add_requires("nlohmann_json 3.12.0")
 set_languages("c11", "c++23")
 add_includedirs("thirdparty/webview/core/include")
@@ -36,8 +41,8 @@ target("webview")
     add_includedirs("thirdparty/webview/core/include")
     add_frameworks("Cocoa", "WebKit", "Foundation")
     add_files("thirdparty/webview/core/src/webview.cc")
+    add_defines("WEBVIEW_STATIC") -- export C API symbols from the library
     set_languages("c11", "c++17")
-    set_targetdir("$(buildir)/lib")
 
 -- =================================================================
 -- Core coconut binary

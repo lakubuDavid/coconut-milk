@@ -1,215 +1,151 @@
 {
   "version": "1.0",
   "project": "coconut-milk",
-  "updatedAt": "2026-06-12T02:22:21.847Z",
+  "updatedAt": "2026-06-13T17:21:56.535Z",
   "tasks": [
     {
-      "id": "task-1781229773597-yqsorvv",
-      "title": "Single coconut binary with subcommands (runtime + generate)",
-      "description": "Consolidate coconut-milk + coconut-milk-generators into a single `coconut` binary with subcommands. Keep create-coconut-app as external Lua script.\n\nArchitecture:\n- `coconut` (default) — launch the app (current runtime behavior)\n- `coconut generate` — parse all commands/*.lua + write generated/ files\n- `coconut new` — (future, not in this batch)\n- `create-coconut-app` — stays external Lua script; not absorbed",
+      "id": "task-1781366119344-ek6z4w9",
+      "title": "Investigate CLI/runtime split decision",
+      "description": "Binary size analysis: debug=7.4MB, release=TBD (build broken). Dependencies include WebKit, Cocoa, LuaJIT. Decision: keep single binary for now (7.4MB is fine), split only if CLI grows significantly or for App Store distribution.",
       "status": "completed",
-      "createdAt": "2026-06-12T02:02:53.597Z",
-      "updatedAt": "2026-06-12T02:16:37.300Z"
+      "createdAt": "2026-06-13T15:55:19.344Z",
+      "updatedAt": "2026-06-13T15:55:19.344Z"
     },
     {
-      "id": "task-1781229777378-xfaht4w",
-      "title": "Rename binary target from coconut-milk to coconut",
-      "description": "- In xmake.lua: change target name from \"coconut-milk\" to \"coconut\"\n- Update set_basename on ocr-app and calculator-vue targets to \"coconut\"\n- Update Justfile references (DEFAULT_TARGET, run, debug recipes)\n- Update docs if they mention binary name\n- Keep backward compat: create-coconut-app can still symlink as coconut",
-      "status": "completed",
-      "createdAt": "2026-06-12T02:02:57.378Z",
-      "updatedAt": "2026-06-12T02:16:25.600Z"
-    },
-    {
-      "id": "task-1781229781528-15j42yi",
-      "title": "Add subcommand dispatch in main.cpp",
-      "description": "- Parse argv[1] to dispatch: \"generate\" → run generator, anything else → run app\n- Structure: main.cpp checks if argc > 1 && argv[1] == \"generate\"\n- If generate: call a new generate() function (or the generator's main logic)\n- Otherwise: existing runtime startup (no behavior change)\n- Keep argparse separate for each subcommand's flags (generate has --out-dir, run has --root --debug)",
-      "status": "completed",
-      "createdAt": "2026-06-12T02:03:01.528Z",
-      "updatedAt": "2026-06-12T02:16:28.183Z"
-    },
-    {
-      "id": "task-1781229785934-a163p4l",
-      "title": "Absorb generator into coconut generate subcommand",
-      "description": "- Move generator logic from src/generators/main.cpp into a function callable from main.cpp\n- Key improvement: use LuaRuntime to read project config (output_dir, command_root) instead of fragile configStringField() string parsing\n- Generate for ALL commands/*.lua in one pass (not per-file), aggregate commands.d.ts naturally\n- Keep src/generators/ files (command_definition.hpp, type_parser.hpp) as shared code\n- Remove src/generators/main.cpp standalone entrypoint, or keep it as a compile-unit with the function",
-      "status": "completed",
-      "createdAt": "2026-06-12T02:03:05.934Z",
-      "updatedAt": "2026-06-12T02:16:31.013Z"
-    },
-    {
-      "id": "task-1781229790175-rshvimk",
-      "title": "Remove coconut-milk-generators standalone target",
-      "description": "- Remove target(\"coconut-milk-generators\") from xmake.lua\n- Remove just run-gen recipe from Justfile (or redirect to coconut generate)\n- Remove bin/coconut-milk-generators from .gitignore if present\n- Keep src/generators/ directory and files — they compile as part of coconut binary",
-      "status": "completed",
-      "createdAt": "2026-06-12T02:03:10.175Z",
-      "updatedAt": "2026-06-12T02:16:33.732Z"
-    },
-    {
-      "id": "task-1781229945518-syhikdo",
-      "title": "Update create-coconut-app: framework list, package manager prompt, vanilla default",
-      "description": "Changes to scripts/create-coconut-app (external Lua script, not absorbed into binary):\n\n1. **Framework list**: { vanilla, react, vue, solid } — matches official create-vite templates\n2. **Default framework**: vanilla (was vue) — less opinionated first experience\n3. **Package manager prompt**: When vite template selected, prompt user to choose npm (default) or bun\n4. **npm as default**: scaffold uses `npm create vite@latest . -- --template <fw>`; deps use `npm install`; dev server in README is `npm run dev`\n5. **bun path**: `bunx create-vite@latest . --template <fw>`; `bun add vite@latest`; `bun install`; `bun run dev`\n6. **README generation**: parameterized by pkg_manager instead of hardcoded bun\n7. **bare / bare-ts untouched** — zero-toolchain, no changes",
-      "status": "completed",
-      "createdAt": "2026-06-12T02:05:45.518Z",
-      "updatedAt": "2026-06-12T02:22:21.847Z"
-    },
-    {
-      "id": "task-1781343620102-clipboard",
-      "title": "Phase 1: coconut.clipboard — read/write text and images",
-      "description": "C++: platform clipboard read (NSPasteboard / Win32 / X11), write text, write image (PNG data). Lua binding: coconut.clipboard.read(), coconut.clipboard.writeText(text), coconut.clipboard.writeImage(pathOrData). JS binding: coconut.clipboard.read(), coconut.clipboard.write(text). Use __index metamethod pattern for env-style access. Wrap in try/catch. Do NOT use navigator.clipboard — not cross-platform.",
-      "status": "completed",
-      "createdAt": "2026-06-13T09:40:20.100Z",
-      "updatedAt": "2026-06-13T10:23:16.653Z",
-      "tags": [
-        "phase1",
-        "c++",
-        "lua",
-        "js"
-      ]
-    },
-    {
-      "id": "task-1781343620103-env",
-      "title": "Phase 1: coconut.env — environment variables and paths",
-      "description": "C++: read getenv() for HOME, USER, LANG, PATH, PWD. Lua binding: coconut.env table with __index metamethod so coconut.env.HOME calls C++ getenv(\"HOME\"), returns nil if not found. Also coconut.cwd() and coconut.homedir() as functions. JS: coconut.env not needed (frontend has no env access, use Lua for backend env reads).",
-      "status": "completed",
-      "createdAt": "2026-06-13T09:40:20.100Z",
-      "updatedAt": "2026-06-13T10:17:40.715Z",
-      "tags": [
-        "phase1",
-        "c++",
-        "lua"
-      ]
-    },
-    {
-      "id": "task-1781343620104-openurl",
-      "title": "Phase 1: coconut.openUrl — open URL in system browser",
-      "description": "C++: platform-specific URL opening (NSWorkspace / ShellExecute / xdg-open). Lua binding: coconut.openUrl(url). JS binding: coconut.openUrl(url). Returns ok boolean or error string. Use for external link navigation when WKNavigationDelegate blocks a URL.",
-      "status": "completed",
-      "createdAt": "2026-06-13T09:40:20.100Z",
-      "updatedAt": "2026-06-13T10:23:16.653Z",
-      "tags": [
-        "phase1",
-        "c++",
-        "lua",
-        "js"
-      ]
-    },
-    {
-      "id": "task-1781343620105-notify",
-      "title": "Phase 1: coconut.notify — system notifications",
-      "description": "C++: platform notifications (NSUserNotification / UNUserNotificationCenter on macOS, Shell_NotifyIcon on Windows, libnotify on Linux). Lua binding: coconut.notify(title, body, icon?). JS binding: coconut.notify(title, body). Returns id or ok. Handle permission request on first call.",
-      "status": "completed",
-      "createdAt": "2026-06-13T09:40:20.100Z",
-      "updatedAt": "2026-06-13T10:23:16.653Z",
-      "tags": [
-        "phase1",
-        "c++",
-        "lua",
-        "js"
-      ]
-    },
-    {
-      "id": "task-1781343620106-phase1-done",
-      "title": "Phase 1: wrap up — update coconut.d.lua, coconut.d.ts, coconut.ts",
-      "description": "After all 4 Phase 1 features are implemented, update type definitions:\n- coconut.d.lua: add coconut.env (with __index), coconut.clipboard, coconut.notify, coconut.openUrl\n- coconut.d.ts: add clipboard and notify to CoconutJsAPI\n- coconut.ts: implement clipboard and notify wrappers\n- coconut.d.lua: add chooseDir to dialog.open signature (already in C++)\n- coconut.d.ts: add listDir, exists, resolve, writeText to CoconutFsAPI",
+      "id": "task-1781367394777-bam711w",
+      "title": "EPIC: coconut bundle — standalone distributable app packaging",
+      "description": "coconut bundle reads project config, generates platform-specific manifests, produces a standalone .app (macOS), portable folder (Windows), or AppDir (Linux) with all deps bundled. No C++ rebuild needed for end users.",
       "status": "pending",
-      "createdAt": "2026-06-13T09:40:20.100Z",
-      "updatedAt": "2026-06-13T09:40:20.100Z",
-      "tags": [
-        "phase1",
-        "docs"
-      ]
+      "createdAt": "2026-06-13T16:16:34.777Z",
+      "updatedAt": "2026-06-13T16:16:34.777Z"
     },
     {
-      "id": "task-1781343818216-spawn",
-      "title": "Phase 2: coconut.spawn — async process execution",
-      "description": "C++: platform subprocess with stdout/stderr capture (popen / CreateProcess / fork+exec). Lua binding: coconut.spawn(cmd, args table, opts table?) -> { code, stdout, stderr }. JS binding: not needed (spawn is backend-only). opts: { cwd, env, timeout }. Package: src/packages/spawn.h / src/packages/spawn.cpp. Platform: src/platform/darwin/spawn.mm, src/platform/win/spawn.cpp, src/platform/linux/spawn.cpp.",
-      "status": "pending",
-      "createdAt": "2026-06-13T09:43:38.205Z",
-      "updatedAt": "2026-06-13T09:43:38.205Z",
-      "tags": [
-        "phase2",
-        "c++",
-        "lua"
-      ]
+      "id": "task-1781367401761-d7lym2u",
+      "title": "Bundle-aware binary — detect .app bundle at startup (option B)",
+      "description": "On macOS, use NSBundle.mainBundle to detect if running from inside a .app. If so, resolve project root to .app/Contents/Resources. This removes the need for a shell launcher script.",
+      "status": "completed",
+      "createdAt": "2026-06-13T16:16:41.761Z",
+      "updatedAt": "2026-06-13T16:31:34.121Z"
     },
     {
-      "id": "task-1781343818217-quit-restart",
-      "title": "Phase 2: coconut.quit / coconut.restart",
-      "description": "C++: graceful app termination and restart. Lua binding: coconut.quit(exitCode?) and coconut.restart(). JS binding: coconut.quit() (restart not needed in JS). Uses platform APIs (NSApplication terminate / terminate: / _exit on Unix, CreateProcess with /c restart on Win). Package: src/packages/app.h / src/packages/app.cpp. Platform darwin: lifecycle.cpp already has terminate, wrap it cleanly. Platform win: TerminateProcess + CreateProcess self. Platform linux: raise(SIGTERM).",
-      "status": "pending",
-      "createdAt": "2026-06-13T09:43:38.205Z",
-      "updatedAt": "2026-06-13T09:43:38.205Z",
-      "tags": [
-        "phase2",
-        "c++",
-        "lua",
-        "js"
-      ]
+      "id": "task-1781367405169-hb8kxf5",
+      "title": "Add darwin/win/linux + manifests fields to Config struct",
+      "description": "Extend Config with darwin, win, linux, and manifests structs. Support global+override pattern (e.g. frameless=global default, darwin.frameless overrides). Implement merge order: defaults → global → platform.",
+      "status": "completed",
+      "createdAt": "2026-06-13T16:16:45.169Z",
+      "updatedAt": "2026-06-13T17:19:52.625Z"
     },
     {
-      "id": "task-1781343818218-fs-extend",
-      "title": "Phase 2: extend coconut.fs — mkdir, remove, temp files",
-      "description": "C++: missing fs operations in src/fs.cpp. Add: mkdir(path, recursive), remove(path), mkstemp(template), tempDir(). Lua binding: coconut.fs.mkdir(path, recursive?), coconut.fs.remove(path). JS binding: mirror listDir, exists, resolve, writeText to coconut.d.ts (they exist in Lua but not TS). Package already exists: src/fs.cpp / src/fs.h. No new package needed — extend existing.",
-      "status": "pending",
-      "createdAt": "2026-06-13T09:43:38.205Z",
-      "updatedAt": "2026-06-13T09:43:38.205Z",
-      "tags": [
-        "phase2",
-        "c++",
-        "lua",
-        "js"
-      ]
+      "id": "task-1781367408537-3wf44le",
+      "title": "Parse platform + manifests tables from coconut.config.lua",
+      "description": "Read darwin/win/linux and manifests tables in loadConfigLua(). Merge with merge order. Validate fields. Store in Config struct. No rebuild needed — all runtime.",
+      "status": "completed",
+      "createdAt": "2026-06-13T16:16:48.537Z",
+      "updatedAt": "2026-06-13T17:21:56.535Z"
     },
     {
-      "id": "task-1781343818219-dialog-extend",
-      "title": "Phase 2: extend coconut.dialog — chooseDir in TS, message types",
-      "description": "JS: coconut.d.ts CoconutDialogModule missing chooseDir param on open(). Add to TS: coconut.dialog.open(title, multi?, chooseDir?) and dialog.save(title, defaultName?). Update coconut.ts to pass all params. Lua already supports chooseDir (coconut.d.lua has it). Also add dialog.message kind parameter (info, warn, error, question) — macOS supports these as NSAlert types. Package: src/dialog.cpp / src/dialog.h already exist.",
+      "id": "task-1781367411995-a1fz12l",
+      "title": "Dynamic NSBundle patching for macOS manifests at startup",
+      "description": "At runtime startup, read darwin.* config and mutate NSBundle.mainBundle.infoDictionary in-memory: bundle_identifier, ns_permissions, extra_plist keys. Used in dev mode (outside .app bundle) so all features work without rebuild.",
       "status": "pending",
-      "createdAt": "2026-06-13T09:43:38.205Z",
-      "updatedAt": "2026-06-13T09:43:38.205Z",
-      "tags": [
-        "phase2",
-        "lua",
-        "js"
-      ]
+      "createdAt": "2026-06-13T16:16:51.995Z",
+      "updatedAt": "2026-06-13T16:16:51.995Z"
     },
     {
-      "id": "task-1781343818220-dnd",
-      "title": "Phase 2: drag and drop — file drop onto window",
-      "description": "C++: register for drag operations on WKWebView. macOS: implement -(NSDragOperation)webView:validateDrop: and -(BOOL)webView:acceptDrag. When files are dropped, emit \"file_drop\" event via __coconut_dispatch_event with { paths: string[] }. Lua binding: not needed (handled by events system). JS binding: coconut.on(\"file_drop\", cb) — already works via event system. Platform darwin: in webview config or via WKWebView drag/drop delegate. Platform win: IOleDropTarget. Platform linux: GtkWidget drag-drop.",
+      "id": "task-1781367415535-niono2m",
+      "title": "coconut bundle: generate Info.plist from config + manifests.darwin",
+      "description": "Render macOS Info.plist XML from config fields (bundle_identifier, cf_bundle_name, version, category, ns_permissions, extra_plist). Place in .app/Contents/Info.plist.",
       "status": "pending",
-      "createdAt": "2026-06-13T09:43:38.205Z",
-      "updatedAt": "2026-06-13T09:43:38.205Z",
-      "tags": [
-        "phase2",
-        "c++",
-        "js"
-      ]
+      "createdAt": "2026-06-13T16:16:55.535Z",
+      "updatedAt": "2026-06-13T16:16:55.535Z"
     },
     {
-      "id": "task-1781343818221-pdf",
-      "title": "Phase 2: coconut.printToPdf — native PDF export",
-      "description": "C++: render current webview to PDF file. macOS: WKWebView.printOperationWithPrintInfo. Win: IWebBrowser2::Exec with OLECMDID_PRINT. Lua binding: coconut.printToPdf(outputPath, opts?) -> ok. JS binding: coconut.printToPdf(outputPath). opts: { pageSize, margins }. Useful for atlas-tool export, code-editor save, report generation. Package: src/packages/pdf.h / src/packages/pdf.cpp. Platform darwin: print to PDF via NSPrintOperation.",
+      "id": "task-1781367419631-loemeqw",
+      "title": "coconut bundle: generate app.manifest + resources for Windows",
+      "description": "Render Windows app.manifest XML from win.* config (dpi_awareness, requested_privileges, long_paths, comctl_version, extra_manifest). Generate .rc with VERSIONINFO from version_info config. Place alongside .exe.",
       "status": "pending",
-      "createdAt": "2026-06-13T09:43:38.205Z",
-      "updatedAt": "2026-06-13T09:43:38.205Z",
-      "tags": [
-        "phase2",
-        "c++",
-        "lua",
-        "js"
-      ]
+      "createdAt": "2026-06-13T16:16:59.631Z",
+      "updatedAt": "2026-06-13T16:16:59.631Z"
     },
     {
-      "id": "task-1781343818222-phase2-done",
-      "title": "Phase 2: wrap up — test suite, all type defs in sync",
-      "description": "After Phase 2 features:\n- Run unit tests: xmake test\n- Verify all lua bindings match coconut.d.lua\n- Verify all JS wrappers match coconut.d.ts\n- coconut.ts should mirror all C++ features accessible from JS\n- Check xmake.lua links all new platform packages correctly\n- No missing bindings or type gaps",
+      "id": "task-1781367423174-n4dnnhk",
+      "title": "coconut bundle: generate .desktop + metainfo.xml for Linux",
+      "description": "Render .desktop file from linux.* config (name, exec, categories, mime_types, extra_desktop_keys). Render metainfo.xml from linux.appstream config. Place in AppDir/usr/share/applications/ and AppDir/usr/share/metainfo/.",
       "status": "pending",
-      "createdAt": "2026-06-13T09:43:38.205Z",
-      "updatedAt": "2026-06-13T09:43:38.205Z",
-      "tags": [
-        "phase2",
-        "docs"
-      ]
+      "createdAt": "2026-06-13T16:17:03.174Z",
+      "updatedAt": "2026-06-13T16:17:03.174Z"
+    },
+    {
+      "id": "task-1781367426620-a5brs2i",
+      "title": "coconut bundle: assemble directory structure + copy files",
+      "description": "Create output bundle structure (macOS .app/Contents/{MacOS,Resources,Frameworks}, Windows flat dir, Linux AppDir). Copy coconut binary, user project files (views, assets, commands, main.lua), LuaJIT (if dynamic). Generate icon from config or default. [macOS] codesign --deep if identity available.",
+      "status": "pending",
+      "createdAt": "2026-06-13T16:17:06.620Z",
+      "updatedAt": "2026-06-13T16:17:06.620Z"
+    },
+    {
+      "id": "task-1781367429957-j8ittka",
+      "title": "EPIC: CLI improvements — new, run, generate, bundle subcommands",
+      "description": "Polish the CLI surface. coconut generate (existing), coconut new (scaffold), coconut run (dev workflow), coconut bundle (packaging). --help per subcommand. --version. Auto-detect project in cwd.",
+      "status": "pending",
+      "createdAt": "2026-06-13T16:17:09.957Z",
+      "updatedAt": "2026-06-13T16:17:09.957Z"
+    },
+    {
+      "id": "task-1781367433739-p4xwzc9",
+      "title": "coconut new — scaffold projects from templates",
+      "description": "coconut new <project-name> creates project directory with coconut.config.lua, main.lua, views/, assets/, commands/, generated/. Optional --template (default|playground|minimal). Configures view_root, command_root, initial_view.",
+      "status": "pending",
+      "createdAt": "2026-06-13T16:17:13.739Z",
+      "updatedAt": "2026-06-13T16:17:13.739Z"
+    },
+    {
+      "id": "task-1781367436942-nuur0m8",
+      "title": "coconut run — dev workflow improvements",
+      "description": "Auto-detect project in cwd (look for coconut.config.lua). --debug shorthand for debug mode. Config override flags: --window-width, --frameless, --transparent, --title. Watch mode for live-reload (future).",
+      "status": "pending",
+      "createdAt": "2026-06-13T16:17:16.942Z",
+      "updatedAt": "2026-06-13T16:17:16.942Z"
+    },
+    {
+      "id": "task-1781367440287-zlmo2cu",
+      "title": "coconut generate — polish existing generator",
+      "description": "Print clearer output (what was generated). Respect custom output_dir from config. Generate .d.ts + .g.js alongside .g.lua. Skip unchanged files (mtime check). --watch for auto-regeneration on file changes.",
+      "status": "pending",
+      "createdAt": "2026-06-13T16:17:20.287Z",
+      "updatedAt": "2026-06-13T16:17:20.287Z"
+    },
+    {
+      "id": "task-1781367443534-lsulhwm",
+      "title": "CLI help system + subcommand routing",
+      "description": "coconut --help shows available subcommands. coconut <subcommand> --help per-subcommand help text. coconut --version prints version. Subcommand routing: detect first non-flag arg and dispatch to generate | new | run | bundle.",
+      "status": "pending",
+      "createdAt": "2026-06-13T16:17:23.534Z",
+      "updatedAt": "2026-06-13T16:17:23.534Z"
+    },
+    {
+      "id": "task-1781367873085-pitvnx8",
+      "title": "Opt-in: compile config to bytecode on bundle (B2)",
+      "description": "When bundle.bytecode_config is true: compile the stripped coconut.config.lua to .luac via luajit -b <arch> before bundling. Runtime loader handles .luac transparently. User must bundle separately per arch if using this opt-in.",
+      "status": "pending",
+      "createdAt": "2026-06-13T16:24:33.085Z",
+      "updatedAt": "2026-06-13T16:31:15.136Z"
+    },
+    {
+      "id": "task-1781368180355-mseeecg",
+      "title": "Strip dev-only fields from config on bundle (Option A default)",
+      "description": "When bundling, coconut.config.lua gets dev fields removed: generators.*, debug.*, manifests.*, bundle.*. The stripped config ships in .app/Contents/Resources/coconut.config.lua. Runtime loads it when running from .app. Bundle-aware binary (option B) points to Resources/.",
+      "status": "pending",
+      "createdAt": "2026-06-13T16:29:40.355Z",
+      "updatedAt": "2026-06-13T16:29:40.355Z"
+    },
+    {
+      "id": "task-1781368270390-7no7e0v",
+      "title": "Static-link LuaJIT in release builds",
+      "description": "Link libluajit.a statically so the shipped binary has zero dylib deps. Debug keeps dynamic for iteration speed. xmake: use add_requires with shared=false config or add_linkdirs/add_links for the .a file.",
+      "status": "pending",
+      "createdAt": "2026-06-13T16:31:10.390Z",
+      "updatedAt": "2026-06-13T16:31:10.390Z"
     }
   ]
 }

@@ -198,6 +198,7 @@ void WebviewTransport::handleCall(const char* id, const rpc::Message& msg) {
   sol::state_view lua(*m_app->lua_state->lua_state);
   sol::table paramsTable = toTable(lua, msg.payload);
 
+  debug::info(std::format("calling cmd '{}' with {} args", msg.name, paramsTable.size()));
   auto result = it->second(paramsTable, m_app->lua_state->context);
 
   nlohmann::json envelope;
@@ -222,6 +223,7 @@ void WebviewTransport::handleCall(const char* id, const rpc::Message& msg) {
   } else {
     envelope["ok"] = false;
     sol::error err = result;
+    debug::warn(std::format("bridge handleCall: cmd '{}' failed: {}", msg.name, err.what()));
     envelope["error"] = {{"code", "LuaError"}, {"message", err.what()}};
   }
 
