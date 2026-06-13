@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "coconut-milk",
-  "updatedAt": "2026-06-13T18:43:51.484Z",
+  "updatedAt": "2026-06-13T18:53:56.233Z",
   "tasks": [
     {
       "id": "task-1781366119344-ek6z4w9",
@@ -135,9 +135,9 @@
       "id": "task-1781368180355-mseeecg",
       "title": "Strip dev-only fields from config on bundle (Option A default)",
       "description": "When bundling, coconut.config.lua gets dev fields removed: generators.*, debug.*, manifests.*, bundle.*. The stripped config ships in .app/Contents/Resources/coconut.config.lua. Runtime loads it when running from .app. Bundle-aware binary (option B) points to Resources/.",
-      "status": "pending",
+      "status": "completed",
       "createdAt": "2026-06-13T16:29:40.355Z",
-      "updatedAt": "2026-06-13T16:29:40.355Z"
+      "updatedAt": "2026-06-13T18:53:56.233Z"
     },
     {
       "id": "task-1781368270390-7no7e0v",
