@@ -1,7 +1,9 @@
 #include "./command_definition.hpp"
 #include "./generate.h"
+
 #include <filesystem>
 #include <fstream>
+#include <print>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -51,10 +53,33 @@ static std::string outputStem(const std::string& filePath) {
   return fs::path(filePath).stem().string();
 }
 
+/// Check whether the source file is newer than all generated outputs.
+/// If any output is missing or older, return true (needs regeneration).
+static bool needsRegeneration(const fs::path& srcPath,
+                              const std::string& outDir,
+                              const std::string& stem) {
+  std::error_code ec;
+  auto srcTime = fs::last_write_time(srcPath, ec);
+  if (ec) return true;  // can't read source time, regenerate to be safe
+
+  auto check = [&](const std::string& ext) -> bool {
+    auto outPath = fs::path(outDir) / (stem + ext);
+    if (!fs::exists(outPath, ec)) return true;
+    auto outTime = fs::last_write_time(outPath, ec);
+    if (ec) return true;
+    return outTime < srcTime;  // output is older than source
+  };
+
+  return check(".g.lua") || check(".d.ts") || check(".g.js");
+}
+
 /// Process a single .lua command file and generate output files.
 static bool processCommandFile(const fs::path& inputPath,
                                const std::string& outDir,
-                               std::vector<std::string>& allNames) {
+                               std::vector<std::string>& allNames,
+                               bool& skipped) {
+  skipped = false;
+
   std::ifstream file(inputPath);
   if (!file.is_open()) {
     return false;
@@ -73,6 +98,19 @@ static bool processCommandFile(const fs::path& inputPath,
 
   std::string modulePath = deriveModulePath(inputPath.string());
   std::string stem = outputStem(inputPath.string());
+
+  // Mtime check: skip if source is older than all generated outputs
+  if (!needsRegeneration(inputPath, outDir, stem)) {
+    skipped = true;
+    // Still collect command names for the aggregate file
+    for (const auto& cmd : commands) {
+      bool found = false;
+      for (const auto& n : allNames)
+        if (n == cmd.name) { found = true; break; }
+      if (!found) allNames.push_back(cmd.name);
+    }
+    return true;
+  }
 
   fs::create_directories(outDir);
 
@@ -112,27 +150,42 @@ namespace coconut::generator {
 
 int runGenerate(const std::string& cmdRoot, const std::string& outDir) {
   std::vector<std::string> allNames;
+  int totalCommands = 0;
+  int filesGenerated = 0;
+  int filesSkipped = 0;
+  int filesError = 0;
 
   // Resolve the command root directory
   fs::path cmdDir = cmdRoot;
   if (!fs::is_directory(cmdDir)) {
+    std::println("generate: command root '{}' not found", cmdRoot);
     return 1;
   }
 
   // Process each .lua file in the command root
-  bool anySuccess = false;
   for (const auto& entry : fs::directory_iterator(cmdDir)) {
     if (entry.path().extension() != ".lua") continue;
     std::string name = entry.path().filename().string();
     // Skip generated files (.g.lua)
     if (name.size() > 6 && name.substr(name.size() - 6) == ".g.lua") continue;
 
-    if (processCommandFile(entry.path(), outDir, allNames)) {
-      anySuccess = true;
+    bool skipped = false;
+    if (processCommandFile(entry.path(), outDir, allNames, skipped)) {
+      if (skipped) {
+        filesSkipped++;
+      } else {
+        filesGenerated++;
+      }
+    } else {
+      std::println("  error: failed to process '{}'", name);
+      filesError++;
     }
   }
 
-  // Write aggregated commands.d.ts
+  // Count total commands
+  totalCommands = static_cast<int>(allNames.size());
+
+  // Write aggregated commands.d.ts (always, to keep it in sync)
   if (!allNames.empty()) {
     fs::create_directories(outDir);
     std::ofstream agg(fs::path(outDir) / "commands.d.ts");
@@ -147,11 +200,31 @@ int runGenerate(const std::string& cmdRoot, const std::string& outDir) {
     agg << ";\n";
   }
 
-  if (!anySuccess) {
-    return 1;
+  // Report results
+  if (totalCommands == 0) {
+    std::println("generate: no @command annotations found in {}/*.lua", cmdRoot);
+    std::println("  (add ---@command above a Lua function to generate wrappers)");
+    return 0;  // Not an error — project may not use commands yet
   }
 
-  return 0;
+  std::string summary;
+  if (filesGenerated > 0) {
+    summary += std::to_string(filesGenerated) + " file(s) generated";
+  }
+  if (filesSkipped > 0) {
+    if (!summary.empty()) summary += ", ";
+    summary += std::to_string(filesSkipped) + " file(s) up-to-date (skipped)";
+  }
+  if (filesError > 0) {
+    if (!summary.empty()) summary += ", ";
+    summary += std::to_string(filesError) + " error(s)";
+  }
+
+  std::println("generate: {} command(s) in {} — {}",
+               totalCommands, cmdRoot, summary);
+  std::println("  output: {}/{{*.g.lua, *.d.ts, *.g.js, commands.d.ts}}", outDir);
+
+  return filesError > 0 ? 1 : 0;
 }
 
 } // namespace coconut::generator
