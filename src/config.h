@@ -31,6 +31,15 @@ struct IconConfig {
   std::string png_path;    ///< Linux: path to .png file (or freedesktop icon name)
 };
 
+// ── macOS system permission / notification strings ───────────────────────────
+
+/// macOS NS*UsageDescription strings for system permission prompts.
+/// Maps key name (e.g. "NSCameraUsageDescription") → description text.
+struct NsConfig {
+  std::string notification_alert_style;  ///< NSUserNotificationAlertStyle (alert|banner|none)
+  std::map<std::string, std::string> usage_descriptions;  ///< NS*UsageDescription keys
+};
+
 // ── Bundling / packaging hints ─────────────────────────────────────────────
 
 /// Bundling configuration (dev-time config, not runtime).
@@ -75,6 +84,12 @@ struct PlatformConfig {
 
   // App identity overrides for this platform (deep-merged with shared app.*)
   AppConfig app;
+
+  // Explicit bundle identifier for this platform (overrides app.id)
+  std::string bundle_identifier;
+
+  // macOS permission / notification strings
+  NsConfig ns;
 
   // Manifests for this platform (deep-merged with shared manifests.*)
   ManifestsConfig manifests;

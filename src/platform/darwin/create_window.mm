@@ -80,4 +80,36 @@ const char *coconut_bundle_resource_path() {
   }
 }
 
+/// Apply darwin.* config fields to the live NSBundle.
+/// Mutates [[NSBundle mainBundle] infoDictionary] in-place.
+void coconut_apply_darwin_config(const char *bundle_identifier,
+                                  const char *notification_alert_style,
+                                  const char **usage_desc_keys,
+                                  const char **usage_desc_values,
+                                  int usage_desc_count) {
+  @autoreleasepool {
+    NSBundle *bundle = [NSBundle mainBundle];
+    // infoDictionary returns NSDictionary; cast to mutable to set keys.
+    NSMutableDictionary *info = (NSMutableDictionary *)[bundle infoDictionary];
+    if (!info) return;
+
+    if (bundle_identifier && bundle_identifier[0]) {
+      [info setObject:[NSString stringWithUTF8String:bundle_identifier]
+                forKey:@"CFBundleIdentifier"];
+    }
+
+    if (notification_alert_style && notification_alert_style[0]) {
+      [info setObject:[NSString stringWithUTF8String:notification_alert_style]
+                forKey:@"NSUserNotificationAlertStyle"];
+    }
+
+    for (int i = 0; i < usage_desc_count; i++) {
+      if (usage_desc_keys[i] && usage_desc_values[i]) {
+        [info setObject:[NSString stringWithUTF8String:usage_desc_values[i]]
+                  forKey:[NSString stringWithUTF8String:usage_desc_keys[i]]];
+      }
+    }
+  }
+}
+
 } // extern "C"

@@ -22,6 +22,24 @@ static void luaCopy(const sol::table& src, const char* key, T& dst) {
   if (val.is<T>()) dst = val.as<T>();
 }
 
+// ── NsConfig parser (Lua) ──────────────────────────────────────────────────
+
+static void parseNsConfig(const sol::table& t, NsConfig& cfg) {
+  luaCopy(t, "notification_alert_style", cfg.notification_alert_style);
+
+  {
+    sol::object obj = t["usage_descriptions"];
+    if (obj.is<sol::table>()) {
+      sol::table m = obj.as<sol::table>();
+      for (auto& [k, v] : m) {
+        if (v.is<std::string>()) {
+          cfg.usage_descriptions[k.as<std::string>()] = v.as<std::string>();
+        }
+      }
+    }
+  }
+}
+
 // ── AppConfig parser (Lua) ─────────────────────────────────────────────────
 
 static void parseAppConfig(const sol::table& t, AppConfig& cfg) {
@@ -132,6 +150,16 @@ static void parsePlatformConfig(const sol::table& t, PlatformConfig& cfg) {
       parseAppConfig(obj.as<sol::table>(), cfg.app);
     }
   }
+  // bundle_identifier: explicit override for this platform
+  luaCopy(t, "bundle_identifier", cfg.bundle_identifier);
+
+  // ns: permission / notification strings
+  {
+    sol::object obj = t["ns"];
+    if (obj.is<sol::table>()) {
+      parseNsConfig(obj.as<sol::table>(), cfg.ns);
+    }
+  }
 
   // manifests: deep-merged
   {
@@ -159,7 +187,19 @@ static void jsonCopyStr(const nlohmann::json& src, const char* key, std::string&
   if (src.contains(key) && src[key].is_string()) dst = src[key].get<std::string>();
 }
 
+// ── NsConfig parser (JSON) ───────────────────────────────────────────────
+
+
+static void parseNsConfig(const nlohmann::json& j, NsConfig& cfg) {
+  jsonCopyStr(j, "notification_alert_style", cfg.notification_alert_style);
+  if (j.contains("usage_descriptions") && j["usage_descriptions"].is_object()) {
+    for (auto& [k, v] : j["usage_descriptions"].items())
+      if (v.is_string()) cfg.usage_descriptions[k] = v.get<std::string>();
+  }
+}
+
 // ── AppConfig parser (JSON) ─────────────────────────────────────────────────
+
 
 static void parseAppConfig(const nlohmann::json& j, AppConfig& cfg) {
   jsonCopyStr(j, "name",         cfg.name);
@@ -210,6 +250,9 @@ static void parsePlatformConfig(const nlohmann::json& j, PlatformConfig& cfg) {
     cfg.transparent = j["transparent"].get<bool>();
   if (j.contains("app") && j["app"].is_object())
     parseAppConfig(j["app"], cfg.app);
+  jsonCopyStr(j, "bundle_identifier", cfg.bundle_identifier);
+  if (j.contains("ns") && j["ns"].is_object())
+    parseNsConfig(j["ns"], cfg.ns);
   if (j.contains("manifests") && j["manifests"].is_object())
     parseManifestsConfig(j["manifests"], cfg.manifests);
 }

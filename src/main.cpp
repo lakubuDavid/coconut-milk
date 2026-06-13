@@ -118,6 +118,27 @@ int main(int argc, char* argv[]) {
     debug::info("Place coconut.config.lua (or coconut.config.json) in the working directory.");
   }
 
+  // Apply darwin.* config to NSBundle at runtime (notification permissions,
+  // bundle identifier, etc.) so the OS sees the right values.
+#if defined(__APPLE__)
+  {
+    const auto& dn = cfg.darwin;
+    // Resolve effective bundle identifier: darwin.bundle_identifier >
+    // darwin.app.id > app.id
+    std::string bid = dn.bundle_identifier;
+    if (bid.empty()) bid = dn.app.id;
+    if (bid.empty()) bid = cfg.app.id;
+
+    std::string notifStyle = dn.ns.notification_alert_style;
+
+    coconut::platform::applyDarwinConfig(
+        bid, notifStyle, dn.ns.usage_descriptions);
+    if (!bid.empty()) {
+      debug::info(std::format("darwin: applied CFBundleIdentifier='{}'", bid));
+    }
+  }
+#endif
+
   // Install custom URL scheme handler (coconut://) before webview_create().
   // On macOS this sets the pre-WKWebView-configuration hook.
   // On other platforms this stores the root dir for later registration.
