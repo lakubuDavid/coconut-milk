@@ -30,6 +30,7 @@ namespace coconut {
     void _bindCoconutLuaApi(Runtime* runtime);
     void _bindViewClass(Runtime* runtime);
     void _bindUserType(Runtime* runtime);
+    void _registerBuiltinCommands(Runtime* runtime);
 
     /// Load the application entry point (main.lua) and execute the
     /// coconut.config(ctx) callback if present.

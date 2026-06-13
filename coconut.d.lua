@@ -84,7 +84,7 @@ View = {}
 
 ---@class CoconutDialogModule
 ---@field message fun(message: string, title?: string, kind?: "info"|"warn"|"error"|"question"): CoconutDialogResult
----@field open fun(title?: string, multi?: boolean): CoconutDialogResult
+---@field open fun(title?: string, multi?: boolean, chooseDir?: boolean): CoconutDialogResult
 ---@field save fun(title?: string, defaultName?: string): CoconutDialogResult
 
 ---@class CoconutJsonModule
@@ -98,6 +98,20 @@ View = {}
 ---@field writeBytes fun(path: string, data: string): boolean
 ---@field exists fun(path: string): boolean
 ---@field resolve fun(root: string, relpath: string): string
+---@field listDir fun(path: string): table
+
+--- Environment variable access (uses __index metamethod).
+--- Any string key looks up the env var via getenv().
+--- Predefined keys: cwd, homedir, pathSeparator
+---@class CoconutEnvModule
+---@field cwd string
+---@field homedir string
+---@field pathSeparator string
+---@field [string] string|nil
+
+---@class CoconutClipboardModule
+---@field readText fun(): string
+---@field writeText fun(text: string): boolean
 
 ---@class CoconutModule
 ---@field views fun(): table<string, CoconutViewDescriptor|fun(): CoconutViewDescriptor>
@@ -113,9 +127,13 @@ View = {}
 ---@field info fun(msg: string)
 ---@field warn fun(msg: string)
 ---@field error fun(msg: string)
+---@field openUrl fun(url: string): boolean
+---@field notify fun(title: string, body: string): boolean
 ---@field dialog CoconutDialogModule
 ---@field json CoconutJsonModule
 ---@field fs CoconutFsModule
+---@field env CoconutEnvModule
+---@field clipboard CoconutClipboardModule
 
 ---@type CoconutModule
 coconut = {

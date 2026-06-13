@@ -214,6 +214,62 @@ const coconut = {
     readText: async (path: string): Promise<{ ok: boolean; data?: string; error?: string }> => {
       return coconut.call("fs_read_text", { path })
     },
+    exists: async (path: string): Promise<{ ok: boolean; exists?: boolean; error?: string }> => {
+      return coconut.call("fs_exists", { path })
+    },
+    writeText: async (path: string, content: string): Promise<{ ok: boolean; error?: string }> => {
+      return coconut.call("fs_write_text", { path, content })
+    },
+    resolve: async (root: string, relpath: string): Promise<{ ok: boolean; data?: string; error?: string }> => {
+      return coconut.call("fs_resolve", { root, relpath })
+    },
+    listDir: async (path: string): Promise<{ ok: boolean; data?: Array<{ name: string; path: string; is_dir: boolean }>; error?: string }> => {
+      return coconut.call("fs_list_dir", { path })
+    },
+  },
+
+  /**
+   * Native dialog helpers.
+   * Usage: await coconut.dialog.open("Select a file", false, true)
+   */
+  dialog: {
+    message: async (message?: string, title?: string, kind?: string): Promise<{ confirmed: boolean }> => {
+      return coconut.call("dialog_message", { message, title, kind })
+    },
+    open: async (title?: string, multi?: boolean, chooseDir?: boolean): Promise<{ confirmed: boolean; path: string; paths: string[] }> => {
+      return coconut.call("dialog_open", { title, multi, chooseDir })
+    },
+    save: async (title?: string, defaultName?: string): Promise<{ confirmed: boolean; path: string }> => {
+      return coconut.call("dialog_save", { title, defaultName })
+    },
+  },
+
+  /**
+   * Open URL in system browser.
+   */
+  openUrl: async (url: string): Promise<boolean> => {
+    return coconut.call<boolean>("openUrl", { url })
+  },
+
+  /**
+   * Show a system notification.
+   */
+  notify: async (title: string, body: string): Promise<boolean> => {
+    return coconut.call<boolean>("notify", { title, body })
+  },
+
+  /**
+   * Clipboard read/write.
+   * Usage: const text = await coconut.clipboard.read()
+   *       await coconut.clipboard.write("hello")
+   */
+  clipboard: {
+    read: async (): Promise<string> => {
+      return coconut.call<string>("clipboard_read", {})
+    },
+    write: async (text: string): Promise<boolean> => {
+      return coconut.call<boolean>("clipboard_write", { text })
+    },
   },
 }
 

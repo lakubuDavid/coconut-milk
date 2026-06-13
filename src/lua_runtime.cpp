@@ -7,6 +7,8 @@
 #include "fs.h"
 #include "packages/env.h"
 #include "packages/open_url.h"
+#include "packages/clipboard.h"
+#include "packages/notify.h"
 
 #include <sol/state.hpp>
 #include <sol/table.hpp>
@@ -35,10 +37,74 @@ std::expected<Runtime *, Error> create(Config *cfg, CoconutContext *ctx) {
   _bindCoconutLuaApi(runtime);
   _bindViewClass(runtime);
   _bindUserType(runtime);
+  _registerBuiltinCommands(runtime);
 
   // Transport is created by main.cpp after runtime->app is wired.
 
   return runtime;
+}
+
+void _registerBuiltinCommands(Runtime *runtime) {
+  // Register framework-level commands so the JS bridge can dispatch to them.
+  // These wrap the C++ functions bound on the coconut table.
+  sol::state& lua = *runtime->lua_state;
+  const char* src = R"(
+    local ctx = _G.ctx
+    if not ctx then return end
+
+    ctx:bind("clipboard_read", function()
+      return coconut.clipboard.readText()
+    end)
+    ctx:bind("clipboard_write", function(params)
+      return coconut.clipboard.writeText(params.text or "")
+    end)
+    ctx:bind("openUrl", function(params)
+      return coconut.openUrl(params.url or "")
+    end)
+    ctx:bind("notify", function(params)
+      return coconut.notify(params.title or "", params.body or "")
+    end)
+    ctx:bind("dialog_message", function(params)
+      return coconut.dialog.message(params.message or "",
+                                     params.title or "Message",
+                                     params.kind or "info")
+    end)
+    ctx:bind("dialog_open", function(params)
+      return coconut.dialog.open(params.title or "Open",
+                                  params.multi,
+                                  params.chooseDir)
+    end)
+    ctx:bind("dialog_save", function(params)
+      return coconut.dialog.save(params.title or "Save",
+                                  params.defaultName or "")
+    end)
+    ctx:bind("fs_exists", function(params)
+      local ok, exists = pcall(coconut.fs.exists, params.path)
+      if ok then return { ok = true, exists = exists } end
+      return { ok = false, error = tostring(exists) }
+    end)
+    ctx:bind("fs_write_text", function(params)
+      local ok, err = pcall(coconut.fs.writeText, params.path, params.content)
+      if ok then return { ok = err } end
+      return { ok = false, error = tostring(err) }
+    end)
+    ctx:bind("fs_resolve", function(params)
+      local ok, resolved = pcall(coconut.fs.resolve, params.root, params.relpath)
+      if ok then return { ok = true, data = resolved } end
+      return { ok = false, error = tostring(resolved) }
+    end)
+    ctx:bind("fs_list_dir", function(params)
+      local ok, entries = pcall(coconut.fs.listDir, params.path)
+      if ok then return { ok = true, data = entries } end
+      return { ok = false, error = tostring(entries) }
+    end)
+  )";
+
+  auto result = lua.script(src, sol::script_pass_on_error);
+  if (!result.valid()) {
+    sol::error err = result;
+    debug::warn(std::format("builtin commands: {}", err.what()));
+  }
 }
 
 void _bindCoconutLuaApi(Runtime *runtime) {
@@ -273,6 +339,24 @@ void _bindCoconutLuaApi(Runtime *runtime) {
   coconut.set_function("openUrl", [](const std::string& url) -> bool {
     return open_url::open(url);
   });
+
+  // ── Clipboard ─────────────────────────────────────────────────
+  {
+    sol::table cb = (*runtime->lua_state).create_table();
+    cb.set_function("readText", []() -> std::string {
+      return clipboard::readText();
+    });
+    cb.set_function("writeText", [](const std::string& text) -> bool {
+      return clipboard::writeText(text);
+    });
+    coconut["clipboard"] = cb;
+  }
+
+  // ── Notifications ──────────────────────────────────────────────
+  coconut.set_function("notify",
+      [](const std::string& title, const std::string& body) -> bool {
+        return notify::notify(title, body);
+      });
 
   runtime->lua_state->set("coconut", coconut);
 }
