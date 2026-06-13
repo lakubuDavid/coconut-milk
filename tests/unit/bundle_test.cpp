@@ -3,6 +3,7 @@
 #include "test.h"
 
 #include <cstdio>
+#include <filesystem>
 #include <fstream>
 #include <string>
 
@@ -140,25 +141,65 @@ COCONUT_TEST(unit, bundle_pipeline_success) {
   auto result = coconut::bundle::bundle(cfg, "/tmp/coconut-bundle-unit-test");
   COCONUT_REQUIRE(result.ok);
 
-  // Verify stripped config was written
-  std::string configPath = "/tmp/coconut-bundle-unit-test/coconut.config.json";
+  // Verify stripped config was written (relocated to Contents/Resources/ by assemble)
+  std::string configPath = "/tmp/coconut-bundle-unit-test/Contents/Resources/coconut.config.json";
   std::ifstream f(configPath);
   COCONUT_REQUIRE(f.is_open());
   f.close();
 
+  // Verify Info.plist was generated
+  std::string plistPath = "/tmp/coconut-bundle-unit-test/Contents/Info.plist";
+  std::ifstream pf(plistPath);
+  COCONUT_REQUIRE(pf.is_open());
+  pf.close();
+
+  // Verify binary was copied to MacOS/
+  std::string binPath = "/tmp/coconut-bundle-unit-test/Contents/MacOS/coconut";
+  std::ifstream bf(binPath, std::ios::binary);
+  COCONUT_REQUIRE(bf.is_open());
+  bf.close();
+
   // Cleanup
-  std::remove(configPath.c_str());
-  std::remove("/tmp/coconut-bundle-unit-test");
+  std::filesystem::remove_all("/tmp/coconut-bundle-unit-test");
 }
 
-COCONUT_TEST(unit, bundle_generate_manifests_scaffold) {
+COCONUT_TEST(unit, bundle_generate_manifests_now_implemented) {
   coconut::Config cfg{};
-  auto result = coconut::bundle::generateManifests(cfg, "/tmp");
-  COCONUT_REQUIRE(!result.ok);  // scaffolded — not yet implemented
+  cfg.app.name = "Test App";
+  cfg.app.id = "com.test.app";
+
+  auto result = coconut::bundle::generateManifests(cfg, "/tmp/coconut-manifest-test");
+  COCONUT_REQUIRE(result.ok);
+
+  // Verify generated files
+  std::ifstream plist("/tmp/coconut-manifest-test/Contents/Info.plist");
+  COCONUT_REQUIRE(plist.is_open());
+  plist.close();
+
+  std::ifstream appmanifest("/tmp/coconut-manifest-test/app.manifest");
+  COCONUT_REQUIRE(appmanifest.is_open());
+  appmanifest.close();
+
+  std::ifstream desktop("/tmp/coconut-manifest-test/com.test.app.desktop");
+  COCONUT_REQUIRE(desktop.is_open());
+  desktop.close();
+
+  std::ifstream metainfo("/tmp/coconut-manifest-test/com.test.app.metainfo.xml");
+  COCONUT_REQUIRE(metainfo.is_open());
+  metainfo.close();
+
+  std::filesystem::remove_all("/tmp/coconut-manifest-test");
 }
 
-COCONUT_TEST(unit, bundle_assemble_scaffold) {
+COCONUT_TEST(unit, bundle_assemble_now_implemented) {
   coconut::Config cfg{};
-  auto result = coconut::bundle::assembleBundle(cfg, "/tmp");
-  COCONUT_REQUIRE(!result.ok);  // scaffolded — not yet implemented
+
+  auto result = coconut::bundle::assembleBundle(cfg, "/tmp/coconut-assemble-test");
+  COCONUT_REQUIRE(result.ok);
+
+  // Verify bundle structure
+  COCONUT_REQUIRE(std::filesystem::exists("/tmp/coconut-assemble-test/Contents/MacOS/coconut"));
+  COCONUT_REQUIRE(std::filesystem::exists("/tmp/coconut-assemble-test/Contents/Resources"));
+
+  std::filesystem::remove_all("/tmp/coconut-assemble-test");
 }

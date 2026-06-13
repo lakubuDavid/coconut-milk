@@ -32,10 +32,14 @@ Args parse(int argc, char* argv[]) {
   std::vector<std::string> positional;
   for (int j = 1; j < argc; ++j) {
     std::string_view a = argv[j];
-    if (a == "-h" || a == "--help"    || a == "-v" || a == "--version" ||
-        a == "-d" || a == "--debug"   || a == "-r" || a == "--root"     ||
-        a == "-o" || a == "--out-dir") {
-      continue;  // flag, skip over its value below if needed
+    // Skip flags AND their values
+    if (a == "-r" || a == "--root" || a == "-o" || a == "--out-dir") {
+      ++j;  // skip the value arg too
+      continue;
+    }
+    if (a == "-h" || a == "--help" || a == "-v" || a == "--version" ||
+        a == "-d" || a == "--debug" || a == "--bytecode") {
+      continue;  // flag, no value
     }
     if (a == "generate") {
       args.generate = true;
@@ -178,16 +182,13 @@ void printBundleHelp(const char* prog) {
   std::println("The bundle command:");
   std::println("  1. Strips dev-only fields from coconut.config.* (debug, manifests)");
   std::println("  2. Writes the shippable config to the output directory");
-  std::println("  3. Generates platform manifests (Info.plist, app.manifest, .desktop)");
-  std::println("  4. Assembles directory structure + copies binary + assets");
+  std::println("  3. Generates platform manifests (Info.plist, app.manifest, .desktop, metainfo.xml)");
+  std::println("  4. Assembles .app directory structure, copies binary + assets");
   std::println("");
   std::println("Options:");
   std::println("  -h, --help       Show this help and exit");
   std::println("  -o, --out-dir    Output directory (default: bundle/)");
   std::println("  --bytecode       Compile stripped config to Lua bytecode (B2 opt-in)");
-  std::println("");
-  std::println("Currently only step 1 (strip + write shippable config) is implemented.");
-  std::println("Steps 2-4 are scaffolded and return NotImplementedYet.");
 }
 
 void printVersion(const char* prog) {

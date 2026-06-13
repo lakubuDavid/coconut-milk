@@ -36,6 +36,8 @@ int main(int argc, char* argv[]) {
   if (args.help) {
     if (args.generate) {
       argparse::printGenerateHelp(argv[0]);
+    } else if (args.bundle) {
+      argparse::printBundleHelp(argv[0]);
     } else {
       argparse::printHelp(argv[0]);
     }
