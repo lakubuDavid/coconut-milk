@@ -25,43 +25,39 @@ end
 
 ---@command __coconut_window_ctl
 local function window_ctl(params, ctx)
+  local win = _G.__playground_win or ctx.window
+  _G.__playground_win = win
   local cmd = params.cmd
-  -- diagnostic: return info about ctx.window
+  -- diagnostic
   if cmd == "debug" then
-    local info = {
+    return {
       ctx_type = type(ctx),
-      has_window = ctx and ctx.window ~= nil or false,
-      window_type = ctx and type(ctx.window) or "nil",
-      has_app = ctx and ctx.window and ctx.window.app ~= nil or false,
+      win_type = type(win),
+      has_minimize = type(win.minimize) == "function",
+      has_resize = type(win.resize) == "function",
+      has_setPosition = type(win.setPosition) == "function",
+      has_setFullscreen = type(win.setFullscreen) == "function",
+      has_reload = type(win.reload) == "function",
     }
-    -- safely check method existence
-    if ctx and ctx.window then
-      info.can_minimize = type(ctx.window.minimize) ~= "nil" and type(ctx.window.minimize) ~= "function"
-      -- wait wrong, should be == "function"
-      info.can_minimize = type(ctx.window.minimize) == "function"
-      info.can_resize = type(ctx.window.resize) == "function"
-      info.can_setPosition = type(ctx.window.setPosition) == "function"
-    end
-    return info
   end
   if cmd == "minimize" then
-    ctx.window:minimize()
+    win:minimize()
   elseif cmd == "maximize" then
-    ctx.window:maximize()
+    win:maximize()
   elseif cmd == "toggleFullscreen" then
-    ctx.window:toggleFullscreen()
+    win:toggleFullscreen()
   elseif cmd == "close" then
-    ctx.window:close()
+    win:close()
   elseif cmd == "fullscreen_on" then
-    ctx.window:setFullscreen(true)
+    win:setFullscreen(true)
   elseif cmd == "fullscreen_off" then
-    ctx.window:setFullscreen(false)
+    win:setFullscreen(false)
   elseif cmd == "resize" then
-    ctx.window:resize(params.w or 800, params.h or 600)
+    win:resize(params.w or 800, params.h or 600)
   elseif cmd == "setPosition" then
-    ctx.window:setPosition(params.x or 0, params.y or 0)
+    win:setPosition(params.x or 0, params.y or 0)
   elseif cmd == "reload" then
-    ctx.window:reload()
+    win:reload()
   end
   return { ok = true }
 end
