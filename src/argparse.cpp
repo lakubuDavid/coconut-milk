@@ -41,7 +41,7 @@ Args parse(int argc, char* argv[]) {
     }
     if (a == "-h" || a == "--help" || a == "-v" || a == "--version" ||
         a == "-d" || a == "--debug" || a == "--bytecode" ||
-        a == "--frameless" || a == "--transparent") {
+        a == "--frameless" || a == "--transparent" || a == "--watch") {
       continue;  // flag, no value
     }
     if (a == "generate") {
@@ -142,6 +142,11 @@ Args parse(int argc, char* argv[]) {
 
     if (a == "--bytecode") {
       args.bytecode_config = true;
+      continue;
+    }
+
+    if (a == "--watch") {
+      args.watch = true;
       continue;
     }
 
@@ -246,6 +251,7 @@ void printGenerateHelp(const char* prog) {
   std::println("Options:");
   std::println("  -h, --help       Show this help and exit");
   std::println("  -o, --out-dir    Output directory (default: generated/)");
+  std::println("  --watch          Watch for file changes and auto-regenerate");
   std::println("");
   std::println("Runs from the project root. Reads coconut.config.* for");
   std::println("command_root and output_dir settings.");

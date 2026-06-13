@@ -34,6 +34,8 @@ int main(int argc, char* argv[]) {
   // Step 0: parse command-line args (before anything else).
   auto args = argparse::parse(argc, argv);
 
+
+
   if (args.help) {
     if (args.generate)      argparse::printGenerateHelp(argv[0]);
     else if (args.bundle)   argparse::printBundleHelp(argv[0]);
@@ -69,6 +71,9 @@ int main(int argc, char* argv[]) {
       if (args.out_dir == "generated") {
         outDir = cfg_result->output_dir;
       }
+    }
+    if (args.watch) {
+      return generator::runGenerateWatch(cmdRoot, outDir);
     }
     return generator::runGenerate(cmdRoot, outDir);
   }

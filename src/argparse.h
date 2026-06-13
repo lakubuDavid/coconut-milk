@@ -17,6 +17,7 @@ struct Args {
   bool bundle         = false;  ///< "bundle" subcommand
   bool new_cmd        = false;  ///< "new" subcommand
   bool run_cmd        = false;  ///< "run" subcommand
+  bool watch          = false;  ///< watch mode (generate --watch)
   bool bytecode_config = false; ///< compile config to .luac (B2 opt-in)
   std::string    root = ".";  ///< project root directory (default: CWD)
   std::string    new_name;     ///< project name for "new" subcommand

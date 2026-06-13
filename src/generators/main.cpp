@@ -1,11 +1,15 @@
 #include "./command_definition.hpp"
 #include "./generate.h"
 
+#include <chrono>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <print>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -204,6 +208,7 @@ int runGenerate(const std::string& cmdRoot, const std::string& outDir) {
   if (totalCommands == 0) {
     std::println("generate: no @command annotations found in {}/*.lua", cmdRoot);
     std::println("  (add ---@command above a Lua function to generate wrappers)");
+    std::fflush(stdout);
     return 0;  // Not an error — project may not use commands yet
   }
 
@@ -223,8 +228,82 @@ int runGenerate(const std::string& cmdRoot, const std::string& outDir) {
   std::println("generate: {} command(s) in {} — {}",
                totalCommands, cmdRoot, summary);
   std::println("  output: {}/{{*.g.lua, *.d.ts, *.g.js, commands.d.ts}}", outDir);
+  std::fflush(stdout);
 
   return filesError > 0 ? 1 : 0;
+}
+
+int runGenerateWatch(const std::string& cmdRoot, const std::string& outDir) {
+  fs::path cmdDir = cmdRoot;
+  if (!fs::is_directory(cmdDir)) {
+    std::println("generate: command root '{}' not found", cmdRoot);
+    return 1;
+  }
+
+  std::println("generate: watching '{}' for changes... (Ctrl+C to stop)", cmdRoot);
+  std::fflush(stdout);
+
+  // Run once immediately
+  runGenerate(cmdRoot, outDir);
+  std::fflush(stdout);
+  std::println("");
+
+  // Poll for file changes every 1 second
+  // Track last write time per file
+  std::map<std::string, fs::file_time_type> lastTimes;
+
+  // Seed with current file times
+  for (const auto& entry : fs::directory_iterator(cmdDir)) {
+    if (entry.path().extension() != ".lua") continue;
+    std::string name = entry.path().filename().string();
+    if (name.size() > 6 && name.substr(name.size() - 6) == ".g.lua") continue;
+    std::error_code ec;
+    lastTimes[name] = fs::last_write_time(entry.path(), ec);
+  }
+
+  bool running = true;
+  while (running) {
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    bool changed = false;
+    std::error_code ec;
+
+    // Check existing files for modifications
+    for (auto& [name, last] : lastTimes) {
+      auto path = cmdDir / name;
+      if (!fs::exists(path, ec)) continue;
+      auto current = fs::last_write_time(path, ec);
+      if (ec) continue;
+      if (current != last) {
+        last = current;
+        changed = true;
+      }
+    }
+
+    // Check for new files
+    for (const auto& entry : fs::directory_iterator(cmdDir, ec)) {
+      if (ec) break;
+      if (entry.path().extension() != ".lua") continue;
+      std::string name = entry.path().filename().string();
+      if (name.size() > 6 && name.substr(name.size() - 6) == ".g.lua") continue;
+      if (lastTimes.find(name) == lastTimes.end()) {
+        std::error_code ec2;
+        lastTimes[name] = fs::last_write_time(entry.path(), ec2);
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      std::println("");
+      std::fflush(stdout);
+      runGenerate(cmdRoot, outDir);
+      std::fflush(stdout);
+      std::println("");
+      std::fflush(stdout);
+    }
+  }
+
+  return 0;
 }
 
 } // namespace coconut::generator
