@@ -50,6 +50,166 @@
       "status": "completed",
       "createdAt": "2026-06-12T02:05:45.518Z",
       "updatedAt": "2026-06-12T02:22:21.847Z"
+    },
+    {
+      "id": "task-1781343620102-clipboard",
+      "title": "Phase 1: coconut.clipboard — read/write text and images",
+      "description": "C++: platform clipboard read (NSPasteboard / Win32 / X11), write text, write image (PNG data). Lua binding: coconut.clipboard.read(), coconut.clipboard.writeText(text), coconut.clipboard.writeImage(pathOrData). JS binding: coconut.clipboard.read(), coconut.clipboard.write(text). Use __index metamethod pattern for env-style access. Wrap in try/catch. Do NOT use navigator.clipboard — not cross-platform.",
+      "status": "pending",
+      "createdAt": "2026-06-13T09:40:20.100Z",
+      "updatedAt": "2026-06-13T09:40:20.100Z",
+      "tags": [
+        "phase1",
+        "c++",
+        "lua",
+        "js"
+      ]
+    },
+    {
+      "id": "task-1781343620103-env",
+      "title": "Phase 1: coconut.env — environment variables and paths",
+      "description": "C++: read getenv() for HOME, USER, LANG, PATH, PWD. Lua binding: coconut.env table with __index metamethod so coconut.env.HOME calls C++ getenv(\"HOME\"), returns nil if not found. Also coconut.cwd() and coconut.homedir() as functions. JS: coconut.env not needed (frontend has no env access, use Lua for backend env reads).",
+      "status": "completed",
+      "createdAt": "2026-06-13T09:40:20.100Z",
+      "updatedAt": "2026-06-13T10:17:40.715Z",
+      "tags": [
+        "phase1",
+        "c++",
+        "lua"
+      ]
+    },
+    {
+      "id": "task-1781343620104-openurl",
+      "title": "Phase 1: coconut.openUrl — open URL in system browser",
+      "description": "C++: platform-specific URL opening (NSWorkspace / ShellExecute / xdg-open). Lua binding: coconut.openUrl(url). JS binding: coconut.openUrl(url). Returns ok boolean or error string. Use for external link navigation when WKNavigationDelegate blocks a URL.",
+      "status": "pending",
+      "createdAt": "2026-06-13T09:40:20.100Z",
+      "updatedAt": "2026-06-13T09:40:20.100Z",
+      "tags": [
+        "phase1",
+        "c++",
+        "lua",
+        "js"
+      ]
+    },
+    {
+      "id": "task-1781343620105-notify",
+      "title": "Phase 1: coconut.notify — system notifications",
+      "description": "C++: platform notifications (NSUserNotification / UNUserNotificationCenter on macOS, Shell_NotifyIcon on Windows, libnotify on Linux). Lua binding: coconut.notify(title, body, icon?). JS binding: coconut.notify(title, body). Returns id or ok. Handle permission request on first call.",
+      "status": "pending",
+      "createdAt": "2026-06-13T09:40:20.100Z",
+      "updatedAt": "2026-06-13T09:40:20.100Z",
+      "tags": [
+        "phase1",
+        "c++",
+        "lua",
+        "js"
+      ]
+    },
+    {
+      "id": "task-1781343620106-phase1-done",
+      "title": "Phase 1: wrap up — update coconut.d.lua, coconut.d.ts, coconut.ts",
+      "description": "After all 4 Phase 1 features are implemented, update type definitions:\n- coconut.d.lua: add coconut.env (with __index), coconut.clipboard, coconut.notify, coconut.openUrl\n- coconut.d.ts: add clipboard and notify to CoconutJsAPI\n- coconut.ts: implement clipboard and notify wrappers\n- coconut.d.lua: add chooseDir to dialog.open signature (already in C++)\n- coconut.d.ts: add listDir, exists, resolve, writeText to CoconutFsAPI",
+      "status": "pending",
+      "createdAt": "2026-06-13T09:40:20.100Z",
+      "updatedAt": "2026-06-13T09:40:20.100Z",
+      "tags": [
+        "phase1",
+        "docs"
+      ]
+    },
+    {
+      "id": "task-1781343818216-spawn",
+      "title": "Phase 2: coconut.spawn — async process execution",
+      "description": "C++: platform subprocess with stdout/stderr capture (popen / CreateProcess / fork+exec). Lua binding: coconut.spawn(cmd, args table, opts table?) -> { code, stdout, stderr }. JS binding: not needed (spawn is backend-only). opts: { cwd, env, timeout }. Package: src/packages/spawn.h / src/packages/spawn.cpp. Platform: src/platform/darwin/spawn.mm, src/platform/win/spawn.cpp, src/platform/linux/spawn.cpp.",
+      "status": "pending",
+      "createdAt": "2026-06-13T09:43:38.205Z",
+      "updatedAt": "2026-06-13T09:43:38.205Z",
+      "tags": [
+        "phase2",
+        "c++",
+        "lua"
+      ]
+    },
+    {
+      "id": "task-1781343818217-quit-restart",
+      "title": "Phase 2: coconut.quit / coconut.restart",
+      "description": "C++: graceful app termination and restart. Lua binding: coconut.quit(exitCode?) and coconut.restart(). JS binding: coconut.quit() (restart not needed in JS). Uses platform APIs (NSApplication terminate / terminate: / _exit on Unix, CreateProcess with /c restart on Win). Package: src/packages/app.h / src/packages/app.cpp. Platform darwin: lifecycle.cpp already has terminate, wrap it cleanly. Platform win: TerminateProcess + CreateProcess self. Platform linux: raise(SIGTERM).",
+      "status": "pending",
+      "createdAt": "2026-06-13T09:43:38.205Z",
+      "updatedAt": "2026-06-13T09:43:38.205Z",
+      "tags": [
+        "phase2",
+        "c++",
+        "lua",
+        "js"
+      ]
+    },
+    {
+      "id": "task-1781343818218-fs-extend",
+      "title": "Phase 2: extend coconut.fs — mkdir, remove, temp files",
+      "description": "C++: missing fs operations in src/fs.cpp. Add: mkdir(path, recursive), remove(path), mkstemp(template), tempDir(). Lua binding: coconut.fs.mkdir(path, recursive?), coconut.fs.remove(path). JS binding: mirror listDir, exists, resolve, writeText to coconut.d.ts (they exist in Lua but not TS). Package already exists: src/fs.cpp / src/fs.h. No new package needed — extend existing.",
+      "status": "pending",
+      "createdAt": "2026-06-13T09:43:38.205Z",
+      "updatedAt": "2026-06-13T09:43:38.205Z",
+      "tags": [
+        "phase2",
+        "c++",
+        "lua",
+        "js"
+      ]
+    },
+    {
+      "id": "task-1781343818219-dialog-extend",
+      "title": "Phase 2: extend coconut.dialog — chooseDir in TS, message types",
+      "description": "JS: coconut.d.ts CoconutDialogModule missing chooseDir param on open(). Add to TS: coconut.dialog.open(title, multi?, chooseDir?) and dialog.save(title, defaultName?). Update coconut.ts to pass all params. Lua already supports chooseDir (coconut.d.lua has it). Also add dialog.message kind parameter (info, warn, error, question) — macOS supports these as NSAlert types. Package: src/dialog.cpp / src/dialog.h already exist.",
+      "status": "pending",
+      "createdAt": "2026-06-13T09:43:38.205Z",
+      "updatedAt": "2026-06-13T09:43:38.205Z",
+      "tags": [
+        "phase2",
+        "lua",
+        "js"
+      ]
+    },
+    {
+      "id": "task-1781343818220-dnd",
+      "title": "Phase 2: drag and drop — file drop onto window",
+      "description": "C++: register for drag operations on WKWebView. macOS: implement -(NSDragOperation)webView:validateDrop: and -(BOOL)webView:acceptDrag. When files are dropped, emit \"file_drop\" event via __coconut_dispatch_event with { paths: string[] }. Lua binding: not needed (handled by events system). JS binding: coconut.on(\"file_drop\", cb) — already works via event system. Platform darwin: in webview config or via WKWebView drag/drop delegate. Platform win: IOleDropTarget. Platform linux: GtkWidget drag-drop.",
+      "status": "pending",
+      "createdAt": "2026-06-13T09:43:38.205Z",
+      "updatedAt": "2026-06-13T09:43:38.205Z",
+      "tags": [
+        "phase2",
+        "c++",
+        "js"
+      ]
+    },
+    {
+      "id": "task-1781343818221-pdf",
+      "title": "Phase 2: coconut.printToPdf — native PDF export",
+      "description": "C++: render current webview to PDF file. macOS: WKWebView.printOperationWithPrintInfo. Win: IWebBrowser2::Exec with OLECMDID_PRINT. Lua binding: coconut.printToPdf(outputPath, opts?) -> ok. JS binding: coconut.printToPdf(outputPath). opts: { pageSize, margins }. Useful for atlas-tool export, code-editor save, report generation. Package: src/packages/pdf.h / src/packages/pdf.cpp. Platform darwin: print to PDF via NSPrintOperation.",
+      "status": "pending",
+      "createdAt": "2026-06-13T09:43:38.205Z",
+      "updatedAt": "2026-06-13T09:43:38.205Z",
+      "tags": [
+        "phase2",
+        "c++",
+        "lua",
+        "js"
+      ]
+    },
+    {
+      "id": "task-1781343818222-phase2-done",
+      "title": "Phase 2: wrap up — test suite, all type defs in sync",
+      "description": "After Phase 2 features:\n- Run unit tests: xmake test\n- Verify all lua bindings match coconut.d.lua\n- Verify all JS wrappers match coconut.d.ts\n- coconut.ts should mirror all C++ features accessible from JS\n- Check xmake.lua links all new platform packages correctly\n- No missing bindings or type gaps",
+      "status": "pending",
+      "createdAt": "2026-06-13T09:43:38.205Z",
+      "updatedAt": "2026-06-13T09:43:38.205Z",
+      "tags": [
+        "phase2",
+        "docs"
+      ]
     }
   ]
 }

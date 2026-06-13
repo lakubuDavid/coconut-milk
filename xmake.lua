@@ -40,7 +40,7 @@ target("webview")
     set_targetdir("$(buildir)/lib")
 
 -- =================================================================
--- Core coconut binary (the one binary used by all examples)
+-- Core coconut binary
 -- =================================================================
 
 target("coconut")
@@ -56,6 +56,7 @@ target("coconut")
                    "Contacts", "Photos", "Security",
                    "ApplicationServices", "ScreenCaptureKit")
     add_files("src/*.cpp")
+    add_files("src/packages/*.cpp")
     add_files("src/generators/*.cpp")
     add_files("src/platform/scheme_handler.cpp")
     if is_plat("macosx") then
@@ -66,6 +67,7 @@ target("coconut")
     elseif is_plat("linux") then
         add_files("src/platform/linux/*.cpp")
     end
+    add_files("src/permissions.cpp")
     add_packages("sol2", "luajit", "nlohmann_json")
     add_deps("webview")
 
@@ -75,32 +77,15 @@ target("coconut")
 
 target("coconut-milk-tests")
     set_kind("binary")
-    add_includedirs("src", "tests")
-    add_includedirs("thirdparty/webview/core/include")
+    add_includedirs("src", "tests", "thirdparty/webview/core/include")
     add_frameworks("Cocoa", "WebKit", "Foundation",
                    "AVFoundation", "EventKit", "UserNotifications",
                    "CoreLocation", "Contacts", "Photos", "Security",
                    "ApplicationServices", "ScreenCaptureKit")
-    add_deps("webview")
-    add_files(
-        "tests/*.cpp",
-        "tests/**/*.cpp",
-        "src/app.cpp",
-        "src/bridge.cpp",
-        "src/commands.cpp",
-        "src/config.cpp",
-        "src/context.cpp",
-        "src/debug.cpp",
-        "src/dialog.cpp",
-        "src/error.cpp",
-        "src/fs.cpp",
-        "src/lifecycle.cpp",
-        "src/lua_runtime.cpp",
-        "src/window.cpp",
-        "src/webview_transport.cpp",
-        "src/routes.cpp",
-        "src/platform/scheme_handler.cpp"
-    )
+    add_files("src/*.cpp")
+    add_files("src/packages/*.cpp")
+    add_files("src/generators/*.cpp")
+    add_files("src/platform/scheme_handler.cpp")
     if is_plat("macosx") then
         add_files("src/platform/darwin/*.cpp")
         add_files("src/platform/darwin/*.mm")
@@ -109,5 +94,8 @@ target("coconut-milk-tests")
     elseif is_plat("linux") then
         add_files("src/platform/linux/*.cpp")
     end
+    remove_files("src/main.cpp")
     add_files("src/permissions.cpp")
+    add_files("tests/*.cpp", "tests/**/*.cpp")
     add_packages("sol2", "luajit", "nlohmann_json")
+    add_deps("webview")

@@ -5,6 +5,8 @@
 #include "debug.h"
 #include "dialog.h"
 #include "fs.h"
+#include "packages/env.h"
+#include "packages/open_url.h"
 
 #include <sol/state.hpp>
 #include <sol/table.hpp>
@@ -235,7 +237,42 @@ void _bindCoconutLuaApi(Runtime *runtime) {
         return entries;
       });
 
-  coconut["fs"] = fs_mod;
+  // ── Environment table: coconut.env ──────────────────────────
+  // Uses __index metamethod so coconut.env.HOME lazily calls getenv().
+  {
+    sol::table env_tbl = (*runtime->lua_state).create_table();
+    sol::table mt = (*runtime->lua_state).create_table();
+
+    mt["__index"] = [runtime](sol::table, const std::string& key) -> sol::object {
+      if (key == "cwd") {
+        return sol::make_object(runtime->lua_state->lua_state(),
+                                env::cwd());
+      }
+      if (key == "homedir") {
+        return sol::make_object(runtime->lua_state->lua_state(),
+                                env::homedir());
+      }
+      if (key == "pathSeparator") {
+        return sol::make_object(runtime->lua_state->lua_state(),
+                                std::string(1, env::pathSeparator()));
+      }
+      std::string val = env::get(key);
+      if (val.empty()) {
+        return sol::lua_nil;
+      }
+      return sol::make_object(runtime->lua_state->lua_state(), val);
+    };
+
+    // Set the metatable so __index is active for lookups on env_tbl.
+    env_tbl[sol::metatable_key] = mt;
+
+    coconut["env"] = env_tbl;
+  }
+
+  // ── Open URL ──────────────────────────────────────────────────
+  coconut.set_function("openUrl", [](const std::string& url) -> bool {
+    return open_url::open(url);
+  });
 
   runtime->lua_state->set("coconut", coconut);
 }
