@@ -6,6 +6,7 @@
 #include <print>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace coconut::argparse {
 
@@ -25,24 +26,50 @@ static const char* progname(const char* argv0) {
 Args parse(int argc, char* argv[]) {
   Args args;
 
-  int i = 1;
-
-  // Check for subcommand first (non-flag, non-option argument)
-  if (i < argc && argv[i][0] != '-') {
-    std::string_view sub = argv[i];
-    if (sub == "generate") {
+  // Collect all positional (non-flag, non-option) arguments.
+  // The first one that isn't a known subcommand name is the project root.
+  // e.g. `coconut /path/to/project`  or  `coconut generate /path/to/other`
+  std::vector<std::string> positional;
+  for (int j = 1; j < argc; ++j) {
+    std::string_view a = argv[j];
+    if (a == "-h" || a == "--help"    || a == "-v" || a == "--version" ||
+        a == "-d" || a == "--debug"   || a == "-r" || a == "--root"     ||
+        a == "-o" || a == "--out-dir") {
+      continue;  // flag, skip over its value below if needed
+    }
+    if (a == "generate") {
       args.generate = true;
-      ++i;
-    } else {
-      std::println(stderr, "error: unknown subcommand '{}'", sub);
-      printHelp(progname(argv[0]));
-      std::exit(1);
+      continue;
+    }
+    if (a[0] != '-') {
+      positional.push_back(argv[j]);
     }
   }
 
-  for (; i < argc; ++i) {
+  // First positional arg (if any) is the project root.
+  // Flag-based --root overrides this.
+  bool root_given_by_flag = false;
+  for (int j = 1; j < argc; ++j) {
+    if (std::string_view(argv[j]) == "-r" || std::string_view(argv[j]) == "--root") {
+      root_given_by_flag = true;
+      break;
+    }
+  }
+  if (!positional.empty() && !root_given_by_flag) {
+    args.root = positional[0];
+  }
+
+  for (int i = 1; i < argc; ++i) {
     std::string_view a = argv[i];
 
+    // Skip known non-flag positional args (root / generate)
+    if (a == "generate") {
+      args.generate = true;
+      continue;
+    }
+    if (a[0] != '-') {
+      continue;  // already handled as positional root
+    }
     if (a == "-h" || a == "--help") {
       args.help = true;
       return args;  // help requested, stop parsing
@@ -95,16 +122,19 @@ Args parse(int argc, char* argv[]) {
 // ---------------------------------------------------------------------------
 
 void printHelp(const char* prog) {
-  std::println("Usage: {} [options]", progname(prog));
-  std::println("       {} generate [options]", progname(prog));
+  std::println("Usage: {} [options] [ROOT]", progname(prog));
+  std::println("       {} generate [options] [ROOT]", progname(prog));
   std::println("");
   std::println("Run a Coconut Milk application.");
+  std::println("");
+  std::println("Arguments:");
+  std::println("  ROOT   Project root directory (default: .)");
   std::println("");
   std::println("Options:");
   std::println("  -h, --help       Show this help and exit");
   std::println("  -v, --version    Show version and exit");
   std::println("  -d, --debug      Enable developer tools / debug mode");
-  std::println("  -r, --root PATH  Set project root directory (default: .)");
+  std::println("  -r, --root PATH  Set project root directory (overrides positional ROOT)");
   std::println("");
   std::println("Subcommands:");
   std::println("  generate         Generate command wrappers from @command annotations");
