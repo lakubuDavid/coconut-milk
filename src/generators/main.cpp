@@ -2,7 +2,6 @@
 #include "./generate.h"
 #include <filesystem>
 #include <fstream>
-#include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -58,7 +57,6 @@ static bool processCommandFile(const fs::path& inputPath,
                                std::vector<std::string>& allNames) {
   std::ifstream file(inputPath);
   if (!file.is_open()) {
-    std::cerr << "Error: could not open " << inputPath << "\n";
     return false;
   }
 
@@ -70,7 +68,6 @@ static bool processCommandFile(const fs::path& inputPath,
 
   auto commands = coconut::generator::commentsFsm(buffer.str());
   if (commands.empty()) {
-    std::cout << "  (no @command definitions in " << inputPath << ")\n";
     return true; // not an error
   }
 
@@ -92,7 +89,6 @@ static bool processCommandFile(const fs::path& inputPath,
     auto luaWrap = coconut::generator::generateLuaWrapper(commands, modulePath);
     std::ofstream out(fs::path(outDir) / (stem + ".g.lua"));
     out << luaWrap;
-    std::cout << "  wrote " << (fs::path(outDir) / (stem + ".g.lua")) << "\n";
   }
 
   // .d.ts
@@ -100,7 +96,6 @@ static bool processCommandFile(const fs::path& inputPath,
     auto dts = coconut::generator::generateTSDefinition(commands);
     std::ofstream out(fs::path(outDir) / (stem + ".d.ts"));
     out << dts;
-    std::cout << "  wrote " << (fs::path(outDir) / (stem + ".d.ts")) << "\n";
   }
 
   // .g.js
@@ -108,10 +103,8 @@ static bool processCommandFile(const fs::path& inputPath,
     auto wrappers = coconut::generator::generateJSWrapper(commands);
     std::ofstream out(fs::path(outDir) / (stem + ".g.js"));
     out << wrappers;
-    std::cout << "  wrote " << (fs::path(outDir) / (stem + ".g.js")) << "\n";
   }
 
-  std::cout << "  (" << commands.size() << " command(s) from " << inputPath << ")\n";
   return true;
 }
 
@@ -123,7 +116,6 @@ int runGenerate(const std::string& cmdRoot, const std::string& outDir) {
   // Resolve the command root directory
   fs::path cmdDir = cmdRoot;
   if (!fs::is_directory(cmdDir)) {
-    std::cerr << "Error: command root '" << cmdRoot << "' is not a directory\n";
     return 1;
   }
 
@@ -135,7 +127,6 @@ int runGenerate(const std::string& cmdRoot, const std::string& outDir) {
     // Skip generated files (.g.lua)
     if (name.size() > 6 && name.substr(name.size() - 6) == ".g.lua") continue;
 
-    std::cout << "processing " << entry.path() << "\n";
     if (processCommandFile(entry.path(), outDir, allNames)) {
       anySuccess = true;
     }
@@ -154,16 +145,12 @@ int runGenerate(const std::string& cmdRoot, const std::string& outDir) {
       agg << (i == 0 ? " " : " | ") << "\"" << allNames[i] << "\"";
     }
     agg << ";\n";
-    std::cout << "  wrote " << (fs::path(outDir) / "commands.d.ts") << "\n";
   }
 
   if (!anySuccess) {
-    std::cerr << "No command files processed in " << cmdRoot << "\n";
     return 1;
   }
 
-  std::cout << "Done. Generated " << allNames.size()
-            << " unique command(s) to " << outDir << "/\n";
   return 0;
 }
 

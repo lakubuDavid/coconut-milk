@@ -190,7 +190,7 @@ A minimal app demonstrating the Lua HTML DSL for generating views without build 
 **Location:** `examples/lua-html-app/`
 
 **Tech stack:**
-- Pure Lua HTML DSL (`lib/html.lua`)
+- Pure Lua HTML DSL (`lib/html.lua` — vendored from riki.house/lua-html, **not part of Coconut Milk core**)
 - External CSS/JS via `coconut://` scheme
 
 **Features:**
@@ -198,6 +198,10 @@ A minimal app demonstrating the Lua HTML DSL for generating views without build 
 - Navigation via `coconut://view_name` links
 - No build step — all views generated at startup
 - External CSS/JS loaded via `coconut://assets/style.css` and `coconut://assets/app.js`
+
+**Caveats:**
+- The DSL uses `ipairs` to render children, so tables with only string keys (pure layout nodes with no html.Element children) are silently dropped. Complex multi-pane layouts need careful structure.
+- All pages must be part of a single view; `coconut://` scheme navigation between named views does not work from within a single lua-html generated page. For multi-page apps, use JS-side visibility toggling instead.
 
 **Architecture:**
 

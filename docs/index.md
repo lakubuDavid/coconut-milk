@@ -69,7 +69,7 @@ A cross-platform desktop app framework powered by **Lua** for backend logic and 
 - **[Calculator (Vue)](./examples.md#calculator-vue)** — Multi-page Vue app with settings
 - **[OCR Scanner](./examples.md#ocr-app)** — Image processing with Tesseract.js, Alpine.js, UnoCSS
 - **[Code Editor](./examples.md#code-editor)** — CodeMirror 6, file tree, native dialogs
-- **[Lua HTML App](./examples.md#lua-html-app)** — Pure Lua HTML DSL, no build step
+- **[Lua HTML App](./examples.md#lua-html-app)** — Pure Lua HTML DSL, no build step (see caveats — community pattern, not core)
 - **[Edge Cases](./examples.md#edge-cases)** — Frameless windows, transparent backgrounds, view switching
 - **[Tips & Tricks](./examples.md#tips--tricks)** — Debug mode, logging, FOUC prevention
 

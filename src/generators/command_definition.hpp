@@ -4,7 +4,6 @@
 #include "type_parser.hpp"
 #include "utils.hpp"
 #include <cstring>
-#include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -63,10 +62,8 @@ std::vector<CommandDefinition> commentsFsm(std::string code) {
     switch (currentState) {
     case State::LineStart:
       if (trim(ctx.buf) == "---") {
-        std::cout << "->prefix" << std::endl;
         currentState = State::ReadPrefix;
         if (code[cursor] == '@') {
-          std::cout << "->tag" << std::endl;
           currentState = State::ReadTag;
           start = cursor;
         }
@@ -78,10 +75,6 @@ std::vector<CommandDefinition> commentsFsm(std::string code) {
         if (trimmed.length() >= 3 && trimmed.substr(0, 3) != "---") {
           // Non-comment line: finalize any pending command.
           if (!ctx.current_command.name.empty()) {
-            std::cout << "[done] finalized command='"
-                      << ctx.current_command.name
-                      << "' params=" << ctx.current_command.parameters.size()
-                      << std::endl;
             ctx.commands.push_back(ctx.current_command);
             ctx.current_command = CommandDefinition{};
           }
@@ -104,12 +97,10 @@ std::vector<CommandDefinition> commentsFsm(std::string code) {
       break;
     case State::ReadPrefix:
       if (code[cursor] == '@') {
-        std::cout << "->tag" << std::endl;
         currentState = State::ReadTag;
         start = cursor;
       } else if (code[cursor] == '\n' || code[cursor] == '\r') {
         start = cursor;
-        std::cout << "->line start : " << ctx.buf << std::endl;
         currentState = State::LineStart;
       } else {
         // Continuation line: --- text without @tag -> append to description
@@ -129,11 +120,9 @@ std::vector<CommandDefinition> commentsFsm(std::string code) {
           ctx.current_tag = Tag::Command;
           start = nextStart;
           currentState = State::ReadName;
-          std::cout << "[state:tag] command = " << token << std::endl;
         } else if (token == "@description") {
           ctx.current_tag = Tag::Description;
           start = nextStart;
-          std::cout << "[state:tag] desc = " << token << std::endl;
           if (code[nextStart] == '\n' || code[nextStart] == '\r') {
             currentState = State::SkipLine;
           } else {
@@ -142,7 +131,6 @@ std::vector<CommandDefinition> commentsFsm(std::string code) {
         } else if (token == "@param" || token == "param") {
           ctx.current_tag = Tag::Param;
           start = nextStart;
-          std::cout << "[state:tag] param = " << token << std::endl;
           if (code[nextStart] == '\n' || code[nextStart] == '\r') {
             // Empty param — skip
             currentState = State::SkipLine;
@@ -152,7 +140,6 @@ std::vector<CommandDefinition> commentsFsm(std::string code) {
         } else if (token == "@return") {
           ctx.current_tag = Tag::Return;
           start = nextStart;
-          std::cout << "[state:tag] return = " << token << std::endl;
           if (code[nextStart] == '\n' || code[nextStart] == '\r') {
             // Empty return type — skip
             currentState = State::SkipLine;
@@ -160,18 +147,16 @@ std::vector<CommandDefinition> commentsFsm(std::string code) {
             currentState = State::ReadReturnType;
           }
         } else {
-          // Unknown tag
+          // Unknown tag — skip
           ctx.current_tag = Tag::None;
           start = nextStart;
           currentState = State::SkipLine;
-          std::cout << " unknown tag" << ctx.buf << std::endl;
         }
       }
       break;
     case State::ReadName:
       if (isWhitespace(code[cursor])) {
         ctx.current_command.name = trim(ctx.buf);
-        std::cout << "[state:name] " << ctx.current_command.name << std::endl;
         currentState = State::SkipLine;
         start = cursor;
       }
@@ -180,8 +165,6 @@ std::vector<CommandDefinition> commentsFsm(std::string code) {
       if (code[cursor] == '\n' || code[cursor] == '\r') {
         if (!ctx.buf.empty()) {
           ctx.current_command.description = trim(ctx.buf);
-          std::cout << "[state:text] '" << ctx.current_command.description
-                    << "'" << std::endl;
         }
         start = cursor;
         currentState = State::SkipLine;
@@ -196,7 +179,6 @@ std::vector<CommandDefinition> commentsFsm(std::string code) {
               ctx.current_command.description += "\n";
             }
             ctx.current_command.description += line;
-            std::cout << "[state:cont] '" << line << "'" << std::endl;
           }
         }
         start = cursor;
@@ -206,8 +188,6 @@ std::vector<CommandDefinition> commentsFsm(std::string code) {
     case State::ReadParamName:
       if (isWhitespace(code[cursor])) {
         ctx.current_param.name = trim(ctx.buf);
-        std::cout << "[state:param_name] '" << ctx.current_param.name << "'"
-                  << std::endl;
         if (code[cursor] == '\n' || code[cursor] == '\r') {
           // No type annotation — push param with empty type.
           ctx.current_command.parameters.push_back(ctx.current_param);
@@ -225,8 +205,6 @@ std::vector<CommandDefinition> commentsFsm(std::string code) {
       // Read the raw type annotation until EOL.
       if (code[cursor] == '\n' || code[cursor] == '\r') {
         ctx.current_param.type = trim(ctx.buf);
-        std::cout << "[state:param_type] '" << ctx.current_param.type << "'"
-                  << std::endl;
         ctx.current_command.parameters.push_back(ctx.current_param);
         ctx.current_param = CommandDefinitionParameter{};
         start = cursor;
@@ -237,8 +215,6 @@ std::vector<CommandDefinition> commentsFsm(std::string code) {
       // Read the raw return type until EOL.
       if (code[cursor] == '\n' || code[cursor] == '\r') {
         ctx.current_command.returnTypes = trim(ctx.buf);
-        std::cout << "[state:return_type] '" << ctx.current_command.returnTypes
-                  << "'" << std::endl;
         start = cursor;
         currentState = State::SkipLine;
       }

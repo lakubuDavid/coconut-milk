@@ -354,7 +354,9 @@ View.load("views/home.html")
 
 ## Lua HTML DSL
 
-Coconut Milk supports a **pure Lua HTML DSL** for generating HTML without build tools. The library is an external Lua file (`html.lua`) that uses metatables for dynamic tag generation.
+Coconut Milk works with any **pure Lua HTML DSL** for generating HTML without build tools. The library is an external Lua file that uses metatables for dynamic tag generation.
+
+For a minimal 117-line example see the [lua-html-app](../examples/lua-html-app/) example. For a curated list of Lua template engines and web libraries see [awesome-lua](https://github.com/LewisJEllis/awesome-lua#templating) — notable options include [lustache](http://olivinelabs.com/lustache/) (Mustache), [etlua](https://github.com/leafo/etlua) (ERB-style), and [lua-resty-template](https://github.com/bungle/lua-resty-template) (Jinja-like).
 
 ### Usage
 
@@ -432,7 +434,27 @@ end
 - **No component system** — Plain HTML generation, no reactivity
 - **No templating** — Manual string concatenation for dynamic content
 - **No build step** — Generated at startup, not at runtime
-- **External dependency** — `html.lua` is a vendored library, not part of Coconut Milk core
+- **External dependency** — Template libraries are vendored, not part of Coconut Milk core
+
+---
+
+## Third-Party Lua Libraries
+
+Lua has a rich ecosystem of third-party libraries maintained by the community. The canonical curated list is **[awesome-lua](https://github.com/LewisJEllis/awesome-lua)** on GitHub. Categories particularly relevant for Coconut Milk backend work:
+
+| Category | Notable libraries | Notes |
+|---|---|---|
+| **Templating** | [lustache](http://olivinelabs.com/lustache/), [etlua](https://github.com/leafo/etlua), [lua-resty-template](https://github.com/bungle/lua-resty-template) | HTML generation, ERB/Jinja-style syntax |
+| **JSON** | [lua-cjson](https://github.com/mpx/lua-cjson/), [json.lua](https://github.com/rxi/json.lua), [dkjson](http://dkolf.de/src/dkjson-lua.fsl/home) | Fast C-based or pure Lua encoding/decoding |
+| **HTTP / Networking** | [LuaSocket](https://github.com/diegonehab/luasocket), [lua-http](https://github.com/daurnimator/lua-http), [lua-cURL](https://github.com/Lua-cURL/Lua-cURLv3) | HTTP clients, servers, WebSockets |
+| **File system** | [LuaFileSystem](http://keplerproject.github.io/luafilesystem/) | POSIX file system access |
+| **CLI / Args** | [argparse](https://github.com/mpeterv/argparse), [cliargs](https://github.com/amireh/lua_cliargs) | Command-line argument parsing |
+| **Testing** | [busted](http://olivinelabs.com/busted/) | BDD-style unit testing framework |
+| **Logging** | [lua-log](https://github.com/moteus/lua-log), [LuaLogging](https://github.com/Neopallium/lualogging) | Async/sync loggers with multiple appenders |
+| **Serialization** | [serpent](https://github.com/pkulchenko/serpent), [Ser](https://github.com/gvx/Ser) | Pretty-printing and serializing Lua tables |
+| **Data stores** | [LuaSQL](http://keplerproject.github.io/luasql/), [pgmoon](https://github.com/leafo/pgmoon) | Database drivers (SQLite, PostgreSQL, MySQL…) |
+
+For the full list (1,500+ entries) see [awesome-lua](https://github.com/LewisJEllis/awesome-lua).
 
 ---
 
