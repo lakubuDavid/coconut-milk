@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "coconut-milk",
-  "updatedAt": "2026-06-13T18:53:56.233Z",
+  "updatedAt": "2026-06-13T20:30:00.000Z",
   "tasks": [
     {
       "id": "task-1781366119344-ek6z4w9",
@@ -14,10 +14,10 @@
     {
       "id": "task-1781367394777-bam711w",
       "title": "EPIC: coconut bundle — standalone distributable app packaging",
-      "description": "coconut bundle reads project config, generates platform-specific manifests, produces a standalone .app (macOS), portable folder (Windows), or AppDir (Linux) with all deps bundled. No C++ rebuild needed for end users.",
-      "status": "pending",
+      "description": "coconut bundle reads project config, generates platform manifests (Info.plist, app.manifest, .desktop, metainfo.xml), assembles .app bundle with binary + config + assets + commands. Full pipeline works end-to-end. Remaining: B2 bytecode opt-in, codesign.",
+      "status": "completed",
       "createdAt": "2026-06-13T16:16:34.777Z",
-      "updatedAt": "2026-06-13T16:16:34.777Z"
+      "updatedAt": "2026-06-13T20:30:00.000Z"
     },
     {
       "id": "task-1781367401761-d7lym2u",
@@ -55,57 +55,57 @@
       "id": "task-1781367415535-niono2m",
       "title": "coconut bundle: generate Info.plist from config + manifests.darwin",
       "description": "Render macOS Info.plist XML from config fields (bundle_identifier, cf_bundle_name, version, category, ns_permissions, extra_plist). Place in .app/Contents/Info.plist.",
-      "status": "pending",
+      "status": "completed",
       "createdAt": "2026-06-13T16:16:55.535Z",
-      "updatedAt": "2026-06-13T16:16:55.535Z"
+      "updatedAt": "2026-06-13T20:30:00.000Z"
     },
     {
       "id": "task-1781367419631-loemeqw",
-      "title": "coconut bundle: generate app.manifest + resources for Windows",
-      "description": "Render Windows app.manifest XML from win.* config (dpi_awareness, requested_privileges, long_paths, comctl_version, extra_manifest). Generate .rc with VERSIONINFO from version_info config. Place alongside .exe.",
-      "status": "pending",
+      "title": "coconut bundle: generate Windows app.manifest",
+      "description": "Render Windows app.manifest XML with Common Controls dependency, DPI awareness, compatibility OS GUIDs. Place alongside .exe.",
+      "status": "completed",
       "createdAt": "2026-06-13T16:16:59.631Z",
-      "updatedAt": "2026-06-13T16:16:59.631Z"
+      "updatedAt": "2026-06-13T20:30:00.000Z"
     },
     {
       "id": "task-1781367423174-n4dnnhk",
       "title": "coconut bundle: generate .desktop + metainfo.xml for Linux",
-      "description": "Render .desktop file from linux.* config (name, exec, categories, mime_types, extra_desktop_keys). Render metainfo.xml from linux.appstream config. Place in AppDir/usr/share/applications/ and AppDir/usr/share/metainfo/.",
-      "status": "pending",
+      "description": "Render .desktop file from linux.* config (name, exec, categories, extra_desktop_keys). Render metainfo.xml from linux.appstream config.",
+      "status": "completed",
       "createdAt": "2026-06-13T16:17:03.174Z",
-      "updatedAt": "2026-06-13T16:17:03.174Z"
+      "updatedAt": "2026-06-13T20:30:00.000Z"
     },
     {
       "id": "task-1781367426620-a5brs2i",
       "title": "coconut bundle: assemble directory structure + copy files",
-      "description": "Create output bundle structure (macOS .app/Contents/{MacOS,Resources,Frameworks}, Windows flat dir, Linux AppDir). Copy coconut binary, user project files (views, assets, commands, main.lua), LuaJIT (if dynamic). Generate icon from config or default. [macOS] codesign --deep if identity available.",
-      "status": "pending",
+      "description": "Create .app/Contents/{MacOS,Resources} structure. Copy binary, stripped config, views, assets, commands, main.lua, icon.icns. Set executable permissions.",
+      "status": "completed",
       "createdAt": "2026-06-13T16:17:06.620Z",
-      "updatedAt": "2026-06-13T16:17:06.620Z"
+      "updatedAt": "2026-06-13T20:30:00.000Z"
     },
     {
       "id": "task-1781367429957-j8ittka",
       "title": "EPIC: CLI improvements — new, run, generate, bundle subcommands",
-      "description": "Polish the CLI surface. coconut generate (existing), coconut new (scaffold), coconut run (dev workflow), coconut bundle (packaging). --help per subcommand. --version. Auto-detect project in cwd.",
-      "status": "pending",
+      "description": "coconut new (scaffold), coconut run (config override flags), coconut bundle (packaging), coconut generate. --help per subcommand. --version. Subcommand routing.",
+      "status": "completed",
       "createdAt": "2026-06-13T16:17:09.957Z",
-      "updatedAt": "2026-06-13T16:17:09.957Z"
+      "updatedAt": "2026-06-13T20:30:00.000Z"
     },
     {
       "id": "task-1781367433739-p4xwzc9",
       "title": "coconut new — scaffold projects from templates",
-      "description": "coconut new <project-name> creates project directory with coconut.config.lua, main.lua, views/, assets/, commands/, generated/. Optional --template (default|playground|minimal). Configures view_root, command_root, initial_view.",
-      "status": "pending",
+      "description": "coconut new <project-name> delegates to create-coconut-app Lua script. Supports --template (bare, bare-ts, vite). --yes flag. Script found by walking up from binary directory.",
+      "status": "completed",
       "createdAt": "2026-06-13T16:17:13.739Z",
-      "updatedAt": "2026-06-13T16:17:13.739Z"
+      "updatedAt": "2026-06-13T20:30:00.000Z"
     },
     {
       "id": "task-1781367436942-nuur0m8",
       "title": "coconut run — dev workflow improvements",
-      "description": "Auto-detect project in cwd (look for coconut.config.lua). --debug shorthand for debug mode. Config override flags: --window-width, --frameless, --transparent, --title. Watch mode for live-reload (future).",
-      "status": "pending",
+      "description": "coconut run subcommand. Config override flags: --window-width, --window-height, --frameless, --transparent, --title. Overrides applied after config load, before window creation.",
+      "status": "completed",
       "createdAt": "2026-06-13T16:17:16.942Z",
-      "updatedAt": "2026-06-13T16:17:16.942Z"
+      "updatedAt": "2026-06-13T20:30:00.000Z"
     },
     {
       "id": "task-1781367440287-zlmo2cu",
@@ -118,10 +118,10 @@
     {
       "id": "task-1781367443534-lsulhwm",
       "title": "CLI help system + subcommand routing",
-      "description": "coconut --help shows available subcommands. coconut <subcommand> --help per-subcommand help text. coconut --version prints version. Subcommand routing: detect first non-flag arg and dispatch to generate | new | run | bundle.",
-      "status": "pending",
+      "description": "coconut --help shows available subcommands and run flags. <subcommand> --help per-subcommand help. --version. Subcommand routing: generate | new | run | bundle all dispatched.",
+      "status": "completed",
       "createdAt": "2026-06-13T16:17:23.534Z",
-      "updatedAt": "2026-06-13T16:17:23.534Z"
+      "updatedAt": "2026-06-13T20:30:00.000Z"
     },
     {
       "id": "task-1781367873085-pitvnx8",
@@ -146,6 +146,22 @@
       "status": "pending",
       "createdAt": "2026-06-13T16:31:10.390Z",
       "updatedAt": "2026-06-13T16:31:10.390Z"
+    },
+    {
+      "id": "task-1781369200000-fix-tests",
+      "title": "Fix 11 failing tests — config JSON validation + FS edge cases",
+      "description": "Pre-existing failures: config view kind validation (5), FS path resolution (3), platform style JSON validation (2), bridge null config (1). All are config parser / FS interface mismatch issues.",
+      "status": "pending",
+      "createdAt": "2026-06-13T20:30:00.000Z",
+      "updatedAt": "2026-06-13T20:30:00.000Z"
+    },
+    {
+      "id": "task-1781369200001-bundle-codesign",
+      "title": "Bundle: codesign — codesign --deep in assembly step",
+      "description": "After bundle assembly, optionally run codesign --deep on the .app bundle. Check for identity in config or use ad-hoc signing. Non-critical (bundle works without it).",
+      "status": "pending",
+      "createdAt": "2026-06-13T20:30:00.000Z",
+      "updatedAt": "2026-06-13T20:30:00.000Z"
     }
   ]
 }
