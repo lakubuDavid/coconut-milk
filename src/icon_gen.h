@@ -6,7 +6,10 @@
 /// Auto-generate platform-specific icon files from a single source image.
 ///
 /// The bundle pipeline calls generateIcons() when `icon.source` is set in the
-/// config.  The source file can be:
+/// config.  If no icon is configured, generateIcons() can use an embedded
+/// default SVG by passing an empty string or calling writeDefaultIcon() first.
+///
+/// The source file can be:
 ///   - SVG   → rasterized via LunaSVG at every required size
 ///   - PNG   → decoded via stb_image, scaled to every required size
 ///   - JPEG  → decoded via stb_image, scaled to every required size
@@ -14,10 +17,9 @@
 ///   - ICO   → largest embedded PNG extracted, scaled down for other outputs
 ///
 /// Outputs produced:
-///   macOS  → .icns  (Apple Icon Image, 10 sizes from 16×16 to 1024×1024)
+///   macOS  → .icns  (Apple Icon Image, 7 sizes from 16×16 to 1024×1024)
 ///   Windows→ .ico   (Windows Icon, 6 sizes from 16×16 to 256×256)
-///   Linux  → .png   (512×512 + scalable SVG if source was SVG)
-///         plus freedesktop directory tree under share/icons/hicolor/
+///   Linux  → .pngs in share/icons/hicolor/ (9 sizes) + scalable SVG copy
 
 #include "error.h"
 
@@ -45,17 +47,22 @@ struct GeneratedIcons {
   std::string icns;   ///< path to generated .icns (empty if generation skipped)
   std::string ico;    ///< path to generated .ico
   std::string png;    ///< path to the largest generated .png (usually 512×512)
+  std::string svg;    ///< path to the scalable SVG copy (Linux, if source was SVG)
 };
+
+/// Write the embedded default Coconut Milk SVG icon to a file.
+/// Returns the path it was written to.
+std::string writeDefaultIcon(const std::string& dir);
 
 /// Generate all platform icon files from a single source.
 ///
-/// @param source_path  Path to the source file (SVG, PNG, JPEG, ICNS, or ICO)
+/// If source_path is empty, uses the embedded default Coconut Milk icon.
+///
+/// @param source_path  Path to the source file, or empty for default icon
 /// @param out_dir      Output directory (e.g. bundle output dir)
 /// @param app_id       App identifier used for freedesktop naming on Linux
 ///
 /// On success, returns a GeneratedIcons with paths to the created files.
-/// On failure, returns an Error describing what went wrong.
-/// Missing / unreadable source is a soft error (caller decides whether to abort).
 std::expected<GeneratedIcons, Error>
 generateIcons(const std::string& source_path,
               const std::string& out_dir,

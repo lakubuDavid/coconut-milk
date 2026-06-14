@@ -601,21 +601,27 @@ StepResult bundle(const Config& cfg,
     };
   }
 
-  // Step 2: auto-generate platform icons from source (if configured)
+  // Step 2: auto-generate platform icons
+  // Uses configured icon.source, or falls back to the embedded default icon.
   std::string app_id = resolveAppField(cfg.darwin, cfg.app,
       [](const AppConfig& a) { return a.id; });
   if (app_id.empty()) app_id = "coconut-app";
-  if (!cfg.icon.source.empty()) {
-    auto icons = icon_gen::generateIcons(cfg.icon.source, out_dir, app_id);
-    if (!icons) {
-      // Non-fatal: warn but continue — user may have explicit icon paths
-      std::println(stderr, "bundle: warning: icon generation failed: {}",
-                   icons.error().message);
-    } else {
-      std::println("bundle: icons generated (icns={}, ico={}, png={})",
-                   icons->icns.empty() ? "none" : icons->icns,
-                   icons->ico.empty() ? "none" : icons->ico,
-                   icons->png.empty() ? "none" : icons->png);
+  {
+    // Only skip icon generation if user explicitly provided all three paths
+    bool hasExplicitPaths = !cfg.icon.icns_path.empty() ||
+                            !cfg.icon.ico_path.empty()  ||
+                            !cfg.icon.png_path.empty();
+    if (!hasExplicitPaths) {
+      auto icons = icon_gen::generateIcons(cfg.icon.source, out_dir, app_id);
+      if (!icons) {
+        std::println(stderr, "bundle: warning: icon generation failed: {}",
+                     icons.error().message);
+      } else {
+        std::println("bundle: icons generated (icns={}, ico={}, png={})",
+                     icons->icns.empty() ? "none" : icons->icns,
+                     icons->ico.empty() ? "none" : icons->ico,
+                     icons->png.empty() ? "none" : icons->png);
+      }
     }
   }
 

@@ -1,4 +1,5 @@
 #include "icon_gen.h"
+#include "embeds/default_icon_svg.h"
 
 #include "error.h"
 #include "fs.h"
@@ -629,6 +630,21 @@ writeLinuxIcons(const std::vector<PngIcon>& icons,
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+// Default icon
+// ══════════════════════════════════════════════════════════════════════════
+
+std::string writeDefaultIcon(const std::string& dir) {
+  std::error_code ec;
+  fs::create_directories(dir, ec);
+  std::string path = dir + "/coconut-icon.svg";
+  std::ofstream f(path);
+  if (f.is_open()) {
+    f << DEFAULT_ICON_SVG;
+  }
+  return path;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
 // Main entry point
 // ══════════════════════════════════════════════════════════════════════════
 
@@ -637,8 +653,14 @@ generateIcons(const std::string& source_path,
               const std::string& out_dir,
               const std::string& app_id) {
 
+  // Resolve source: empty → use embedded default
+  std::string resolved = source_path;
+  if (resolved.empty()) {
+    resolved = writeDefaultIcon(out_dir);
+  }
+
   // 1) Detect format
-  SourceFormat fmt = detectFormat(source_path);
+  SourceFormat fmt = detectFormat(resolved);
   if (fmt == SourceFormat::Unknown) {
     return std::unexpected(Error{
       .code = ErrorCode::InvalidConfig,
@@ -656,7 +678,7 @@ generateIcons(const std::string& source_path,
 
   switch (fmt) {
     case SourceFormat::Svg: {
-      svgPath = source_path;
+      svgPath = resolved;
       // SVG is vector — can render at any size, no "native" limit.
       // Set nativeSize high so the raster loop doesn't skip any size.
       nativeSize = 4096;
@@ -664,21 +686,21 @@ generateIcons(const std::string& source_path,
     }
     case SourceFormat::Png:
     case SourceFormat::Jpeg: {
-      auto result = loadRaster(source_path);
+      auto result = loadRaster(resolved);
       if (!result) return std::unexpected(result.error());
       loaded = std::move(*result);
       nativeSize = std::max(loaded->width, loaded->height);
       break;
     }
     case SourceFormat::Icns: {
-      auto result = loadIcns(source_path);
+      auto result = loadIcns(resolved);
       if (!result) return std::unexpected(result.error());
       loaded = std::move(*result);
       nativeSize = std::max(loaded->width, loaded->height);
       break;
     }
     case SourceFormat::Ico: {
-      auto result = loadIco(source_path);
+      auto result = loadIco(resolved);
       if (!result) return std::unexpected(result.error());
       loaded = std::move(*result);
       nativeSize = std::max(loaded->width, loaded->height);
@@ -713,7 +735,7 @@ generateIcons(const std::string& source_path,
     RenderedImage rendered;
     if (fmt == SourceFormat::Svg) {
       // Render SVG at exactly this size
-      auto result = loadSvg(source_path, size);
+      auto result = loadSvg(resolved, size);
       if (!result) continue;  // skip if render fails at this size
       rendered = std::move(*result);
     } else {
@@ -790,8 +812,9 @@ generateIcons(const std::string& source_path,
       fs::create_directories(scalableDir, ec);
       if (!ec) {
         std::string svgDest = scalableDir + "/" + app_id + ".svg";
-        fs::copy_file(source_path, svgDest,
+        fs::copy_file(resolved, svgDest,
                       fs::copy_options::overwrite_existing, ec);
+        if (!ec) result.svg = svgDest;
       }
     }
   }
