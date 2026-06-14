@@ -7,12 +7,46 @@
   <link rel="stylesheet" href="coconut://assets/app.css">
 </head>
 <body>
+
+  <!-- Lucide SVG sprite (hidden) -->
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+    <defs>
+      <symbol id="icon-folder-open" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2" />
+      </symbol>
+      <symbol id="icon-save" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+        <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" />
+        <path d="M7 3v4a1 1 0 0 0 1 1h7" />
+      </symbol>
+      <symbol id="icon-file-text" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+        <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+        <path d="M10 9H8" />
+        <path d="M16 13H8" />
+        <path d="M16 17H8" />
+      </symbol>
+    </defs>
+  </svg>
+
   <div id="app">
     <!-- Toolbar -->
     <div id="toolbar">
-      <button onclick="openDialog()">📂 Open</button>
-      <button onclick="saveCurrent()">💾 Save</button>
-      <button onclick="saveAsDialog()">💾 Save As</button>
+      <button onclick="openDialog()">
+        <svg class="icon-svg icon-btn" aria-hidden="true"><use href="#icon-folder-open"/></svg>
+        Open
+      </button>
+      <button onclick="saveCurrent()">
+        <svg class="icon-svg icon-btn" aria-hidden="true"><use href="#icon-save"/></svg>
+        Save
+      </button>
+      <button onclick="saveAsDialog()">
+        <svg class="icon-svg icon-btn" aria-hidden="true"><use href="#icon-save"/></svg>
+        Save As
+      </button>
       <span id="file-path" class="file-path"></span>
     </div>
 
@@ -33,7 +67,7 @@
           <div id="preview-content"></div>
         </div>
         <div id="empty-state">
-          <div class="empty-icon">📝</div>
+          <svg class="icon-svg icon-large" aria-hidden="true"><use href="#icon-file-text"/></svg>
           <div>Select a file from the tree to start editing</div>
         </div>
       </main>
