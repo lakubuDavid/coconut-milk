@@ -25,7 +25,11 @@ struct AppConfig {
 
 /// Icon references per platform.
 /// Icon formats differ per OS so these are kept platform-specific.
+/// If `source` is set, the bundle command auto-generates platform-specific
+/// icon files from a single source file (SVG, PNG, JPEG, ICNS, or ICO).
+/// The explicit *_path fields override / complement auto-generation.
 struct IconConfig {
+  std::string source;     ///< Single source file — SVG, PNG, JPEG, ICNS, or ICO
   std::string icns_path;  ///< macOS: path to .icns file
   std::string ico_path;    ///< Windows: path to .ico file
   std::string png_path;    ///< Linux: path to .png file (or freedesktop icon name)

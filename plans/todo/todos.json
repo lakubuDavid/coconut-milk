@@ -1,167 +1,63 @@
 {
   "version": "1.0",
   "project": "coconut-milk",
-  "updatedAt": "2026-06-13T21:00:00.000Z",
+  "updatedAt": "2026-06-14T05:25:06.244Z",
   "tasks": [
     {
-      "id": "task-1781366119344-ek6z4w9",
-      "title": "Investigate CLI/runtime split decision",
-      "description": "Binary size analysis: debug=7.4MB, release=TBD (build broken). Dependencies include WebKit, Cocoa, LuaJIT. Decision: keep single binary for now (7.4MB is fine), split only if CLI grows significantly or for App Store distribution.",
+      "id": "task-1781411484558-3scc0sq",
+      "title": "Add icon.source field to IconConfig + parsers",
+      "description": "Add `source` field to IconConfig struct and update Lua/JSON parsers to read it. Keep backwards compat with existing icns_path/ico_path/png_path.",
       "status": "completed",
-      "createdAt": "2026-06-13T15:55:19.344Z",
-      "updatedAt": "2026-06-13T15:55:19.344Z"
+      "createdAt": "2026-06-14T04:31:24.558Z",
+      "updatedAt": "2026-06-14T04:35:57.718Z"
     },
     {
-      "id": "task-1781367394777-bam711w",
-      "title": "EPIC: coconut bundle — standalone distributable app packaging",
-      "description": "coconut bundle reads project config, generates platform manifests (Info.plist, app.manifest, .desktop, metainfo.xml), assembles .app bundle with binary + config + assets + commands. Full pipeline works end-to-end. Remaining: B2 bytecode opt-in, codesign.",
+      "id": "task-1781411487621-ndes2e4",
+      "title": "Vendor stb_image.h + stb_image_write.h",
+      "description": "Download stb_image.h and stb_image_write.h to thirdparty/stb/. These are single-file headers used to decode PNG/JPEG to RGBA and encode RGBA to PNG.",
       "status": "completed",
-      "createdAt": "2026-06-13T16:16:34.777Z",
-      "updatedAt": "2026-06-13T20:30:00.000Z"
+      "createdAt": "2026-06-14T04:31:27.621Z",
+      "updatedAt": "2026-06-14T04:34:30.246Z"
     },
     {
-      "id": "task-1781367401761-d7lym2u",
-      "title": "Bundle-aware binary — detect .app bundle at startup (option B)",
-      "description": "On macOS, use NSBundle.mainBundle to detect if running from inside a .app. If so, resolve project root to .app/Contents/Resources. This removes the need for a shell launcher script.",
+      "id": "task-1781411499751-d4byfif",
+      "title": "Add lunasvg dependency via CMake FetchContent",
+      "description": "Add lunasvg as a build dependency in xmake.lua for SVG→RGBA rasterization. LunaSVG is an MIT-licensed C++ SVG rendering library.",
       "status": "completed",
-      "createdAt": "2026-06-13T16:16:41.761Z",
-      "updatedAt": "2026-06-13T16:31:34.121Z"
+      "createdAt": "2026-06-14T04:31:39.751Z",
+      "updatedAt": "2026-06-14T05:25:06.244Z"
     },
     {
-      "id": "task-1781367405169-hb8kxf5",
-      "title": "Add darwin/win/linux + manifests fields to Config struct",
-      "description": "Extend Config with darwin, win, linux, and manifests structs. Support global+override pattern (e.g. frameless=global default, darwin.frameless overrides). Implement merge order: defaults → global → platform.",
+      "id": "task-1781411517117-hxitxyf",
+      "title": "Create icon_gen.h with public API",
+      "description": "Declare format detection, SVG/PNG/JPEG loading, PNG encoding, ICNS/ICO packers, Linux PNG writer. New file at src/icon_gen.h.",
       "status": "completed",
-      "createdAt": "2026-06-13T16:16:45.169Z",
-      "updatedAt": "2026-06-13T17:19:52.625Z"
+      "createdAt": "2026-06-14T04:31:57.117Z",
+      "updatedAt": "2026-06-14T05:01:43.581Z"
     },
     {
-      "id": "task-1781367408537-3wf44le",
-      "title": "Parse platform + manifests tables from coconut.config.lua",
-      "description": "Read darwin/win/linux and manifests tables in loadConfigLua(). Merge with merge order. Validate fields. Store in Config struct. No rebuild needed — all runtime.",
+      "id": "task-1781411523519-kmdew6m",
+      "title": "Create icon_gen.cpp implementation",
+      "description": "Implement format detection, SVG rendering via lunasvg, PNG/JPEG decoding via stb_image, PNG encoding via stb_image_write, ICNS/ICO binary packers, Linux PNG directory writer.",
       "status": "completed",
-      "createdAt": "2026-06-13T16:16:48.537Z",
-      "updatedAt": "2026-06-13T17:21:56.535Z"
+      "createdAt": "2026-06-14T04:32:03.519Z",
+      "updatedAt": "2026-06-14T05:21:22.244Z"
     },
     {
-      "id": "task-1781367411995-a1fz12l",
-      "title": "Dynamic NSBundle patching for macOS manifests at startup",
-      "description": "At runtime startup, read darwin.* config and mutate NSBundle.mainBundle.infoDictionary in-memory: bundle_identifier, ns_permissions, extra_plist keys. Used in dev mode (outside .app bundle) so all features work without rebuild.",
+      "id": "task-1781411526941-rgoqubo",
+      "title": "Wire generateIcons into bundle pipeline",
+      "description": "Replace the simple icon copy in assembleBundle() with call to generateIcons(). If source is set and generation succeeds, use generated paths. Fall back to existing icns_path/ico_path/png_path for backwards compat.",
       "status": "completed",
-      "createdAt": "2026-06-13T16:16:51.995Z",
-      "updatedAt": "2026-06-13T18:43:51.484Z"
+      "createdAt": "2026-06-14T04:32:06.941Z",
+      "updatedAt": "2026-06-14T05:24:57.379Z"
     },
     {
-      "id": "task-1781367415535-niono2m",
-      "title": "coconut bundle: generate Info.plist from config + manifests.darwin",
-      "description": "Render macOS Info.plist XML from config fields (bundle_identifier, cf_bundle_name, version, category, ns_permissions, extra_plist). Place in .app/Contents/Info.plist.",
+      "id": "task-1781411530439-affus2m",
+      "title": "Update xmake.lua with new dependencies",
+      "description": "Add add_requires(\"lunasvg\") and add_includedirs for stb. Update the coconut target to link lunasvg and include stb headers. Also add icon_gen.cpp to the source list.",
       "status": "completed",
-      "createdAt": "2026-06-13T16:16:55.535Z",
-      "updatedAt": "2026-06-13T20:30:00.000Z"
-    },
-    {
-      "id": "task-1781367419631-loemeqw",
-      "title": "coconut bundle: generate Windows app.manifest",
-      "description": "Render Windows app.manifest XML with Common Controls dependency, DPI awareness, compatibility OS GUIDs. Place alongside .exe.",
-      "status": "completed",
-      "createdAt": "2026-06-13T16:16:59.631Z",
-      "updatedAt": "2026-06-13T20:30:00.000Z"
-    },
-    {
-      "id": "task-1781367423174-n4dnnhk",
-      "title": "coconut bundle: generate .desktop + metainfo.xml for Linux",
-      "description": "Render .desktop file from linux.* config (name, exec, categories, extra_desktop_keys). Render metainfo.xml from linux.appstream config.",
-      "status": "completed",
-      "createdAt": "2026-06-13T16:17:03.174Z",
-      "updatedAt": "2026-06-13T20:30:00.000Z"
-    },
-    {
-      "id": "task-1781367426620-a5brs2i",
-      "title": "coconut bundle: assemble directory structure + copy files",
-      "description": "Create .app/Contents/{MacOS,Resources} structure. Copy binary, stripped config, views, assets, commands, main.lua, icon.icns. Set executable permissions.",
-      "status": "completed",
-      "createdAt": "2026-06-13T16:17:06.620Z",
-      "updatedAt": "2026-06-13T20:30:00.000Z"
-    },
-    {
-      "id": "task-1781367429957-j8ittka",
-      "title": "EPIC: CLI improvements — new, run, generate, bundle subcommands",
-      "description": "coconut new (scaffold), coconut run (config override flags), coconut bundle (packaging), coconut generate. --help per subcommand. --version. Subcommand routing.",
-      "status": "completed",
-      "createdAt": "2026-06-13T16:17:09.957Z",
-      "updatedAt": "2026-06-13T20:30:00.000Z"
-    },
-    {
-      "id": "task-1781367433739-p4xwzc9",
-      "title": "coconut new — scaffold projects from templates",
-      "description": "coconut new <project-name> delegates to create-coconut-app Lua script. Supports --template (bare, bare-ts, vite). --yes flag. Script found by walking up from binary directory.",
-      "status": "completed",
-      "createdAt": "2026-06-13T16:17:13.739Z",
-      "updatedAt": "2026-06-13T20:30:00.000Z"
-    },
-    {
-      "id": "task-1781367436942-nuur0m8",
-      "title": "coconut run — dev workflow improvements",
-      "description": "coconut run subcommand. Config override flags: --window-width, --window-height, --frameless, --transparent, --title. Overrides applied after config load, before window creation.",
-      "status": "completed",
-      "createdAt": "2026-06-13T16:17:16.942Z",
-      "updatedAt": "2026-06-13T20:30:00.000Z"
-    },
-    {
-      "id": "task-1781367440287-zlmo2cu",
-      "title": "coconut generate — polish existing generator",
-      "description": "Print clearer output (what was generated). Respect custom output_dir from config. Generate .d.ts + .g.js alongside .g.lua. Skip unchanged files (mtime check). --watch for auto-regeneration on file changes.",
-      "status": "pending",
-      "createdAt": "2026-06-13T16:17:20.287Z",
-      "updatedAt": "2026-06-13T16:17:20.287Z"
-    },
-    {
-      "id": "task-1781367443534-lsulhwm",
-      "title": "CLI help system + subcommand routing",
-      "description": "coconut --help shows available subcommands and run flags. <subcommand> --help per-subcommand help. --version. Subcommand routing: generate | new | run | bundle all dispatched.",
-      "status": "completed",
-      "createdAt": "2026-06-13T16:17:23.534Z",
-      "updatedAt": "2026-06-13T20:30:00.000Z"
-    },
-    {
-      "id": "task-1781367873085-pitvnx8",
-      "title": "Opt-in: compile config to bytecode on bundle (B2)",
-      "description": "When bundle.bytecode_config is true: compile the stripped coconut.config.lua to .luac via luajit -b <arch> before bundling. Runtime loader handles .luac transparently. User must bundle separately per arch if using this opt-in.",
-      "status": "pending",
-      "createdAt": "2026-06-13T16:24:33.085Z",
-      "updatedAt": "2026-06-13T16:31:15.136Z"
-    },
-    {
-      "id": "task-1781368180355-mseeecg",
-      "title": "Strip dev-only fields from config on bundle (Option A default)",
-      "description": "When bundling, coconut.config.lua gets dev fields removed: generators.*, debug.*, manifests.*, bundle.*. The stripped config ships in .app/Contents/Resources/coconut.config.lua. Runtime loads it when running from .app. Bundle-aware binary (option B) points to Resources/.",
-      "status": "completed",
-      "createdAt": "2026-06-13T16:29:40.355Z",
-      "updatedAt": "2026-06-13T18:53:56.233Z"
-    },
-    {
-      "id": "task-1781368270390-7no7e0v",
-      "title": "Static-link LuaJIT in release builds",
-      "description": "Link libluajit.a statically so the shipped binary has zero dylib deps. Debug keeps dynamic for iteration speed. xmake: use add_requires with shared=false config or add_linkdirs/add_links for the .a file.",
-      "status": "pending",
-      "createdAt": "2026-06-13T16:31:10.390Z",
-      "updatedAt": "2026-06-13T16:31:10.390Z"
-    },
-    {
-      "id": "task-1781369200000-fix-tests",
-      "title": "Fix 11 failing tests — config JSON validation + FS edge cases",
-      "description": "All 11 pre-existing failures fixed: config view kind validation now returns errors, target_archs parsed from JSON, frameless/transparent type validation, fs::create/bridge::create null checks, fs::resolve dot handling, fs::listDir dotfile inclusion.",
-      "status": "completed",
-      "createdAt": "2026-06-13T20:30:00.000Z",
-      "updatedAt": "2026-06-13T21:00:00.000Z"
-    },
-    {
-      "id": "task-1781369200001-bundle-codesign",
-      "title": "Bundle: codesign — codesign --deep in assembly step",
-      "description": "After bundle assembly, optionally run codesign --deep on the .app bundle. Check for identity in config or use ad-hoc signing. Non-critical (bundle works without it).",
-      "status": "pending",
-      "createdAt": "2026-06-13T20:30:00.000Z",
-      "updatedAt": "2026-06-13T20:30:00.000Z"
+      "createdAt": "2026-06-14T04:32:10.439Z",
+      "updatedAt": "2026-06-14T05:25:01.903Z"
     }
   ]
 }

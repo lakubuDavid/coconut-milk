@@ -68,6 +68,7 @@ static void parseAppConfig(const sol::table& t, AppConfig& cfg) {
 // ── IconConfig parser (Lua) ─────────────────────────────────────────────────
 
 static void parseIconConfig(const sol::table& t, IconConfig& cfg) {
+  luaCopy(t, "source",    cfg.source);
   luaCopy(t, "icns_path", cfg.icns_path);
   luaCopy(t, "ico_path",  cfg.ico_path);
   luaCopy(t, "png_path",  cfg.png_path);
@@ -227,6 +228,7 @@ static void parseAppConfig(const nlohmann::json& j, AppConfig& cfg) {
 // ── IconConfig parser (JSON) ─────────────────────────────────────────────────
 
 static void parseIconConfig(const nlohmann::json& j, IconConfig& cfg) {
+  jsonCopyStr(j, "source",    cfg.source);
   jsonCopyStr(j, "icns_path", cfg.icns_path);
   jsonCopyStr(j, "ico_path",  cfg.ico_path);
   jsonCopyStr(j, "png_path",  cfg.png_path);

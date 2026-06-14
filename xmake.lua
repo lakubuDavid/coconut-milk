@@ -7,8 +7,10 @@ else
     add_requires("luajit 2.*", "sol2 ~3.3.*")
 end
 add_requires("nlohmann_json 3.12.0")
+add_requires("lunasvg")
 set_languages("c11", "c++23")
 add_includedirs("thirdparty/webview/core/include")
+add_includedirs("thirdparty")
 
 -- =================================================================
 -- Task: build TS->JS embed
@@ -75,7 +77,7 @@ target("coconut")
         add_files("src/platform/linux/*.cpp")
     end
     add_files("src/permissions.cpp")
-    add_packages("sol2", "luajit", "nlohmann_json")
+    add_packages("sol2", "luajit", "nlohmann_json", "lunasvg")
     add_deps("webview")
 
 -- =================================================================
@@ -85,6 +87,7 @@ target("coconut")
 target("coconut-milk-tests")
     set_kind("binary")
     add_includedirs("src", "tests", "thirdparty/webview/core/include")
+    add_includedirs("thirdparty")
     add_frameworks("Cocoa", "WebKit", "Foundation",
                    "AVFoundation", "EventKit", "UserNotifications",
                    "CoreLocation", "Contacts", "Photos", "Security",
@@ -104,5 +107,5 @@ target("coconut-milk-tests")
     remove_files("src/main.cpp")
     add_files("src/permissions.cpp")
     add_files("tests/*.cpp", "tests/**/*.cpp")
-    add_packages("sol2", "luajit", "nlohmann_json")
+    add_packages("sol2", "luajit", "nlohmann_json", "lunasvg")
     add_deps("webview")
