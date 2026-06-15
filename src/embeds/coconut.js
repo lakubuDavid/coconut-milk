@@ -152,12 +152,11 @@ var coconut = {
   }
 };
 function _normalizeCombo(raw) {
-  const isMac = typeof navigator !== "undefined" && navigator.platform.includes("Mac");
-  let combo = raw.replace(/mod/gi, isMac ? "meta" : "ctrl");
-  const parts = combo.split("+").map((p) => p.trim().toLowerCase());
+  const combo = raw.toLowerCase();
+  const parts = combo.split("+").map((p) => p.trim());
   const key = parts.pop() ?? "";
   const modPriority = {
-    meta: 0,
+    mod: 0,
     ctrl: 1,
     alt: 2,
     shift: 3
@@ -188,8 +187,13 @@ function _mapKey(key) {
   return map[key] ?? key;
 }
 function _comboFromEvent(e) {
+  const isMac = typeof navigator !== "undefined" && navigator.platform.includes("Mac");
   const parts = [];
-  if (e.metaKey)
+  if (e.metaKey && isMac)
+    parts.push("mod");
+  else if (e.ctrlKey && !isMac)
+    parts.push("mod");
+  else if (e.metaKey)
     parts.push("meta");
   else if (e.ctrlKey)
     parts.push("ctrl");

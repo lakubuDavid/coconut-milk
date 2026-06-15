@@ -283,18 +283,17 @@ interface KeybindEntry {
 
 /** Normalize a combo string: lowercase, sort modifiers, resolve 'mod'. */
 function _normalizeCombo(raw: string): string {
-  const isMac = typeof navigator !== 'undefined' && navigator.platform.includes('Mac')
-
-  // Resolve 'mod' → 'meta' (macOS) or 'ctrl' (others)
-  let combo = raw.replace(/mod/gi, isMac ? 'meta' : 'ctrl')
+  // 'mod' is the canonical cross-platform modifier name.
+  // Both JS and C++ use 'mod' for Cmd (macOS) / Ctrl (Windows/Linux).
+  const combo = raw.toLowerCase()
 
   // Split into parts
-  const parts = combo.split('+').map(p => p.trim().toLowerCase())
+  const parts = combo.split('+').map(p => p.trim())
   const key = parts.pop() ?? ''
 
-  // Modifier priority order: meta > ctrl > alt > shift
+  // Modifier priority order: mod > ctrl > alt > shift
   const modPriority: Record<string, number> = {
-    meta: 0, ctrl: 1, alt: 2, shift: 3,
+    mod: 0, ctrl: 1, alt: 2, shift: 3,
   }
   const modifiers = parts.filter(p => p in modPriority)
   modifiers.sort((a, b) => (modPriority[a] ?? 99) - (modPriority[b] ?? 99))
@@ -318,8 +317,12 @@ function _mapKey(key: string): string {
 }
 
 function _comboFromEvent(e: KeyboardEvent): string {
+  const isMac = typeof navigator !== 'undefined' && navigator.platform.includes('Mac')
   const parts: string[] = []
-  if (e.metaKey) parts.push('meta')
+  // 'mod' is the canonical cross-platform modifier (Cmd on macOS, Ctrl on Windows/Linux)
+  if (e.metaKey && isMac) parts.push('mod')
+  else if (e.ctrlKey && !isMac) parts.push('mod')
+  else if (e.metaKey) parts.push('meta')
   else if (e.ctrlKey) parts.push('ctrl')
   if (e.altKey) parts.push('alt')
   if (e.shiftKey) parts.push('shift')
