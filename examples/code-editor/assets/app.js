@@ -702,12 +702,14 @@
       }
       if (e.key === 'ArrowDown') {
         e.preventDefault();
+        if (items.length === 0) return;
         selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
         updateSelection();
         return;
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault();
+        if (items.length === 0) return;
         selectedIndex = Math.max(selectedIndex - 1, 0);
         updateSelection();
         return;

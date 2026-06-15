@@ -248,6 +248,7 @@ body {
 }
 .palette-item:hover,
 .palette-item.selected { background: #313244; }
+.palette-item.selected { outline: 1px solid #89b4fa; outline-offset: -1px; }
 .palette-item .shortcut {
   color: #6c7086; font-size: 11px;
   font-family: 'Menlo', 'SF Mono', 'Monaco', monospace;
