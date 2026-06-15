@@ -198,7 +198,7 @@ If the goal is to ship quickly, do the work in this order:
 1. repository skeleton
 2. Lua runtime bootstrap
 3. view system
-4. WebUI window integration
+4. native webview window integration
 5. bridge protocol
 6. frontend API
 7. command registry

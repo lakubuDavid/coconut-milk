@@ -465,25 +465,16 @@ Use fake or temporary runtime roots to isolate tests from the repo layout.
 
 ## Phase 4: Window / Transport
 
-### WebUI transport (current)
+### Native webview transport (current)
 
-- window creates successfully (webui_new_window)
+- window creates successfully (platform webview)
 - initial view loads into the window
 - resize events are visible
-- webui_bind registers __coconut_emit and __coconut_call
-- webui_run delivers JS to the page
-- webui_wait blocks until window closes
+- transport binding registers __coconut_emit and __coconut_call (or platform-specific binding)
+- transport delivers JS to the page
+- transport run/wait blocks until window closes
+- transport cleans up without leaking
 
-### Webview transport (target)
-
-- webview_create allocates a webview instance successfully
-- webview_set_html loads inline HTML
-- webview_navigate loads a URL
-- webview_init injects Coconut JS runtime before page load
-- webview_bind registers __coconut_rpc
-- webview_eval delivers JS to the page
-- webview_run blocks until window closes
-- webview_destroy cleans up without leaking
 
 ### Transport interface conformance
 

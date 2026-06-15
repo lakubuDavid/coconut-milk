@@ -495,7 +495,7 @@ end
 
 The following parts are not specified yet and will be discussed next:
 
-- the bridge between WebUI and Lua
+- the bridge between the native webview and Lua
 - serialization format details
 - transport directionality
 - whether frontend calls are pull, push, or request/response
@@ -512,7 +512,7 @@ Coconut uses a **layered bridge**:
 
 1. **RPC envelope** — a canonical message shape that all bridge traffic uses
 2. **Transport abstraction** — a pluggable interface for sending/receiving envelopes
-3. **Platform transport** — a concrete implementation (WebUI today, webview target)
+3. **Platform transport** — native webview transport
 
 The Lua API stays stable regardless of which transport is active.
 
@@ -590,7 +590,7 @@ Concrete implementations:
 
 | Transport | Mechanism | Direction |
 |---|---|---|
-| `WebuiTransport` (current) | `webui_run()` → JS eval, `webui_bind()` ← WebSocket callback | Outgoing via eval, incoming via bound function |
+| `WebviewTransport` (current) | `webview_eval()` → JS, `webview_bind()` ← native WKScriptMessageHandler | Outgoing via eval, incoming via native handler |
 | `WebviewTransport` (target) | `webview_eval()` → JS, `webview_bind()` ← native WKScriptMessageHandler | Outgoing via eval, incoming via native handler |
 
 ### 11.3 Transport ownership
@@ -609,7 +609,7 @@ void createTransport(App* app);
 ```
 
 `createTransport()`:
-1. Creates a platform-specific transport (currently `WebuiTransport`)
+1. Creates a platform-specific transport (currently `WebviewTransport`)
 2. Stores it on `app->bridge_state->transport`
 3. Sets up the frontend binding via `setupEmitBinding()`
 4. In `lua_runtime.cpp`, the call changes from `bridge::setupEmitBinding()` → `bridge::createTransport()`
@@ -626,14 +626,14 @@ This is the preferred way to send any RPC message from C++ to JS. It looks up th
 
 ### 11.4 Legacy path (pre-refactor)
 
-Existing bridge functions (`emitToJS`, `callJS`, `emitToLua`, `callLua`) continue to work as direct wrappers around WebUI calls. They do not use the transport layer.
+Legacy bridge wrapper functions that bypass the transport layer are deprecated; the transport interface is now the canonical path.
 
 Migration plan:
 
 | Phase | Change |
 |---|---|
 | Current | Both legacy and RPC paths coexist. `createTransport()` sets up the transport + binding. Legacy functions (`emitToJS`, `callJS`) bypass the transport. |
-| webview migration | `emitToJS` / `callJS` rewritten to use `transport->send(RpcMessage)`. A `WebviewTransport` replaces `WebuiTransport`. |
+| webview migration | `emitToJS` / `callJS` rewritten to use `transport->send(RpcMessage)`. `WebviewTransport` is the canonical implementation. |
 | Complete | Legacy path removed. All C++ ↔ JS traffic goes through the transport interface. |
 
 ### 11.5 Message types
@@ -892,11 +892,11 @@ If a frontend command promise is rejected, the rejection reason should be derive
 
 ### 11.10 Implementation status
 
-#### Current (WebUI)
+#### Current (native webview)
 
 - RPC envelope types defined in `rpc_envelope.h` ✓
 - Transport interface defined in `transport.h` ✓
-- `WebuiTransport` implemented in `bridge.cpp` ✓
+- `WebviewTransport` implemented in `bridge.cpp` ✓
 - `bridge::createTransport(app)` creates transport + binding ✓
 - Legacy `emitToJS` / `callJS` still bypass transport (next phase)
 - Transport cleanup in `bridge::destroy()` ✓
@@ -933,7 +933,7 @@ If a frontend command promise is rejected, the rejection reason should be derive
 - generated helper modules export a single callable helper per command
 - frontend `coconut.on(...)` listener API
 - frontend `coconut.emit(...)` signaling API
-- hybrid WebUI bridge
+- hybrid webview bridge
 
 ### To be designed next
 
