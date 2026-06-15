@@ -48,3 +48,50 @@ coconut.args = {
 - Lua: `coconut.keybind(combo, fn|cmd_name, scope?)` → returns unregister fn
 - Dispatch: JS keydown → JS registry → emit `"keydown"` → Lua registry → fall through
 - Event payload: `{key, ctrl, shift, alt, meta, scope}`
+
+
+## Keybind API — refined
+
+### Registration
+
+```lua
+-- Simple: mod auto-maps to cmd (macOS) / ctrl (others)
+coconut.keybind("mod+s", fn, { id = "editor.save", scope = "editor" })
+
+-- Explicit per-platform (overrides mod resolution)
+coconut.keybind({
+  mac  = "cmd+s",
+  win  = "ctrl+s",
+  linux = "ctrl+s",
+}, fn, { id = "editor.save" })
+
+-- Bind a command name instead of a function
+coconut.keybind("mod+shift+p", "editor_palette", { id = "app.palette" })
+
+-- JS side
+coconut.keybind("mod+s", () => saveFile(), { id = "editor.save", scope = "editor" })
+```
+
+### Overrides (runtime, dev-managed)
+
+```lua
+-- Override a keybind's combo by id
+coconut.keybind.setOverride("editor.save", "ctrl+shift+s")
+
+-- Restore default combo
+coconut.keybind.clearOverride("editor.save")
+
+-- Batch load from a table (dev calls this from their own persistence)
+local user_settings = json.decode(coconut.store:get("keybinds"))
+coconut.keybind.loadOverrides(user_settings)
+
+-- Query effective combo
+local combo = coconut.keybind.getCombo("editor.save")
+```
+
+### Platform mapping
+
+- `mod` → `cmd` on macOS, `ctrl` on Windows/Linux
+- Explicit per-platform map overrides `mod` resolution
+- Override API uses normalized combo (after mod resolution)
+- JS does the same resolution at registration time
