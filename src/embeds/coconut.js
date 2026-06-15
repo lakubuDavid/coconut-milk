@@ -222,6 +222,21 @@ function _onKeyDown(e) {
 if (typeof document !== "undefined") {
   document.addEventListener("keydown", _onKeyDown);
 }
+coconut.on("keydown", (payload) => {
+  const combo = payload?.combo;
+  if (!combo)
+    return;
+  const entries = _keybinds.get(combo);
+  if (!entries || entries.length === 0)
+    return;
+  for (const entry of entries) {
+    try {
+      entry.handler({});
+    } catch (err) {
+      console.error("[coconut.keybind] bridge handler error:", err);
+    }
+  }
+});
 var keybind = Object.assign(function keybind2(comboOrMap, handler, opts) {
   let combo;
   if (typeof comboOrMap === "object" && !Array.isArray(comboOrMap)) {
@@ -240,6 +255,9 @@ var keybind = Object.assign(function keybind2(comboOrMap, handler, opts) {
   if (!_keybinds.has(combo))
     _keybinds.set(combo, []);
   _keybinds.get(combo).push({ handler, id, scope });
+  try {
+    coconut.call("__registerPlatformKeybind", { combo }).catch(() => {});
+  } catch {}
   return () => {
     const arr = _keybinds.get(combo);
     if (!arr)

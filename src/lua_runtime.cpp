@@ -136,6 +136,14 @@ void _registerBuiltinCommands(Runtime *runtime) {
       end
       return { ok = true }
     end)
+    ctx:bind("__registerPlatformKeybind", function(params)
+      local combo = params.combo
+      if combo and coconut.__registerPlatformKeybind then
+        local ok = pcall(coconut.__registerPlatformKeybind, combo)
+        return { ok = ok }
+      end
+      return { ok = false, error = "missing combo or binding" }
+    end)
   )";
 
   auto result = lua.script(src, sol::script_pass_on_error);
@@ -179,6 +187,16 @@ void _bindCoconutLuaApi(Runtime *runtime) {
       });
   coconut.set_function("events",
       [](const std::string&, sol::object, CoconutContext*) { });
+
+  // Register a combo with the platform-level keybind set (for NSEvent monitor)
+  coconut.set_function("__registerPlatformKeybind", [runtime](const std::string& combo) -> bool {
+    if (runtime && runtime->app) {
+      runtime->app->platform_keybinds.insert(combo);
+      debug::info(std::format("[keybind] registered platform keybind: {}", combo));
+      return true;
+    }
+    return false;
+  });
 
   // ── Dialog bindings: coconut.dialog ─────────────────────────────
   // Exposes native message box and file dialogs to Lua.

@@ -358,6 +358,22 @@ if (typeof document !== 'undefined') {
   document.addEventListener('keydown', _onKeyDown)
 }
 
+// Listen for bridge-delivered keydown events (from NSEvent monitor)
+// When platform consumes a modifier combo, it dispatches to JS here
+coconut.on('keydown', (payload) => {
+  const combo = payload?.combo as string | undefined
+  if (!combo) return
+  const entries = _keybinds.get(combo)
+  if (!entries || entries.length === 0) return
+  for (const entry of entries) {
+    try {
+      entry.handler({} as KeyboardEvent)
+    } catch (err) {
+      console.error('[coconut.keybind] bridge handler error:', err)
+    }
+  }
+})
+
 // ── Keybind API ───────────────────────────────────────────────────────────
 
 const keybind = Object.assign(
@@ -388,6 +404,12 @@ const keybind = Object.assign(
 
     if (!_keybinds.has(combo)) _keybinds.set(combo, [])
     _keybinds.get(combo)!.push({ handler, id, scope })
+
+    // Register with platform layer so NSEvent monitor consumes the event
+    // (prevents macOS screen flash / Windows beep for unhandled combos)
+    try {
+      coconut.call('__registerPlatformKeybind', { combo }).catch(() => {})
+    } catch {}
 
     // Return unregister function
     return () => {

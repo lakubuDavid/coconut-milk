@@ -131,8 +131,11 @@ void platformRegisterEvents(App* app) {
     // Check app-registered platform keybinds
     if (a->platform_keybinds.count(combo) > 0) {
       debug::info(std::format("[keyboard] app platform keybind consumed: {}", combo));
+      // Dispatch to Lua so handlers can fire
       bridge::dispatchEventToLua(a, "keydown",
           {{"combo", combo}, {"handled", true}});
+      // Dispatch to JS so bridge listeners can fire
+      bridge::emitToJS(a, "keydown", {{"combo", combo}, {"handled", true}});
       *handled = true;
       return true; // consume
     }

@@ -831,5 +831,7 @@
   window.saveCurrent = saveCurrent;
   window.openDialog = openDialog;
   window.saveAsDialog = saveAsDialog;
+  window.openCommandPalette = openCommandPalette;
+  window.closePalette = closePalette;
 
 })();

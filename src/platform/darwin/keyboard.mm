@@ -92,9 +92,11 @@ void registerKeyboardMonitor(void* app_ptr, KeyEventCallback cb, void* userdata)
         if (!comboStr) return event;
 
         std::string combo([comboStr UTF8String]);
+        NSLog(@"[coconut.keyboard] keyDown: combo=%s platform=%d", combo.c_str(), isPlatformCombo(comboStr));
 
         // 1. Platform-level combos — always consume
         if (isPlatformCombo(comboStr)) {
+          NSLog(@"[coconut.keyboard] consumed platform combo: %s", combo.c_str());
           return nil;
         }
 
@@ -103,6 +105,7 @@ void registerKeyboardMonitor(void* app_ptr, KeyEventCallback cb, void* userdata)
         bool consumed = false;
         if (s_callback) {
           consumed = s_callback(combo, &handled, s_userdata);
+          NSLog(@"[coconut.keyboard] callback returned: consumed=%d handled=%d", consumed, handled);
         }
 
         if (consumed) return nil;
