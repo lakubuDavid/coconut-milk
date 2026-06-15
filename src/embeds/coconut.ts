@@ -196,13 +196,13 @@ const coconut = {
    */
   window: {
     minimize: async (): Promise<void> => {
-      await coconut.call("__coconut_window_ctl", { cmd: "minimize" })
+      await coconut.call("__coconutWindowCtl", { cmd: "minimize" })
     },
     toggleFullscreen: async (): Promise<void> => {
-      await coconut.call("__coconut_window_ctl", { cmd: "toggleFullscreen" })
+      await coconut.call("__coconutWindowCtl", { cmd: "toggleFullscreen" })
     },
     close: async (): Promise<void> => {
-      await coconut.call("__coconut_window_ctl", { cmd: "close" })
+      await coconut.call("__coconutWindowCtl", { cmd: "close" })
     },
   },
 

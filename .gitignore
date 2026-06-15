@@ -8,6 +8,6 @@ tmp/
 
 
 bin
-generated
+# generated
 test-ts
 compile_commands.json

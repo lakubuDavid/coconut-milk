@@ -1,63 +1,34 @@
 {
   "version": "1.0",
   "project": "coconut-milk",
-  "updatedAt": "2026-06-14T05:25:06.244Z",
+  "updatedAt": "2026-06-15T11:49:11.797Z",
   "tasks": [
     {
-      "id": "task-1781411484558-3scc0sq",
-      "title": "Add icon.source field to IconConfig + parsers",
-      "description": "Add `source` field to IconConfig struct and update Lua/JSON parsers to read it. Keep backwards compat with existing icns_path/ico_path/png_path.",
+      "id": "task-1781488647239-gwarqhb",
+      "title": "**`__coconut_window_ctl`** — keep the `__coconut_` internal prefix? i.e. `__coconutWindowCtl`? Or drop the prefix and call it `windowCtl`?",
+      "description": "**`__coconut_window_ctl`** — keep the `__coconut_` internal prefix? i.e. `__coconutWindowCtl`? Or drop the prefix and call it `windowCtl`?",
       "status": "completed",
-      "createdAt": "2026-06-14T04:31:24.558Z",
-      "updatedAt": "2026-06-14T04:35:57.718Z"
+      "createdAt": "2026-06-15T01:57:27.239Z",
+      "updatedAt": "2026-06-15T02:04:19.613Z",
+      "children": []
     },
     {
-      "id": "task-1781411487621-ndes2e4",
-      "title": "Vendor stb_image.h + stb_image_write.h",
-      "description": "Download stb_image.h and stb_image_write.h to thirdparty/stb/. These are single-file headers used to decode PNG/JPEG to RGBA and encode RGBA to PNG.",
+      "id": "task-1781488647239-ss35yt4",
+      "title": "**Scope:** This touches about 20-25 files. Want me to batch this into one atomic change, or split into two (first the type-map change, then the camelCase rename)?",
+      "description": "**Scope:** This touches about 20-25 files. Want me to batch this into one atomic change, or split into two (first the type-map change, then the camelCase rename)?",
       "status": "completed",
-      "createdAt": "2026-06-14T04:31:27.621Z",
-      "updatedAt": "2026-06-14T04:34:30.246Z"
+      "createdAt": "2026-06-15T01:57:27.239Z",
+      "updatedAt": "2026-06-15T11:49:11.797Z",
+      "children": []
     },
     {
-      "id": "task-1781411499751-d4byfif",
-      "title": "Add lunasvg dependency via CMake FetchContent",
-      "description": "Add lunasvg as a build dependency in xmake.lua for SVG→RGBA rasterization. LunaSVG is an MIT-licensed C++ SVG rendering library.",
-      "status": "completed",
-      "createdAt": "2026-06-14T04:31:39.751Z",
-      "updatedAt": "2026-06-14T05:25:06.244Z"
-    },
-    {
-      "id": "task-1781411517117-hxitxyf",
-      "title": "Create icon_gen.h with public API",
-      "description": "Declare format detection, SVG/PNG/JPEG loading, PNG encoding, ICNS/ICO packers, Linux PNG writer. New file at src/icon_gen.h.",
-      "status": "completed",
-      "createdAt": "2026-06-14T04:31:57.117Z",
-      "updatedAt": "2026-06-14T05:01:43.581Z"
-    },
-    {
-      "id": "task-1781411523519-kmdew6m",
-      "title": "Create icon_gen.cpp implementation",
-      "description": "Implement format detection, SVG rendering via lunasvg, PNG/JPEG decoding via stb_image, PNG encoding via stb_image_write, ICNS/ICO binary packers, Linux PNG directory writer.",
-      "status": "completed",
-      "createdAt": "2026-06-14T04:32:03.519Z",
-      "updatedAt": "2026-06-14T05:21:22.244Z"
-    },
-    {
-      "id": "task-1781411526941-rgoqubo",
-      "title": "Wire generateIcons into bundle pipeline",
-      "description": "Replace the simple icon copy in assembleBundle() with call to generateIcons(). If source is set and generation succeeds, use generated paths. Fall back to existing icns_path/ico_path/png_path for backwards compat.",
-      "status": "completed",
-      "createdAt": "2026-06-14T04:32:06.941Z",
-      "updatedAt": "2026-06-14T05:24:57.379Z"
-    },
-    {
-      "id": "task-1781411530439-affus2m",
-      "title": "Update xmake.lua with new dependencies",
-      "description": "Add add_requires(\"lunasvg\") and add_includedirs for stb. Update the coconut target to link lunasvg and include stb headers. Also add icon_gen.cpp to the source list.",
-      "status": "completed",
-      "createdAt": "2026-06-14T04:32:10.439Z",
-      "updatedAt": "2026-06-14T05:25:01.903Z"
+      "id": "task-1781488647239-4fgm0up",
+      "title": "**User-defined helper methods** (like `coconut.fs.readText()`, `coconut.dialog.open()`) — these are convenience wrappers that internally call the builtin command. Should I add their signatures to `BuiltinCommandParams/Returns` too? (Technically you call them via `coconut.fs.readText()`, not `coconut.call(\"fsReadText\", ...)`, but typing the raw name helps for `coconut.call()` usage.)",
+      "description": "**User-defined helper methods** (like `coconut.fs.readText()`, `coconut.dialog.open()`) — these are convenience wrappers that internally call the builtin command. Should I add their signatures to `BuiltinCommandParams/Returns` too? (Technically you call them via `coconut.fs.readText()`, not `coconut.call(\"fsReadText\", ...)`, but typing the raw name helps for `coconut.call()` usage.)",
+      "status": "pending",
+      "createdAt": "2026-06-15T01:57:27.239Z",
+      "updatedAt": "2026-06-15T01:57:27.239Z",
+      "children": []
     }
   ]
 }

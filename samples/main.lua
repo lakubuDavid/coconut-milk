@@ -56,9 +56,9 @@ function coconut.commands(ctx)
   end)
 
   -- Window control commands for frameless-titlebar buttons
-  ctx:bind("__coconut_window_ctl", function(params, ctx)
+  ctx:bind("__coconutWindowCtl", function(params, ctx)
     local cmd = params.cmd
-    coconut.info("window_ctl: " .. cmd)
+    coconut.info("__coconutWindowCtl: " .. cmd)
     if cmd == "minimize" then
       ctx.window:minimize()
     elseif cmd == "toggleFullscreen" then

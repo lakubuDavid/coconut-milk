@@ -1,7 +1,7 @@
 --- playground - test every Coconut Milk feature interactively.
 ---
 --- These are extra commands beyond the built-in ones (ping, getViews,
---- fs_read_text, __coconut_window_ctl, clipboard_*, openUrl, notify,
+--- fs_read_text, __coconutWindowCtl, clipboard_*, openUrl, notify,
 --- dialog_*, fs_*).
 
 local json = coconut.json

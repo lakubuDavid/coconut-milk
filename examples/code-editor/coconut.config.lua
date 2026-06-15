@@ -14,6 +14,9 @@ return {
   title = "Coconut Code Editor",
   initial_view = "workspace",
   command_root = "commands",
+  generators = {
+    output_dir = "generated",
+  },
 
   -- Platform-specific overrides
   darwin = {

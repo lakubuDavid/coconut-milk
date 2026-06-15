@@ -182,7 +182,9 @@ Result platformOpenFile(const std::string& title,
       for (NSUInteger i = 0; i < count; ++i) {
         id url = ((id(*)(id, SEL, NSUInteger))objc_msgSend)(urls, objAtSel, i);
         SEL pathSel = sel_registerName("path");
-        const char* cpath = ((const char*(*)(id, SEL))objc_msgSend)(url, pathSel);
+        id nsPath = ((id(*)(id, SEL))objc_msgSend)(url, pathSel);
+        SEL utf8Sel = sel_registerName("UTF8String");
+        const char* cpath = ((const char*(*)(id, SEL))objc_msgSend)(nsPath, utf8Sel);
         if (cpath) {
           result.paths.push_back(cpath);
         }
@@ -274,7 +276,9 @@ Result platformSaveFile(const std::string& title,
       SEL urlSel = sel_registerName("URL");
       id url = ((id(*)(id, SEL))objc_msgSend)(panel, urlSel);
       SEL pathSel = sel_registerName("path");
-      const char* cpath = ((const char*(*)(id, SEL))objc_msgSend)(url, pathSel);
+      id nsPath = ((id(*)(id, SEL))objc_msgSend)(url, pathSel);
+      SEL utf8Sel = sel_registerName("UTF8String");
+      const char* cpath = ((const char*(*)(id, SEL))objc_msgSend)(nsPath, utf8Sel);
       if (cpath) {
         result.path = cpath;
       }

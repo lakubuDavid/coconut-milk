@@ -51,6 +51,11 @@ All bridge traffic uses a canonical RPC envelope with five message types:
 
 ## Message Flow
 
+> **Prefer generated wrappers** (`coconut generate` → import `.g.js`) over
+> raw `coconut.call()`. Generated wrappers give typed function signatures,
+> eliminate magic string names, and auto-register Lua handlers via `.g.lua`.
+> See [generators.md](generators.md).
+
 ### coconut.call() Path
 
 ```

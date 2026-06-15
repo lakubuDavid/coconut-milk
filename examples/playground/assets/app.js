@@ -228,30 +228,30 @@ CMD.fs_listdir = async () => {
 
 // ── Window ───────────────────────────────────────────────────────────────
 
-CMD.win_minimize = () => call('__coconut_window_ctl', { cmd: 'minimize' }).then(() => show('#r-win', 'window minimized'))
-CMD.win_maximize = () => call('__coconut_window_ctl', { cmd: 'maximize' }).then(() => show('#r-win', 'window maximized'))
-CMD.win_fullscreen_on  = () => call('__coconut_window_ctl', { cmd: 'fullscreen_on' }).then(() => show('#r-win', 'fullscreen on'))
-CMD.win_fullscreen_off = () => call('__coconut_window_ctl', { cmd: 'fullscreen_off' }).then(() => show('#r-win', 'fullscreen off'))
+CMD.win_minimize = () => call('__coconutWindowCtl', { cmd: 'minimize' }).then(() => show('#r-win', 'window minimized'))
+CMD.win_maximize = () => call('__coconutWindowCtl', { cmd: 'maximize' }).then(() => show('#r-win', 'window maximized'))
+CMD.win_fullscreen_on  = () => call('__coconutWindowCtl', { cmd: 'fullscreen_on' }).then(() => show('#r-win', 'fullscreen on'))
+CMD.win_fullscreen_off = () => call('__coconutWindowCtl', { cmd: 'fullscreen_off' }).then(() => show('#r-win', 'fullscreen off'))
 
-CMD.win_resize_small = () => call('__coconut_window_ctl', { cmd: 'resize', w: 640, h: 480 }).then(() => show('#r-win', 'resized to 640×480'))
-CMD.win_resize_large = () => call('__coconut_window_ctl', { cmd: 'resize', w: 1024, h: 768 }).then(() => show('#r-win', 'resized to 1024×768'))
+CMD.win_resize_small = () => call('__coconutWindowCtl', { cmd: 'resize', w: 640, h: 480 }).then(() => show('#r-win', 'resized to 640×480'))
+CMD.win_resize_large = () => call('__coconutWindowCtl', { cmd: 'resize', w: 1024, h: 768 }).then(() => show('#r-win', 'resized to 1024×768'))
 
 CMD.win_setpos = () => {
   const x = +$('#win-x').value
   const y = +$('#win-y').value
-  return call('__coconut_window_ctl', { cmd: 'setPosition', x, y }).then(() => show('#r-win-pos', `moved to (${x}, ${y})`))
+  return call('__coconutWindowCtl', { cmd: 'setPosition', x, y }).then(() => show('#r-win-pos', `moved to (${x}, ${y})`))
 }
 
 CMD.win_resize = () => {
   const w = +$('#win-w').value
   const h = +$('#win-h').value
-  return call('__coconut_window_ctl', { cmd: 'resize', w, h }).then(() => show('#r-win-pos', `resized to ${w}×${h}`))
+  return call('__coconutWindowCtl', { cmd: 'resize', w, h }).then(() => show('#r-win-pos', `resized to ${w}×${h}`))
 }
 
 CMD.win_reload = async () => {
   show('#r-win-reload', 'reloading…')
   try {
-    await coconut.call('__coconut_window_ctl', { cmd: 'reload' })
+    await coconut.call('__coconutWindowCtl', { cmd: 'reload' })
   } catch {
     // maybe no reload command — just log
     log('reload: view will need manual refresh')
@@ -261,7 +261,7 @@ CMD.win_reload = async () => {
 
 CMD.win_debug = async () => {
   try {
-    const info = await call('__coconut_window_ctl', { cmd: 'debug' })
+    const info = await call('__coconutWindowCtl', { cmd: 'debug' })
     show('#r-win', JSON.stringify(info, null, 2))
   } catch (e) {
     show('#r-win', `debug error: ${e.message || e}`, false)

@@ -9,7 +9,7 @@
  * @returns {Promise<{ok: boolean, path?: string, error?: string}>}
  */
 export async function ocr_save_temp(params) {
-  return coconut.call("ocr_save_temp", {params});
+  return coconut.call("ocr_save_temp", params);
 }
 
 /**
@@ -18,7 +18,7 @@ export async function ocr_save_temp(params) {
  * @returns {Promise<{text: string, ok: boolean, error?: string}>}
  */
 export async function ocr_scan(params) {
-  return coconut.call("ocr_scan", {params});
+  return coconut.call("ocr_scan", params);
 }
 
 /**
@@ -27,6 +27,6 @@ export async function ocr_scan(params) {
  * @returns {Promise<{ok: boolean, path?: string, error?: string}>}
  */
 export async function ocr_save_text(params) {
-  return coconut.call("ocr_save_text", {params});
+  return coconut.call("ocr_save_text", params);
 }
 

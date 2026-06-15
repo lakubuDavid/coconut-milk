@@ -285,6 +285,22 @@ globalThis.addEventListener('unhandledrejection', function(e) {
   console.error('[coconut:unhandled]', e.reason);
 });
 
+// Patch console to bridge log messages to C++ stderr via __coconut_emit.
+(function() {
+  var levels = {log: 'log', warn: 'warn', error: 'error', info: 'info'};
+  for (var name in levels) {
+    var orig = console[name];
+    console[name] = function() {
+      var args = Array.prototype.slice.call(arguments);
+      orig.apply(console, args);
+      try {
+        var payload = args.map(function(a) { return typeof a === 'string' ? a : JSON.stringify(a); }).join(' ');
+        __coconut_emit('__console__' + name, JSON.stringify({message: payload}));
+      } catch(e) { /* ignore bridge errors */ }
+    };
+  }
+})();
+
 globalThis.__coconut_bridge_ready();
 )";
 

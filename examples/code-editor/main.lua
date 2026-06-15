@@ -1,19 +1,11 @@
 -- code-editor: A simple code editor for Coconut Milk.
 -- Features: file tree, CodeMirror editing, image preview, native dialogs.
+--
+-- Commands use the @command annotation and are auto-registered via the
+-- generated .g.lua wrapper.  The frontend imports generated .g.js
+-- wrappers instead of calling coconut.call() directly.
 
 package.path = "lib/?.lua;" .. package.path
-
-local editor = require("commands.editor")
-
--- ── Register all editor commands ────────────────────────────────────────
-
-function coconut.commands(ctx)
-  ctx:bind("editor_list_dir", editor.list_dir)
-  ctx:bind("editor_read_file", editor.read_file)
-  ctx:bind("editor_save_file", editor.save_file)
-  ctx:bind("editor_open_dialog", editor.open_dialog)
-  ctx:bind("editor_save_dialog", editor.save_dialog)
-end
 
 -- ── Views ───────────────────────────────────────────────────────────────
 

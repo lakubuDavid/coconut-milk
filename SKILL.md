@@ -234,6 +234,11 @@ end
 
 ## 3. JavaScript API (Frontend)
 
+> **Recommended: use generated command wrappers** (`---@command` + `coconut generate`)
+> over raw `coconut.call()`. The generator produces typed async JS functions
+> with JSDoc, auto-registers Lua handlers via `.g.lua`, and eliminates magic
+> string command names. See [generators.md](docs/generators.md).
+
 The `coconut` global object is injected into the webview at `document_start`. It's available before any page scripts run.
 
 ### 3.1 Bridge Readiness

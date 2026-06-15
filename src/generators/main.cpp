@@ -14,6 +14,62 @@
 
 namespace fs = std::filesystem;
 
+// ── Builtin command definitions ─────────────────────────────────────────
+// These commands are registered by the runtime in _registerBuiltinCommands
+// and are always available.  The generator includes them in commands.d.ts
+// so that coconut.call() is typed for builtins too.
+//
+// paramsType / returnType are TypeScript type strings (not Lua).
+// These stay in sync with src/lua_runtime.cpp.
+
+static constexpr struct {
+  const char* name;
+  const char* paramsType;   // TS type for the payload object
+  const char* returnType;   // TS type for the return value
+} kBuiltinCommands[] = {
+  // ── Core ──
+  { "ping",             "{}",                           "string" },
+  { "getViews",         "{}",                           "string[]" },
+
+  // ── Window control (internal) ──
+  { "__coconutWindowCtl",
+    "{ cmd: string; x?: number; y?: number; w?: number; h?: number }",
+    "{ ok: boolean }" },
+
+  // ── Clipboard ──
+  { "clipboard_read",   "{}",                           "string" },
+  { "clipboard_write",  "{ text: string }",             "boolean" },
+
+  // ── System ──
+  { "openUrl",          "{ url: string }",              "boolean" },
+  { "notify",           "{ title: string; body: string }", "boolean" },
+
+  // ── Dialogs ──
+  { "dialog_message",
+    "{ message?: string; title?: string; kind?: string }",
+    "{ confirmed: boolean }" },
+  { "dialog_open",
+    "{ title?: string; multi?: boolean; chooseDir?: boolean }",
+    "{ confirmed: boolean; path: string; paths: string[] }" },
+  { "dialog_save",
+    "{ title?: string; defaultName?: string }",
+    "{ confirmed: boolean; path: string }" },
+
+  // ── Filesystem ──
+  { "fs_read_text",     "{ path: string }",
+    "{ ok: boolean; data?: string; error?: string }" },
+  { "fs_exists",        "{ path: string }",
+    "{ ok: boolean; exists?: boolean; error?: string }" },
+  { "fs_write_text",    "{ path: string; content: string }",
+    "{ ok: boolean; error?: string }" },
+  { "fs_resolve",       "{ root: string; relpath: string }",
+    "{ ok: boolean; data?: string; error?: string }" },
+  { "fs_list_dir",      "{ path: string }",
+    "{ ok: boolean; data?: { name: string; path: string; is_dir: boolean }[]; error?: string }" },
+};
+
+static constexpr size_t kNumBuiltins = sizeof(kBuiltinCommands) / sizeof(kBuiltinCommands[0]);
+
 /// Simple field extraction from a string key = "value" pattern.
 /// Works for both JSON ("key": "value") and Lua (key = "value") formats.
 static std::string configStringField(const std::string& text,
@@ -49,7 +105,22 @@ static std::string configStringField(const std::string& text,
 }
 
 static std::string deriveModulePath(const std::string& filePath) {
-  std::string stem = fs::path(filePath).stem().string();
+  fs::path p(filePath);
+  std::string stem = p.stem().string();
+  // Include the directory path as dotted module prefix so that
+  //   require("commands.editor")
+  // resolves correctly via the default ./?.lua pattern.
+  // Only apply when the relative path is simple (single dir level).
+  // Skip for absolute paths or deeply nested ones.
+  if (p.has_parent_path()) {
+    fs::path parent = p.parent_path();
+    std::string parentStr = parent.string();
+    if (!parentStr.empty() && parentStr != "." &&
+        parentStr.find('/') == std::string::npos &&
+        parentStr.find('\\') == std::string::npos) {
+      return parentStr + "." + stem;
+    }
+  }
   return stem;
 }
 
@@ -77,10 +148,101 @@ static bool needsRegeneration(const fs::path& srcPath,
   return check(".g.lua") || check(".d.ts") || check(".g.js");
 }
 
+/// Build a TS object type string from a CommandDefinition's parameters.
+/// If the def has one parameter with a table type, use that type directly.
+/// Otherwise synthesize { field1: type1; ... } from individual params.
+static std::string buildParamsType(const coconut::generator::CommandDefinition& def) {
+  if (def.parameters.empty())
+    return "{}";
+  if (def.parameters.size() == 1) {
+    std::string t = coconut::generator::formatTypeOrPassthrough(def.parameters[0].type,
+                                                                 coconut::generator::formatTypeTS);
+    if (!t.empty() && t != "any")
+      return t;
+    // fall through to build from param name
+  }
+  // Multiple params or single param with no usable type:
+  // synthesize { name1: type1; name2: type2; ... }
+  std::string out = "{ ";
+  for (size_t i = 0; i < def.parameters.size(); ++i) {
+    if (i > 0) out += "; ";
+    out += def.parameters[i].name;
+    out += ": ";
+    out += coconut::generator::formatTypeOrPassthrough(def.parameters[i].type,
+                                                       coconut::generator::formatTypeTS);
+  }
+  out += " }";
+  return out;
+}
+
+/// Build a TS return type string from a CommandDefinition.
+static std::string buildReturnType(const coconut::generator::CommandDefinition& def) {
+  if (def.returnTypes.empty())
+    return "any";
+  return coconut::generator::formatTypeOrPassthrough(def.returnTypes,
+                                                     coconut::generator::formatTypeTS);
+}
+
+/// Emit the builtin + user command type maps into the aggregated commands.d.ts.
+static void writeAggregatedDTS(std::ostream& agg,
+                               const std::vector<std::string>& userNames,
+                               const std::vector<coconut::generator::CommandDefinition>& userDefs) {
+  agg << "// Auto-generated by coconut-milk generator. Do not edit.\n";
+  agg << "// Aggregates builtin + @command names from commands/*.lua.\n";
+  agg << "// Included via /// <reference> in scripts/coconut.d.ts.\n";
+  agg << "\n";
+
+  // ── Builtin param type map ──
+  agg << "type BuiltinCommandParams = {\n";
+  for (size_t i = 0; i < kNumBuiltins; ++i)
+    agg << "  \"" << kBuiltinCommands[i].name << "\": " << kBuiltinCommands[i].paramsType << ";\n";
+  agg << "};\n\n";
+
+  // ── Builtin return type map ──
+  agg << "type BuiltinCommandReturns = {\n";
+  for (size_t i = 0; i < kNumBuiltins; ++i)
+    agg << "  \"" << kBuiltinCommands[i].name << "\": " << kBuiltinCommands[i].returnType << ";\n";
+  agg << "};\n\n";
+
+  // ── Builtin name union ──
+  agg << "type BuiltinCommandName = keyof BuiltinCommandParams;\n\n";
+
+  // ── User command type map (intersection with builtins) ──
+  // Deduplicate by name (last definition wins for conflicts).
+  std::map<std::string, const coconut::generator::CommandDefinition*> uniqueByName;
+  for (const auto& d : userDefs)
+    uniqueByName[d.name] = &d;
+
+  if (uniqueByName.empty()) {
+    // No user commands — the *Command* aliases just mirror the builtin types
+    agg << "type CoconutCommandName = BuiltinCommandName;\n";
+    agg << "type CoconutCommandParams = BuiltinCommandParams;\n";
+    agg << "type CoconutCommandReturns = BuiltinCommandReturns;\n";
+  } else {
+    // User commands exist — emit intersection + extended union
+    agg << "type CoconutCommandParams = BuiltinCommandParams & {\n";
+    for (const auto& [name, def] : uniqueByName)
+      agg << "  \"" << name << "\": " << buildParamsType(*def) << ";\n";
+    agg << "};\n\n";
+
+    agg << "type CoconutCommandReturns = BuiltinCommandReturns & {\n";
+    for (const auto& [name, def] : uniqueByName)
+      agg << "  \"" << name << "\": " << buildReturnType(*def) << ";\n";
+    agg << "};\n\n";
+
+    agg << "type CoconutCommandName = BuiltinCommandName";
+    for (const auto& name : userNames)
+      agg << " | \"" << name << "\"";
+    agg << ";\n";
+  }
+  agg << "\n";
+}
+
 /// Process a single .lua command file and generate output files.
 static bool processCommandFile(const fs::path& inputPath,
                                const std::string& outDir,
                                std::vector<std::string>& allNames,
+                               std::vector<coconut::generator::CommandDefinition>& allDefs,
                                bool& skipped) {
   skipped = false;
 
@@ -106,24 +268,30 @@ static bool processCommandFile(const fs::path& inputPath,
   // Mtime check: skip if source is older than all generated outputs
   if (!needsRegeneration(inputPath, outDir, stem)) {
     skipped = true;
-    // Still collect command names for the aggregate file
+    // Still collect command names + defs for the aggregate file
     for (const auto& cmd : commands) {
       bool found = false;
       for (const auto& n : allNames)
         if (n == cmd.name) { found = true; break; }
-      if (!found) allNames.push_back(cmd.name);
+      if (!found) {
+        allNames.push_back(cmd.name);
+        allDefs.push_back(cmd);
+      }
     }
     return true;
   }
 
   fs::create_directories(outDir);
 
-  // Collect command names for the aggregate file
+  // Collect command names + defs for the aggregate file
   for (const auto& cmd : commands) {
     bool found = false;
     for (const auto& n : allNames)
       if (n == cmd.name) { found = true; break; }
-    if (!found) allNames.push_back(cmd.name);
+    if (!found) {
+      allNames.push_back(cmd.name);
+      allDefs.push_back(cmd);
+    }
   }
 
   // .g.lua
@@ -154,6 +322,7 @@ namespace coconut::generator {
 
 int runGenerate(const std::string& cmdRoot, const std::string& outDir) {
   std::vector<std::string> allNames;
+  std::vector<CommandDefinition> allDefs;
   int totalCommands = 0;
   int filesGenerated = 0;
   int filesSkipped = 0;
@@ -174,7 +343,7 @@ int runGenerate(const std::string& cmdRoot, const std::string& outDir) {
     if (name.size() > 6 && name.substr(name.size() - 6) == ".g.lua") continue;
 
     bool skipped = false;
-    if (processCommandFile(entry.path(), outDir, allNames, skipped)) {
+    if (processCommandFile(entry.path(), outDir, allNames, allDefs, skipped)) {
       if (skipped) {
         filesSkipped++;
       } else {
@@ -186,28 +355,21 @@ int runGenerate(const std::string& cmdRoot, const std::string& outDir) {
     }
   }
 
-  // Count total commands
+  // Count total commands (includes builtins)
   totalCommands = static_cast<int>(allNames.size());
 
-  // Write aggregated commands.d.ts (always, to keep it in sync)
-  if (!allNames.empty()) {
-    fs::create_directories(outDir);
+  // Write aggregated commands.d.ts (always — includes builtins even when no user commands)
+  fs::create_directories(outDir);
+  {
     std::ofstream agg(fs::path(outDir) / "commands.d.ts");
-    agg << "// Auto-generated by coconut-milk generator. Do not edit.\n";
-    agg << "// Aggregates all @command names from commands/*.lua.\n";
-    agg << "// Included via /// <reference> in scripts/coconut.d.ts.\n";
-    agg << "\n";
-    agg << "type CoconutCommandName =";
-    for (size_t i = 0; i < allNames.size(); ++i) {
-      agg << (i == 0 ? " " : " | ") << "\"" << allNames[i] << "\"";
-    }
-    agg << ";\n";
+    writeAggregatedDTS(agg, allNames, allDefs);
   }
 
   // Report results
   if (totalCommands == 0) {
     std::println("generate: no @command annotations found in {}/*.lua", cmdRoot);
     std::println("  (add ---@command above a Lua function to generate wrappers)");
+    std::println("  (builtin command types still written to commands.d.ts)");
     std::fflush(stdout);
     return 0;  // Not an error — project may not use commands yet
   }

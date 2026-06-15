@@ -113,7 +113,7 @@ void _registerBuiltinCommands(Runtime *runtime) {
       if ok then return { ok = true, data = data } end
       return { ok = false, error = tostring(data) }
     end)
-    ctx:bind("__coconut_window_ctl", function(params)
+    ctx:bind("__coconutWindowCtl", function(params)
       local w = _coconut_window
       if not w then return { ok = false, error = "no window handle" } end
       local cmd = params.cmd

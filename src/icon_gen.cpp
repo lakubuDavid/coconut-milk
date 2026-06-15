@@ -1,5 +1,5 @@
 #include "icon_gen.h"
-#include "embeds/default_icon_svg.h"
+#include "embeds/default_icon_png.h"
 
 #include "error.h"
 #include "fs.h"
@@ -636,10 +636,10 @@ writeLinuxIcons(const std::vector<PngIcon>& icons,
 std::string writeDefaultIcon(const std::string& dir) {
   std::error_code ec;
   fs::create_directories(dir, ec);
-  std::string path = dir + "/coconut-icon.svg";
-  std::ofstream f(path);
+  std::string path = dir + "/coconut-icon.png";
+  std::ofstream f(path, std::ios::binary);
   if (f.is_open()) {
-    f << DEFAULT_ICON_SVG;
+    f.write(reinterpret_cast<const char*>(DEFAULT_ICON_PNG), DEFAULT_ICON_PNG_SIZE);
   }
   return path;
 }

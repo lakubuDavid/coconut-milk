@@ -176,6 +176,10 @@ my-app/
 ├── commands/
 │   ├── example.lua       # Lua command with @command annotations
 │   └── example.g.js      # Generated JS wrapper (auto-generated)
+├── generated/            # Output from `coconut generate`
+│   ├── example.g.lua     # Auto-registers Lua handlers
+│   ├── example.g.js      # Typed JS wrappers (import in frontend)
+│   └── example.d.ts      # TypeScript declarations
 └── views/
     ├── index.html        # Main view
     ├── style.css         # Styles
@@ -185,11 +189,15 @@ my-app/
 **Running:**
 
 ```bash
+# 1. Generate command wrappers (run after adding/editing commands)
 cd my-app
+coconut generate
+
+# 2. Run the app
 coconut
 ```
 
-The binary reads `main.lua` from the current working directory, loads views, and opens the window.
+The binary reads `main.lua` from the current working directory, loads views, and opens the window. The runtime auto-loads `.g.lua` files from `generated/` — no manual `ctx:bind()` needed.
 
 ### Bare TypeScript Template
 

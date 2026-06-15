@@ -1,7 +1,7 @@
 // Crucial: turning the file into a module so 'declare global' is accepted
 export {};
 
-/// <reference path="./generated/commands.d.ts" />
+/// <reference path="../generated/commands.d.ts" />
 
 export type CoconutPayload = Record<string, unknown>;
 
@@ -54,17 +54,20 @@ export interface CoconutClipboardAPI {
   write(text: string): Promise<boolean>;
 }
 
-export interface CoconutJsAPI<
-  //@ts-ignore
-  TCommandName extends string = CoconutCommandName,
-> {
+export interface CoconutJsAPI {
   /** Wait for the bridge to be ready. */
   ready(): Promise<void>;
 
-  /** Call a Lua command. */
-  call<TResponse = unknown, TPayload extends CoconutPayload = CoconutPayload>(
-    name: TCommandName,
-    payload?: TPayload,
+  /** Call a known Lua command — params and return type are inferred from the generated type maps. */
+  call<T extends CoconutCommandName>(
+    name: T,
+    payload?: CoconutCommandParams[T],
+  ): Promise<CoconutCommandReturns[T]>;
+
+  /** Call a dynamic/unknown Lua command — generic fallback. */
+  call<TResponse = unknown>(
+    name: string,
+    payload?: CoconutPayload,
   ): Promise<TResponse>;
 
   /** Emit an event to Lua. */

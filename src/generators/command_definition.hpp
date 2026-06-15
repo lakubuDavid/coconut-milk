@@ -117,6 +117,19 @@ std::vector<CommandDefinition> commentsFsm(std::string code) {
         const int nextStart = std::min(cursor + 1, (int)code.length());
 
         if (token == "@command") {
+          // Push any previously accumulated command before starting a new one.
+          if (!ctx.current_command.name.empty()) {
+            ctx.commands.push_back(ctx.current_command);
+            ctx.current_command = CommandDefinition{};
+          } else {
+            // No previous command — clear only fields that could have leaked
+            // from non-command functions (e.g. @param on helpers like
+            // is_image/text_type).  Keep the description which may have been
+            // set by a preceding @description tag.
+            ctx.current_command.name.clear();
+            ctx.current_command.parameters.clear();
+            ctx.current_command.returnTypes.clear();
+          }
           ctx.current_tag = Tag::Command;
           start = nextStart;
           currentState = State::ReadName;
@@ -129,22 +142,36 @@ std::vector<CommandDefinition> commentsFsm(std::string code) {
             currentState = State::ReadText;
           }
         } else if (token == "@param" || token == "param") {
-          ctx.current_tag = Tag::Param;
-          start = nextStart;
-          if (code[nextStart] == '\n' || code[nextStart] == '\r') {
-            // Empty param — skip
-            currentState = State::SkipLine;
+          // Only accept @param when a command name is active.
+          // Otherwise (e.g. helper functions without @command) we'd leak
+          // parameters into the next command block.
+          if (!ctx.current_command.name.empty()) {
+            ctx.current_tag = Tag::Param;
+            start = nextStart;
+            if (code[nextStart] == '\n' || code[nextStart] == '\r') {
+              // Empty param — skip
+              currentState = State::SkipLine;
+            } else {
+              currentState = State::ReadParamName;
+            }
           } else {
-            currentState = State::ReadParamName;
+            start = nextStart;
+            currentState = State::SkipLine;
           }
         } else if (token == "@return") {
-          ctx.current_tag = Tag::Return;
-          start = nextStart;
-          if (code[nextStart] == '\n' || code[nextStart] == '\r') {
-            // Empty return type — skip
-            currentState = State::SkipLine;
+          // Only accept @return when a command name is active.
+          if (!ctx.current_command.name.empty()) {
+            ctx.current_tag = Tag::Return;
+            start = nextStart;
+            if (code[nextStart] == '\n' || code[nextStart] == '\r') {
+              // Empty return type — skip
+              currentState = State::SkipLine;
+            } else {
+              currentState = State::ReadReturnType;
+            }
           } else {
-            currentState = State::ReadReturnType;
+            start = nextStart;
+            currentState = State::SkipLine;
           }
         } else {
           // Unknown tag — skip
@@ -287,49 +314,57 @@ std::string generateJSWrapper(std::vector<CommandDefinition> commandDefs) {
   out << "// Auto-generated command wrappers. Do not edit.\n";
   out << "// Uses coconut.call() for Lua command invocation.\n";
   out << "// Plain JS with JSDoc — no build step required.\n";
-  out << "// @ts-check\n\n";
+  out << "// @ts-check\n";
+  out << "\n";
+  // Wrap in IIFE so exported functions are accessible as regular script
+  // (no ES module needed).  Sets window.* so app.js IIFE can call them.
+  out << "(function () {\n";
+  out << "  'use strict';\n";
+  out << "\n";
+
+  std::vector<std::string> funcNames;
 
   for (const auto& def : commandDefs) {
+    funcNames.push_back(def.name);
+
     // JSDoc block comment
-    out << "/**\n";
+    out << "  /**\n";
     {
       std::string d = def.description;
       size_t pos = 0;
       size_t prev = 0;
       while ((pos = d.find('\n', prev)) != std::string::npos) {
-        out << " * " << d.substr(prev, pos - prev) << "\n";
+        out << "   * " << d.substr(prev, pos - prev) << "\n";
         prev = pos + 1;
       }
       if (prev < d.length()) {
-        out << " * " << d.substr(prev) << "\n";
+        out << "   * " << d.substr(prev) << "\n";
       }
     }
     // JSDoc @param entries with parsed types
-    // LuaCATS marks optional params with a trailing ? on the name
-    // (e.g. `---@param remember? boolean`).  In JSDoc we use bracket
-    // notation `[name]` — valid JS and understood by editors.
     for (const auto& p : def.parameters) {
       if (p.name == "ctx") continue;
       std::string jsType = formatTypeOrPassthrough(p.type, formatTypeJS);
       std::string jsName = p.name;
       if (!jsName.empty() && jsName.back() == '?') {
         jsName.pop_back();
-        out << " * @param {" << jsType << "} [" << jsName << "]\n";
+        out << "   * @param {" << jsType << "} [" << jsName << "]\n";
       } else {
-        out << " * @param {" << jsType << "} " << jsName << "\n";
+        out << "   * @param {" << jsType << "} " << jsName << "\n";
       }
     }
     // JSDoc @returns — wrap in Promise since all Lua calls are async
     {
       std::string retType =
           formatTypeOrPassthrough(def.returnTypes, formatTypeJS);
-      out << " * @returns {Promise<" << retType << ">}\n";
+      out << "   * @returns {Promise<" << retType << ">}\n";
     }
-    out << " */\n";
+    out << "   */\n";
 
-    // Function signature — plain JS, strip trailing ? from names
-    out << "export async function " << def.name << "(";
+    // Function signature — plain JS, no 'export' keyword
+    out << "  async function " << def.name << "(";
     bool first = true;
+    std::vector<std::string> visibleParams;
     for (const auto& p : def.parameters) {
       if (p.name == "ctx") continue;
       if (!first) out << ", ";
@@ -338,24 +373,50 @@ std::string generateJSWrapper(std::vector<CommandDefinition> commandDefs) {
       if (!jsName.empty() && jsName.back() == '?')
         jsName.pop_back();
       out << jsName;
+      visibleParams.push_back(jsName);
     }
     out << ") {\n";
 
-    // Build the payload object — strip trailing ? from keys
-    out << "  return coconut.call(\"" << def.name << "\", {";
-    first = true;
-    for (const auto& p : def.parameters) {
-      if (p.name == "ctx") continue;
+    // Build the payload object
+    if (visibleParams.empty()) {
+      out << "    return coconut.call(\"" << def.name << "\", {});\n";
+    } else if (visibleParams.size() == 1) {
+      out << "    return coconut.call(\"" << def.name << "\", " << visibleParams[0] << ");\n";
+    } else {
+      out << "    return coconut.call(\"" << def.name << "\", {";
+      first = true;
+      for (const auto& n : visibleParams) {
+        if (!first) out << ", ";
+        first = false;
+        out << n;
+      }
+      out << "});\n";
+    }
+    out << "  }\n\n";
+  }
+
+  // Expose all functions on window for IIFE consumers (like app.js)
+  if (!funcNames.empty()) {
+    out << "  // Expose to window for non-module scripts\n";
+    for (const auto& name : funcNames) {
+      out << "  window." << name << " = " << name << ";\n";
+    }
+    out << "\n";
+
+    // CommonJS / Node.js
+    out << "  if (typeof module !== 'undefined' && module.exports) {\n";
+    out << "    module.exports = { ";
+    bool first = true;
+    for (const auto& name : funcNames) {
       if (!first) out << ", ";
       first = false;
-      std::string jsName = p.name;
-      if (!jsName.empty() && jsName.back() == '?')
-        jsName.pop_back();
-      out << jsName;
+      out << name;
     }
-    out << "});\n";
-    out << "}\n\n";
+    out << " };\n";
+    out << "  }\n";
   }
+
+  out << "})();\n";
 
   return out.str();
 }

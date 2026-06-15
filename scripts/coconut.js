@@ -121,13 +121,13 @@ export const coconut = {
   /** Window control helpers. */
   window: {
     minimize: async () => {
-      await call("__coconut_window_ctl", { cmd: "minimize" });
+      await call("__coconutWindowCtl", { cmd: "minimize" });
     },
     toggleFullscreen: async () => {
-      await call("__coconut_window_ctl", { cmd: "toggleFullscreen" });
+      await call("__coconutWindowCtl", { cmd: "toggleFullscreen" });
     },
     close: async () => {
-      await call("__coconut_window_ctl", { cmd: "close" });
+      await call("__coconutWindowCtl", { cmd: "close" });
     },
   },
 

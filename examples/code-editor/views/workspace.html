@@ -51,14 +51,17 @@
     </div>
 
     <div id="main">
-      <!-- Sidebar: file tree -->
-      <aside id="sidebar">
-        <div class="sidebar-header">Files</div>
-        <div id="file-tree"></div>
-      </aside>
+      <!-- Tab bar -->
+      <div id="tab-bar"></div>
+      <div id="workspace">
+        <!-- Sidebar: file tree -->
+        <aside id="sidebar">
+          <div class="sidebar-header">Files</div>
+          <div id="file-tree"></div>
+        </aside>
 
-      <!-- Main content: editor or preview -->
-      <main id="content">
+        <!-- Main content: editor or preview -->
+        <main id="content">
         <div id="editor-area">
           <div id="editor-container"></div>
         </div>
@@ -71,10 +74,12 @@
           <div>Select a file from the tree to start editing</div>
         </div>
       </main>
+      </div>
     </div>
   </div>
 
   <script src="coconut://assets/editor-bundle.js"></script>
+  <script src="coconut://generated/editor.g.js"></script>
   <script src="coconut://assets/app.js"></script>
 </body>
 </html>

@@ -182,6 +182,9 @@ static bool writeInfoPlist(
   plistString(f, "CFBundlePackageType",     "APPL");
   plistString(f, "CFBundleExecutable",      "coconut");
 
+  // Icon file (matches the generated icon.icns filename)
+  plistString(f, "CFBundleIconFile", "icon");
+
   // Capabilities
   plistBool(f, "NSHighResolutionCapable", true);
   plistString(f, "LSMinimumSystemVersion", "10.13");

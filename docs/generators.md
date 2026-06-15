@@ -1,5 +1,10 @@
 # Command Generation
 
+> **Recommended approach.** Use `---@command` annotations + `coconut generate` over
+> manual `ctx:bind()` and raw `coconut.call()`. The generator produces typed JS
+> wrappers (no magic strings), auto-registers Lua handlers via `.g.lua`, and
+> keeps your command surface documented in one place.
+
 Coconut Milk scans your `commands/` folder for annotated Lua files and generates typed wrappers for both the Lua runtime and the frontend.
 
 ## Annotations
@@ -150,19 +155,25 @@ The generator (`coconut generate`) parses Lua files using a simple state machine
 
 ## Frontend usage
 
-Import the generated wrappers in your frontend code:
+**Import the generated wrappers** — never use raw `coconut.call()` in production code:
 
 ```typescript
+// ✅ Do this:
 import { hello } from "./generated/hello.g.js"
-
 const result = await hello({ name: "Ada" })
 ```
 
-Or use the generic `coconut.call()` API:
-
-```javascript
+```typescript
+// ❌ Avoid raw coconut.call():
 const result = await coconut.call("hello", { name: "Ada" })
 ```
+
+The generated wrappers give you:
+- Typed function signatures with JSDoc (IDE autocomplete works)
+- No magic string command names (fat-finger-proof)
+- A single import to vendor instead of scattered `coconut.call()` calls
+
+For quick prototyping the raw API is fine — migrate to generated wrappers before shipping.
 
 ---
 

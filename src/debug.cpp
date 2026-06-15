@@ -1,6 +1,10 @@
 #include "debug.h"
 
+#include <chrono>
+#include <ctime>
+#include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <unistd.h>
 
 namespace coconut::debug {
@@ -37,6 +41,19 @@ namespace {
     }();
     return is_tty;
   }
+
+  std::string timestamp() {
+    auto now = std::chrono::system_clock::now();
+    auto tt = std::chrono::system_clock::to_time_t(now);
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                  now.time_since_epoch()) % 1000;
+    std::tm tm;
+    localtime_r(&tt, &tm);
+    std::ostringstream oss;
+    oss << "[" << std::put_time(&tm, "%H:%M:%S") << "."
+        << std::setfill('0') << std::setw(3) << ms.count() << "]";
+    return oss.str();
+  }
 }
 
 // ── Level helpers ─────────────────────────────────────────────────────
@@ -45,11 +62,12 @@ static void emit(Level lvl, const char* colour, const char* label,
                  const std::string& msg) {
   if (lvl < g_level) return; // filtered out
 
+  auto ts = timestamp();
   if (stderrIsTty()) {
-    std::cerr << colour << BOLD << label << RESET << ' '
+    std::cerr << colour << ts << ' ' << BOLD << label << RESET << ' '
               << msg << '\n';
   } else {
-    std::cerr << label << ' ' << msg << '\n';
+    std::cerr << ts << ' ' << label << ' ' << msg << '\n';
   }
 }
 

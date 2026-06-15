@@ -5,7 +5,7 @@ return {
   initial_view = "home",
   view_root = "views",
   asset_root = "assets",
-  command_root = "samples/commands",
+  command_root = "commands",
   generators = {
     output_dir = "generated"
   },

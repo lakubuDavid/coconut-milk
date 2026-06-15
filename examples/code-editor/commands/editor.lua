@@ -1,5 +1,13 @@
 -- File operations for the code editor.
+--
+-- Each command uses @command annotations so the generator produces
+-- typed JS wrappers (editor.g.js) and auto-registration (editor.g.lua).
+-- Frontend code imports the generated wrappers instead of calling
+-- coconut.call() by name directly.
 
+--- Detect whether a file path refers to an image type.
+---@param path string
+---@return boolean
 local function is_image(path)
   local ext = path:match("%.([^%.]+)$")
   if not ext then return false end
@@ -9,6 +17,9 @@ local function is_image(path)
       or ext == "bmp" or ext == "ico"
 end
 
+--- Map a file extension to a CodeMirror-compatible language mode name.
+---@param path string
+---@return string
 local function text_type(path)
   local ext = path:match("%.([^%.]+)$")
   if not ext then return "text" end
@@ -27,14 +38,20 @@ local function text_type(path)
   return map[ext] or "text"
 end
 
--- List directory contents
+---@description List contents of a directory
+---@command editor_list_dir
+---@param payload { path: string }
+---@return coconut.fs.DirEntry[]
 local function list_dir(payload, ctx)
   local dir = payload.path
   if not dir or dir == "" then dir = "." end
   return coconut.fs.listDir(dir)
 end
 
--- Read a file (text or image)
+---@description Read a file's contents (text or image metadata)
+---@command editor_read_file
+---@param payload { path: string }
+---@return { content?: string, type: string, text_type?: string, path: string, name: string, error?: string }
 local function read_file(payload, ctx)
   local path = payload.path
   if not path or path == "" then
@@ -60,7 +77,10 @@ local function read_file(payload, ctx)
   return { error = "could not read file: " .. path }
 end
 
--- Save content to a file
+---@description Save content to a file on disk
+---@command editor_save_file
+---@param payload { path: string, content: string }
+---@return { ok: boolean, error?: string }
 local function save_file(payload, ctx)
   if not payload.path or payload.content == nil then
     coconut.warn("save_file: missing path or content")
@@ -76,7 +96,10 @@ local function save_file(payload, ctx)
   return { error = "could not write file: " .. payload.path }
 end
 
--- Show open dialog (files + folders) — pcall'd for safety
+---@description Show native file/folder open dialog
+---@command editor_open_dialog
+---@param payload { title?: string }
+---@return { path?: string, is_dir?: boolean, cancelled: boolean, error?: string }
 local function open_dialog(payload, ctx)
   coconut.info("open_dialog: calling coconut.dialog.open")
   local ok, result = pcall(coconut.dialog.open, "Open File or Folder", false, true)
@@ -91,7 +114,10 @@ local function open_dialog(payload, ctx)
   return { cancelled = true }
 end
 
--- Show save file dialog — pcall'd for safety
+---@description Show native save-file dialog
+---@command editor_save_dialog
+---@param payload { default_name?: string }
+---@return { path?: string, cancelled: boolean, error?: string }
 local function save_dialog(payload, ctx)
   local default_name = payload.default_name or "untitled.txt"
   coconut.info("save_dialog: calling coconut.dialog.save default_name=" .. default_name)
@@ -108,9 +134,10 @@ local function save_dialog(payload, ctx)
 end
 
 return {
-  list_dir = list_dir,
-  read_file = read_file,
-  save_file = save_file,
-  open_dialog = open_dialog,
-  save_dialog = save_dialog,
+  editor_list_dir = list_dir,
+  editor_read_file = read_file,
+  editor_save_file = save_file,
+  editor_open_dialog = open_dialog,
+  editor_save_dialog = save_dialog,
 }
+

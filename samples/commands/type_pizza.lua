@@ -10,7 +10,7 @@ end
 ---@command ping
 ---@return string
 local function ping(params, ctx)
-  return "pong helllo"
+  return "pong"
 end
 
 ---@command greet
@@ -29,7 +29,9 @@ end
 ---@param b number
 ---@return number
 local function sum(params, ctx)
-  return (params.a or 0) + (params.b or 0)
+  local a = tonumber(params.a) or 0
+  local b = tonumber(params.b) or 0
+  return a + b
 end
 
 ---@command login
@@ -39,7 +41,16 @@ end
 ---@param remember? boolean
 ---@returntable
 local function login(params, ctx)
-  return { ok = true, token = "abc123" }
+  local ok = params.username ~= nil and params.username ~= "" and
+             params.password ~= nil and params.password ~= ""
+  if not ok then
+    return { ok = false, error = "username and password are required" }
+  end
+  return {
+    ok = true,
+    token = "tok_" .. params.username .. "_" .. os.time(),
+    remember = params.remember == true,
+  }
 end
 
 ---@command search
@@ -48,7 +59,24 @@ end
 ---@param options? { fuzzy?: boolean, limit?: number, offset?: number }
 ---@return string[]
 local function search(params, ctx)
-  return {}
+  local limit = 10
+  local offset = 0
+  local fuzzy = false
+  if params.options then
+    limit = tonumber(params.options.limit) or 10
+    offset = tonumber(params.options.offset) or 0
+    fuzzy = params.options.fuzzy == true
+  end
+
+  local results = {}
+  local q = (params.query or ""):lower()
+  if q ~= "" then
+    for i = 1, limit do
+      local prefix = fuzzy and "~" or ""
+      table.insert(results, prefix .. "result_" .. (offset + i) .. "_for_" .. q)
+    end
+  end
+  return results
 end
 
 ---@command transform
@@ -57,7 +85,13 @@ end
 ---@param fn fun(x: number): string
 ---@return string[]
 local function transform(params, ctx)
-  return {}
+  local data = params.data or {}
+  local fn = params.fn
+  local out = {}
+  for _, v in ipairs(data) do
+    table.insert(out, tostring(v))
+  end
+  return out
 end
 
 ---@command merge
@@ -66,7 +100,23 @@ end
 ---@param overrides { name?: string, meta?: table } | nil
 ---@return { name: string, meta?: table }
 local function merge(params, ctx)
-  return { name = "merged" }
+  local base = params.base or {}
+  local overrides = params.overrides or {}
+
+  local function deep_merge(a, b)
+    local out = {}
+    for k, v in pairs(a) do out[k] = v end
+    for k, v in pairs(b) do
+      if type(v) == "table" and type(out[k]) == "table" then
+        out[k] = deep_merge(out[k], v)
+      else
+        out[k] = v
+      end
+    end
+    return out
+  end
+
+  return deep_merge(base, overrides)
 end
 
 ---@command evaluate
@@ -75,7 +125,24 @@ end
 ---@param validate fun(val: string | number): boolean
 ---@return { result: string | number | boolean, valid: boolean }
 local function evaluate(params, ctx)
-  return { result = params.expr, valid = true }
+  local expr = params.expr
+  local result
+  local kind = type(expr)
+  if kind == "string" then
+    local n = tonumber(expr)
+    if n then
+      result = n
+    elseif expr == "true" then
+      result = true
+    elseif expr == "false" then
+      result = false
+    else
+      result = expr
+    end
+  else
+    result = expr
+  end
+  return { result = result, valid = true }
 end
 
 return {
