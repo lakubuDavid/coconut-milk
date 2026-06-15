@@ -257,7 +257,7 @@ function GENERATORS.tsconfig_js()
     "checkJs": true,
     "allowJs": true
   },
-  "include": ["views/**/*", "assets/**/*", "coconut.d.ts"],
+  "include": ["views/**/*", "assets/**/*", "generated/**/*.d.ts", "scripts/coconut.d.ts"],
   "exclude": ["node_modules", "dist", "assets/lib"]
 }
 ]]
@@ -279,7 +279,7 @@ function GENERATORS.tsconfig()
     "checkJs": true,
     "allowJs": true
   },
-  "include": ["src/**/*", "coconut.d.ts"],
+  "include": ["src/**/*", "generated/**/*.d.ts", "scripts/coconut.d.ts"],
   "exclude": ["node_modules", "dist"]
 }
 ]]
@@ -287,65 +287,113 @@ end
 
 --- Generate coconut.d.ts (type definitions for the bridge API)
 function GENERATORS.coconut_dts()
-  return [[// Crucial: turning the file into a module so 'declare global' is accepted
-export {};
+  return [=[// coconut.d.ts — Type declarations for the Coconut Milk bridge API.
+// Run 'coconut generate' to create generated/commands.d.ts with full
+// CoconutCommandName / CoconutCommandParams / CoconutCommandReturns types.
 
-/// <reference path="./generated/commands.d.ts" />
+/// <reference path="../generated/commands.d.ts" />
 
-export type CoconutPayload = Record<string, unknown>;
+interface CoconutPayload {
+  [key: string]: unknown;
+}
 
-export interface CoconutError {
+interface CoconutError {
   code: string;
   message: string;
   details?: unknown;
 }
 
-export interface CoconutViewDescriptor {
+interface CoconutViewDescriptor {
   kind: "file" | "html" | "url";
   src?: string;
 }
 
-export interface CoconutWindowAPI {
+interface CoconutWindowAPI {
+  /** Minimize the window. */
   minimize(): Promise<void>;
+  /** Toggle fullscreen mode. */
   toggleFullscreen(): Promise<void>;
+  /** Close the window. */
   close(): Promise<void>;
 }
 
-export interface CoconutFsAPI {
+interface CoconutFsAPI {
+  /** Read a text file from disk. */
   readText(path: string): Promise<{ ok: boolean; data?: string; error?: string }>;
+  /** Check if a path exists. */
+  exists(path: string): Promise<{ ok: boolean; exists?: boolean; error?: string }>;
+  /** Write text to a file. */
+  writeText(path: string, content: string): Promise<{ ok: boolean; error?: string }>;
+  /** Resolve a relative path against a root. */
+  resolve(root: string, relpath: string): Promise<{ ok: boolean; data?: string; error?: string }>;
+  /** List directory contents. */
+  listDir(path: string): Promise<{ ok: boolean; data?: Array<{ name: string; path: string; is_dir: boolean }>; error?: string }>;
 }
 
-export interface CoconutJsAPI<TCommandName extends string = CoconutCommandName> {
+interface CoconutDialogAPI {
+  /** Show a native message box. */
+  message(title?: string, message?: string, kind?: "info" | "warn" | "error" | "question"): Promise<{ confirmed: boolean }>;
+  /** Show an open file dialog. */
+  open(title?: string, multi?: boolean, chooseDir?: boolean): Promise<{ confirmed: boolean; path: string; paths: string[] }>;
+  /** Show a save file dialog. */
+  save(title?: string, defaultName?: string): Promise<{ confirmed: boolean; path: string }>;
+}
+
+interface CoconutClipboardAPI {
+  /** Read plain text from system clipboard. */
+  read(): Promise<string>;
+  /** Write plain text to system clipboard. */
+  write(text: string): Promise<boolean>;
+}
+
+interface CoconutJsAPI {
+  /** Wait for the bridge to be ready. */
   ready(): Promise<void>;
-  call<TResponse = unknown, TPayload = Record<string, unknown>>(
-    name: TCommandName,
-    payload?: TPayload,
-  ): Promise<TResponse>;
-  emit<TPayload = Record<string, unknown>>(
+
+  /** Call a Lua command via the bridge. Returns the raw response. */
+  call<T = unknown>(name: string, payload?: Record<string, unknown>): Promise<T>;
+
+  /** Emit an event to Lua. */
+  emit<TPayload extends CoconutPayload = CoconutPayload>(
     name: string,
     payload?: TPayload,
   ): Promise<void>;
-  on<TPayload = Record<string, unknown>>(
+
+  /** Listen for events from Lua. */
+  on<TPayload extends CoconutPayload = CoconutPayload>(
     name: string,
     fn: (payload: TPayload) => void,
   ): () => void;
+
+  /** Get all registered view names. */
   views(): Promise<string[]>;
+
+  /** Ping the Lua bridge for connectivity. */
   ping(): Promise<string>;
+
+  /** Open a URL in the system-default browser. */
+  openUrl(url: string): Promise<boolean>;
+
+  /** Show a system notification. */
+  notify(title: string, body: string): Promise<boolean>;
+
+  /** Window control helpers. */
   window: CoconutWindowAPI;
+
+  /** Filesystem helpers. */
   fs: CoconutFsAPI;
+
+  /** Native dialog helpers. */
+  dialog: CoconutDialogAPI;
+
+  /** Clipboard read/write. */
+  clipboard: CoconutClipboardAPI;
 }
 
-export type CoconutCommandHelper<
-  TParams = Record<string, unknown>,
-  TResult = unknown,
-> = (payload: TParams) => Promise<TResult>;
-
-declare global {
-  interface Window {
-    coconut: CoconutJsAPI;
-  }
+interface Window {
+  coconut: CoconutJsAPI;
 }
-]]
+]=]
 end
 
 --- Generate commands/example.lua
@@ -379,23 +427,33 @@ end
 
 --- Generate commands/example.g.js (for frontend consumption)
 function GENERATORS.example_g_js()
-  return [[// Auto-generated command wrappers. Do not edit.
-// @ts-check
+  return [[(function () {
+  'use strict';
 
-/**
- * @returns {Promise<{message: string}>}
- */
-export async function ping() {
-  return __coconut_call("ping", {});
-}
+  /**
+   * Simple ping command.
+   * @returns {Promise<{message: string}>}
+   */
+  async function ping() {
+    return coconut.call("ping", {});
+  }
 
-/**
- * @param {{name?: string}} params
- * @returns {Promise<{greeting: string}>}
- */
-export async function greet(params) {
-  return __coconut_call("greet", {params});
-}
+  /**
+   * Greet someone.
+   * @param {{name?: string}} params
+   * @returns {Promise<{greeting: string}>}
+   */
+  async function greet(params) {
+    return coconut.call("greet", params);
+  }
+
+  window.ping = ping;
+  window.greet = greet;
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { ping, greet };
+  }
+})();
 ]]
 end
 
@@ -440,7 +498,7 @@ function GENERATORS.readme(project_name, template, framework, pkg_manager)
   lines[#lines + 1] = '├── coconut.config.lua'
   lines[#lines + 1] = '├── main.lua'
   lines[#lines + 1] = '├── tsconfig.json'
-  lines[#lines + 1] = '├── coconut.d.ts'
+  lines[#lines + 1] = '├── scripts/'
   lines[#lines + 1] = '├── commands/'
   lines[#lines + 1] = '│   ├── example.lua'
   lines[#lines + 1] = '│   └── example.g.js'
@@ -469,6 +527,7 @@ local function scaffold_bare(project_dir, project_name)
   mkdir(path_join(project_dir, "commands"))
   mkdir(path_join(project_dir, "views"))
   mkdir(path_join(project_dir, "assets"))
+  mkdir(path_join(project_dir, "scripts"))
 
   write_file(path_join(project_dir, "coconut.config.lua"),
     GENERATORS.coconut_config(project_name, "bare"))
@@ -488,7 +547,7 @@ local function scaffold_bare(project_dir, project_name)
     GENERATORS.icon_svg())
   write_file(path_join(project_dir, "tsconfig.json"),
     GENERATORS.tsconfig_js())
-  write_file(path_join(project_dir, "coconut.d.ts"),
+  write_file(path_join(project_dir, "scripts/coconut.d.ts"),
     GENERATORS.coconut_dts())
   write_file(path_join(project_dir, "README.md"),
     GENERATORS.readme(project_name, "bare"))
@@ -501,6 +560,7 @@ local function scaffold_bare_ts(project_dir, project_name)
   mkdir(path_join(project_dir, "views"))
   mkdir(path_join(project_dir, "assets"))
   mkdir(path_join(project_dir, "src"))
+  mkdir(path_join(project_dir, "scripts"))
 
   write_file(path_join(project_dir, "coconut.config.lua"),
     GENERATORS.coconut_config(project_name, "bare-ts"))
@@ -520,7 +580,7 @@ local function scaffold_bare_ts(project_dir, project_name)
     GENERATORS.example_command())
   write_file(path_join(project_dir, "commands/example.g.js"),
     GENERATORS.example_g_js())
-  write_file(path_join(project_dir, "coconut.d.ts"),
+  write_file(path_join(project_dir, "scripts/coconut.d.ts"),
     GENERATORS.coconut_dts())
   write_file(path_join(project_dir, "README.md"),
     GENERATORS.readme(project_name, "bare-ts"))
