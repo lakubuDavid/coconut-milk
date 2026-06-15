@@ -126,13 +126,14 @@
 
   // ── Command palette state ─────────────────────────────────────────
   const paletteCommands = [
-    { id: 'open-file',     name: 'Open File',          shortcut: 'mod+o',       action: () => openDialog() },
-    { id: 'save',          name: 'Save',               shortcut: 'mod+s',       action: () => saveCurrent() },
-    { id: 'save-as',       name: 'Save As...',         shortcut: 'mod+shift+s', action: () => saveAsDialog() },
-    { id: 'close-tab',     name: 'Close Tab',          shortcut: 'mod+w',       action: () => closeBuffer(buffers.active?.id) },
-    { id: 'next-tab',      name: 'Next Tab',           shortcut: 'mod+tab',     action: () => nextBuffer() },
-    { id: 'prev-tab',      name: 'Previous Tab',       shortcut: 'mod+shift+tab', action: () => prevBuffer() },
-    { id: 'toggle-sidebar',name: 'Toggle Sidebar',     shortcut: '',            action: () => toggleSidebar() },
+    { id: 'open-file',     name: 'Open File',          shortcut: 'mod+o',       description: 'Open a file or folder', action: () => openDialog() },
+    { id: 'save',          name: 'Save',               shortcut: 'mod+s',       description: 'Save current buffer', action: () => saveCurrent() },
+    { id: 'save-as',       name: 'Save As...',         shortcut: 'mod+shift+s', description: 'Save current buffer as a new file', action: () => saveAsDialog() },
+    { id: 'close-tab',     name: 'Close Tab',          shortcut: 'mod+w',       description: 'Close the current tab', action: () => closeBuffer(buffers.active?.id) },
+    { id: 'next-tab',      name: 'Next Tab',           shortcut: 'mod+tab',     description: 'Switch to the next tab', action: () => nextBuffer() },
+    { id: 'prev-tab',      name: 'Previous Tab',       shortcut: 'mod+shift+tab', description: 'Switch to the previous tab', action: () => prevBuffer() },
+    { id: 'toggle-sidebar',name: 'Toggle Sidebar',     shortcut: 'mod+b',       description: 'Show or hide the sidebar', action: () => toggleSidebar() },
+    { id: 'show-keybinds', name: 'Show Keybinds',      shortcut: 'mod+shift+?', description: 'Show all active keyboard shortcuts', action: () => openKeybindsDialog() },
   ];
   let paletteOpen = false;
 
@@ -723,6 +724,7 @@
     });
 
     function updateSelection() {
+      const items = results.querySelectorAll('.palette-item');
       items.forEach((el, i) => {
         el.classList.toggle('selected', i === selectedIndex);
         if (i === selectedIndex) el.scrollIntoView({ block: 'nearest' });
@@ -747,6 +749,68 @@
   function closePalette() {
     paletteOpen = false;
     const overlay = document.getElementById('command-palette');
+    if (overlay) overlay.remove();
+  }
+
+  // ── Keybinds dialog ───────────────────────────────────────────────
+
+  let keybindsDialogOpen = false;
+
+  function openKeybindsDialog() {
+    if (keybindsDialogOpen) return;
+    keybindsDialogOpen = true;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'palette-overlay';
+    overlay.id = 'keybinds-dialog';
+
+    const dialog = document.createElement('div');
+    dialog.className = 'palette-dialog';
+    dialog.style.width = '500px';
+
+    const header = document.createElement('div');
+    header.className = 'palette-header';
+    header.textContent = 'Keyboard Shortcuts';
+    dialog.appendChild(header);
+
+    const results = document.createElement('div');
+    results.className = 'palette-results';
+    dialog.appendChild(results);
+
+    const keybinds = coconut.getKeybinds ? coconut.getKeybinds() : [];
+    for (const kb of keybinds) {
+      const item = document.createElement('div');
+      item.className = 'palette-item';
+
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = kb.description || kb.id;
+      item.appendChild(nameSpan);
+
+      const sc = document.createElement('span');
+      sc.className = 'shortcut';
+      sc.textContent = kb.combo;
+      item.appendChild(sc);
+
+      results.appendChild(item);
+    }
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeKeybindsDialog();
+    });
+    document.addEventListener('keydown', function escHandler(e) {
+      if (e.key === 'Escape') {
+        closeKeybindsDialog();
+        document.removeEventListener('keydown', escHandler);
+      }
+    });
+  }
+
+  function closeKeybindsDialog() {
+    keybindsDialogOpen = false;
+    const overlay = document.getElementById('keybinds-dialog');
     if (overlay) overlay.remove();
   }
 
@@ -779,26 +843,36 @@
       // Command palette
       coconut.keybind('mod+shift+p', function () {
         openCommandPalette();
-      }, { id: 'editor.palette', scope: 'editor' });
+      }, { id: 'editor.palette', scope: 'editor', description: 'Open command palette' });
 
       // Save
       coconut.keybind('mod+s', function () {
         saveCurrent();
-      }, { id: 'editor.save', scope: 'editor' });
+      }, { id: 'editor.save', scope: 'editor', description: 'Save current file' });
 
       // Open
       coconut.keybind('mod+o', function () {
         openDialog();
-      }, { id: 'editor.open', scope: 'editor' });
+      }, { id: 'editor.open', scope: 'editor', description: 'Open file or folder' });
 
       // Tab switching
       coconut.keybind('mod+tab', function () {
         nextBuffer();
-      }, { id: 'editor.next-tab', scope: 'editor' });
+      }, { id: 'editor.next-tab', scope: 'editor', description: 'Next tab' });
 
       coconut.keybind('mod+shift+tab', function () {
         prevBuffer();
-      }, { id: 'editor.prev-tab', scope: 'editor' });
+      }, { id: 'editor.prev-tab', scope: 'editor', description: 'Previous tab' });
+
+      // Toggle sidebar
+      coconut.keybind('mod+b', function () {
+        toggleSidebar();
+      }, { id: 'editor.toggle-sidebar', scope: 'editor', description: 'Toggle sidebar' });
+
+      // Show keybinds dialog
+      coconut.keybind('mod+shift+?', function () {
+        openKeybindsDialog();
+      }, { id: 'editor.show-keybinds', scope: 'editor', description: 'Show all keyboard shortcuts' });
 
       console.log('[app] keybinds registered');
     }
@@ -833,5 +907,6 @@
   window.saveAsDialog = saveAsDialog;
   window.openCommandPalette = openCommandPalette;
   window.closePalette = closePalette;
+  window.openKeybindsDialog = openKeybindsDialog;
 
 })();

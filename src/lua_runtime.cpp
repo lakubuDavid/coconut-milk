@@ -139,7 +139,7 @@ void _registerBuiltinCommands(Runtime *runtime) {
     ctx:bind("__registerPlatformKeybind", function(params)
       local combo = params.combo
       if combo and coconut.__registerPlatformKeybind then
-        local ok = pcall(coconut.__registerPlatformKeybind, combo)
+        local ok = pcall(coconut.__registerPlatformKeybind, params)
         return { ok = ok }
       end
       return { ok = false, error = "missing combo or binding" }
@@ -189,8 +189,10 @@ void _bindCoconutLuaApi(Runtime *runtime) {
       [](const std::string&, sol::object, CoconutContext*) { });
 
   // Register a combo with the platform-level keybind set (for NSEvent monitor)
-  coconut.set_function("__registerPlatformKeybind", [runtime](const std::string& combo) -> bool {
+  coconut.set_function("__registerPlatformKeybind", [runtime](sol::table params) -> bool {
     if (runtime && runtime->app) {
+      std::string combo = params["combo"].get_or<std::string>("");
+      if (combo.empty()) return false;
       runtime->app->platform_keybinds.insert(combo);
       debug::info(std::format("[keybind] registered platform keybind: {}", combo));
       return true;

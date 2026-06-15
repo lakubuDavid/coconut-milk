@@ -256,11 +256,12 @@ var keybind = Object.assign(function keybind2(comboOrMap, handler, opts) {
     return () => {};
   const id = opts?.id ?? combo;
   const scope = opts?.scope ?? "global";
+  const description = opts?.description ?? "";
   if (!_keybinds.has(combo))
     _keybinds.set(combo, []);
-  _keybinds.get(combo).push({ handler, id, scope });
+  _keybinds.get(combo).push({ handler, id, scope, description });
   try {
-    coconut.call("__registerPlatformKeybind", { combo }).catch(() => {});
+    coconut.call("__registerPlatformKeybind", { combo, description, id }).catch(() => {});
   } catch {}
   return () => {
     const arr = _keybinds.get(combo);
@@ -312,4 +313,13 @@ var keybind = Object.assign(function keybind2(comboOrMap, handler, opts) {
 });
 var _overrides = new Map;
 coconut.keybind = keybind;
+coconut.getKeybinds = () => {
+  const result = [];
+  for (const [combo, entries] of _keybinds) {
+    for (const entry of entries) {
+      result.push({ id: entry.id, combo, description: entry.description, scope: entry.scope });
+    }
+  }
+  return result;
+};
 globalThis.coconut = coconut;

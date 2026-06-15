@@ -279,6 +279,7 @@ interface KeybindEntry {
   handler: (event: KeyboardEvent) => void
   id: string
   scope: string
+  description: string
 }
 
 /** Normalize a combo string: lowercase, sort modifiers, resolve 'mod'. */
@@ -383,7 +384,7 @@ const keybind = Object.assign(
   function keybind(
     comboOrMap: string | Record<string, string>,
     handler: (event: KeyboardEvent) => void,
-    opts?: { id?: string; scope?: string },
+    opts?: { id?: string; scope?: string; description?: string },
   ): () => void {
     // Resolve per-platform map
     let combo: string
@@ -404,14 +405,15 @@ const keybind = Object.assign(
 
     const id = opts?.id ?? combo
     const scope = opts?.scope ?? 'global'
+    const description = opts?.description ?? ''
 
     if (!_keybinds.has(combo)) _keybinds.set(combo, [])
-    _keybinds.get(combo)!.push({ handler, id, scope })
+    _keybinds.get(combo)!.push({ handler, id, scope, description })
 
     // Register with platform layer so NSEvent monitor consumes the event
     // (prevents macOS screen flash / Windows beep for unhandled combos)
     try {
-      coconut.call('__registerPlatformKeybind', { combo }).catch(() => {})
+      coconut.call('__registerPlatformKeybind', { combo, description, id }).catch(() => {})
     } catch {}
 
     // Return unregister function
@@ -482,6 +484,17 @@ const _overrides = new Map<string, string>()
 
 // Extend coconut with keybind API
 ;(coconut as Record<string, unknown>).keybind = keybind
+
+/** Return all JS keybinds as a list of {id, combo, description, scope} */
+;(coconut as Record<string, unknown>).getKeybinds = (): Array<{id: string; combo: string; description: string; scope: string}> => {
+  const result: Array<{id: string; combo: string; description: string; scope: string}> = []
+  for (const [combo, entries] of _keybinds) {
+    for (const entry of entries) {
+      result.push({ id: entry.id, combo, description: entry.description, scope: entry.scope })
+    }
+  }
+  return result
+}
 
 // Expose globally so injected <script> (non-module) can access `window.coconut`.
 ;(globalThis as any).coconut = coconut
