@@ -124,6 +124,18 @@
   let editorView = null;         // CM6 EditorView instance (only for the active buffer)
   let loadedDirs = {};           // cache: path -> entries[]
 
+  // ── Command palette state ─────────────────────────────────────────
+  const paletteCommands = [
+    { id: 'open-file',     name: 'Open File',          shortcut: 'mod+o',       action: () => openDialog() },
+    { id: 'save',          name: 'Save',               shortcut: 'mod+s',       action: () => saveCurrent() },
+    { id: 'save-as',       name: 'Save As...',         shortcut: 'mod+shift+s', action: () => saveAsDialog() },
+    { id: 'close-tab',     name: 'Close Tab',          shortcut: 'mod+w',       action: () => closeBuffer(buffers.active?.id) },
+    { id: 'next-tab',      name: 'Next Tab',           shortcut: 'mod+tab',     action: () => nextBuffer() },
+    { id: 'prev-tab',      name: 'Previous Tab',       shortcut: 'mod+shift+tab', action: () => prevBuffer() },
+    { id: 'toggle-sidebar',name: 'Toggle Sidebar',     shortcut: '',            action: () => toggleSidebar() },
+  ];
+  let paletteOpen = false;
+
   // ── DOM refs ──────────────────────────────────────────────────────
   const fileTree       = document.getElementById('file-tree');
   const editorArea     = document.getElementById('editor-area');
@@ -595,12 +607,156 @@
     showEmpty();
   }
 
+  // ── Sidebar toggle ──────────────────────────────────────────────
+
+  function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+      const isHidden = sidebar.style.display === 'none';
+      sidebar.style.display = isHidden ? '' : 'none';
+    }
+  }
+
+  // ── Command palette ──────────────────────────────────────────────
+
+  /** Build and show the command palette overlay. */
+  function openCommandPalette() {
+    if (paletteOpen) return;
+    paletteOpen = true;
+
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'palette-overlay';
+    overlay.id = 'command-palette';
+
+    const dialog = document.createElement('div');
+    dialog.className = 'palette-dialog';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'palette-input';
+    input.placeholder = 'Search commands...';
+    input.spellcheck = false;
+    dialog.appendChild(input);
+
+    const results = document.createElement('div');
+    results.className = 'palette-results';
+    results.id = 'palette-results';
+    dialog.appendChild(results);
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    let selectedIndex = 0;
+
+    function renderResults(query) {
+      const q = (query || '').toLowerCase();
+      const filtered = q
+        ? paletteCommands.filter(c => c.name.toLowerCase().includes(q) || c.id.includes(q))
+        : paletteCommands;
+      results.innerHTML = '';
+      selectedIndex = 0;
+
+      for (let i = 0; i < filtered.length; i++) {
+        const cmd = filtered[i];
+        const item = document.createElement('div');
+        item.className = 'palette-item' + (i === 0 ? ' selected' : '');
+        item.dataset.index = i;
+
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = cmd.name;
+        item.appendChild(nameSpan);
+
+        if (cmd.shortcut) {
+          const sc = document.createElement('span');
+          sc.className = 'shortcut';
+          sc.textContent = cmd.shortcut;
+          item.appendChild(sc);
+        }
+
+        item.onclick = () => {
+          closePalette();
+          cmd.action();
+        };
+        item.onmouseenter = () => {
+          document.querySelectorAll('.palette-item.selected').forEach(el => el.classList.remove('selected'));
+          item.classList.add('selected');
+          selectedIndex = i;
+        };
+
+        results.appendChild(item);
+      }
+    }
+
+    renderResults('');
+
+    input.addEventListener('input', () => renderResults(input.value));
+
+    input.addEventListener('keydown', (e) => {
+      const items = results.querySelectorAll('.palette-item');
+      if (e.key === 'Escape') {
+        closePalette();
+        e.preventDefault();
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+        updateSelection();
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        selectedIndex = Math.max(selectedIndex - 1, 0);
+        updateSelection();
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const filtered = getFilteredCommands();
+        if (filtered[selectedIndex]) {
+          closePalette();
+          filtered[selectedIndex].action();
+        }
+        return;
+      }
+    });
+
+    function updateSelection() {
+      items.forEach((el, i) => {
+        el.classList.toggle('selected', i === selectedIndex);
+        if (i === selectedIndex) el.scrollIntoView({ block: 'nearest' });
+      });
+    }
+
+    function getFilteredCommands() {
+      const q = (input.value || '').toLowerCase();
+      return q
+        ? paletteCommands.filter(c => c.name.toLowerCase().includes(q) || c.id.includes(q))
+        : paletteCommands;
+    }
+
+    // Close on overlay click (outside dialog)
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closePalette();
+    });
+
+    setTimeout(() => input.focus(), 50);
+  }
+
+  function closePalette() {
+    paletteOpen = false;
+    const overlay = document.getElementById('command-palette');
+    if (overlay) overlay.remove();
+  }
+
   // ── Init ──────────────────────────────────────────────────────────
 
   document.addEventListener('DOMContentLoaded', function () {
     loadRoot();
     showEmpty();
-    // Keyboard shortcuts
+
+    // Legacy keyboard shortcuts (before coconut.keybind is ready)
     document.addEventListener('keydown', function (e) {
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key === 'Tab' && !e.shiftKey) {
@@ -612,6 +768,63 @@
         prevBuffer();
       }
     });
+
+    // ── Keybinds via coconut.keybind ───────────────────────────
+    function tryRegisterKeybinds() {
+      if (typeof coconut.keybind !== 'function') {
+        setTimeout(tryRegisterKeybinds, 100);
+        return;
+      }
+
+      // Command palette
+      coconut.keybind('mod+shift+p', function () {
+        openCommandPalette();
+      }, { id: 'editor.palette', scope: 'editor' });
+
+      // Save
+      coconut.keybind('mod+s', function () {
+        saveCurrent();
+      }, { id: 'editor.save', scope: 'editor' });
+
+      // Open
+      coconut.keybind('mod+o', function () {
+        openDialog();
+      }, { id: 'editor.open', scope: 'editor' });
+
+      // Tab switching
+      coconut.keybind('mod+tab', function () {
+        nextBuffer();
+      }, { id: 'editor.next-tab', scope: 'editor' });
+
+      coconut.keybind('mod+shift+tab', function () {
+        prevBuffer();
+      }, { id: 'editor.prev-tab', scope: 'editor' });
+
+      console.log('[app] keybinds registered');
+    }
+    tryRegisterKeybinds();
+
+    // ── CLI args: open file/folder on launch ────────────────────
+    function checkCliArgs() {
+      const args = coconut.args || window.__coconut_args;
+      if (args && args.positional && args.positional.length > 0) {
+        const path = args.positional[0];
+        console.log('[app] CLI arg detected:', path);
+        // Open the file or directory
+        if (path) {
+          // Check if it's a directory by listing it
+          coconut.call('editor_list_dir', { path: path }).then(function (entries) {
+            // Is a directory
+            loadDirectory(path);
+          }).catch(function () {
+            // Not a directory — open as file
+            openFile(path);
+          });
+        }
+      }
+    }
+    // Wait a bit for bridge to be ready
+    setTimeout(checkCliArgs, 200);
   });
 
   window.openFile = openFile;

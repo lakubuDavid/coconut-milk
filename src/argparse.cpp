@@ -138,12 +138,17 @@ Args parse(int argc, char* argv[]) {
         sc->apply(args);
         continue;
       }
-      // Not a subcommand → positional root.
-      // If new_cmd is already set, this is the project name.
+      // Not a subcommand → positional.
+      // First positional is the root directory; additional are app args.
       if (args.new_cmd) {
         args.new_name = a;
-      } else {
+        args.positional_args.push_back(std::string(a));
+      } else if (args.root == ".") {
+        // First positional → set as root, not an app arg yet
         args.root = a;
+      } else {
+        // Additional positionals → app-level args
+        args.positional_args.push_back(std::string(a));
       }
       continue;
     }

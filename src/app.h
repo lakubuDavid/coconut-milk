@@ -16,6 +16,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <unordered_set>
 
 namespace coconut {
 
@@ -33,6 +34,11 @@ namespace coconut {
     commands::Registry* commands     = nullptr;
     fs::Roots*          fs           = nullptr;
     std::vector<Error>  errors;
+
+    /// Platform-level keybind combos (consumed by NSEvent monitor before
+    /// reaching the webview). Populated by Lua coconut.keybind() with
+    /// opts.platform=true.
+    std::unordered_set<std::string> platform_keybinds;
   };
 
   namespace app {

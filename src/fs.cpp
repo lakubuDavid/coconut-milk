@@ -144,9 +144,6 @@ std::expected<std::vector<DirEntry>, Error> listDir(const std::string& path) {
   }
 
   std::vector<DirEntry> entries;
-  // Include "." and ".." entries (directory_iterator skips them by default)
-  entries.push_back(DirEntry{".",  std::filesystem::absolute(dir).string(), true});
-  entries.push_back(DirEntry{"..", std::filesystem::absolute(dir.parent_path()).string(), true});
   try {
     for (auto const& entry : std::filesystem::directory_iterator(dir)) {
       auto const& p = entry.path();

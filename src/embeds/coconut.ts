@@ -273,6 +273,191 @@ const coconut = {
   },
 }
 
+// ── Keybind system (hybrid chain: JS → Lua first, platform bottom-up) ─────
+
+interface KeybindEntry {
+  handler: (event: KeyboardEvent) => void
+  id: string
+  scope: string
+}
+
+/** Normalize a combo string: lowercase, sort modifiers, resolve 'mod'. */
+function _normalizeCombo(raw: string): string {
+  const isMac = typeof navigator !== 'undefined' && navigator.platform.includes('Mac')
+
+  // Resolve 'mod' → 'meta' (macOS) or 'ctrl' (others)
+  let combo = raw.replace(/mod/gi, isMac ? 'meta' : 'ctrl')
+
+  // Split into parts
+  const parts = combo.split('+').map(p => p.trim().toLowerCase())
+  const key = parts.pop() ?? ''
+
+  // Modifier priority order: meta > ctrl > alt > shift
+  const modPriority: Record<string, number> = {
+    meta: 0, ctrl: 1, alt: 2, shift: 3,
+  }
+  const modifiers = parts.filter(p => p in modPriority)
+  modifiers.sort((a, b) => (modPriority[a] ?? 99) - (modPriority[b] ?? 99))
+
+  return [...modifiers, key].join('+')
+}
+
+const _keybinds = new Map<string, KeybindEntry[]>()
+
+/** Map special KeyboardEvent.key values to normalized form. */
+function _mapKey(key: string): string {
+  const map: Record<string, string> = {
+    'escape': 'escape', 'tab': 'tab', 'enter': 'enter',
+    ' ': 'space', 'arrowup': 'up', 'arrowdown': 'down',
+    'arrowleft': 'left', 'arrowright': 'right',
+    'backspace': 'backspace', 'delete': 'delete',
+    'home': 'home', 'end': 'end', 'pageup': 'pageup', 'pagedown': 'pagedown',
+    'insert': 'insert',
+  }
+  return map[key] ?? key
+}
+
+function _comboFromEvent(e: KeyboardEvent): string {
+  const parts: string[] = []
+  if (e.metaKey) parts.push('meta')
+  else if (e.ctrlKey) parts.push('ctrl')
+  if (e.altKey) parts.push('alt')
+  if (e.shiftKey) parts.push('shift')
+
+  const key = _mapKey(e.key.toLowerCase())
+  parts.push(key)
+  return parts.join('+')
+}
+
+function _onKeyDown(e: KeyboardEvent): void {
+  const combo = _comboFromEvent(e)
+  const entries = _keybinds.get(combo)
+  if (!entries || entries.length === 0) {
+    // Unhandled at JS level — let bubble to Lua via event
+    coconut.emit('keydown.unhandled', { combo }).catch(() => {})
+    return
+  }
+
+  e.preventDefault()
+  e.stopPropagation()
+
+  for (const entry of entries) {
+    try {
+      entry.handler(e)
+    } catch (err) {
+      console.error('[coconut.keybind] handler error:', err)
+    }
+  }
+
+  // Notify Lua that this combo was handled at JS level
+  coconut.emit('keydown', { combo, handled: true }).catch(() => {})
+}
+
+// Install DOM keydown listener (top of hybrid chain)
+if (typeof document !== 'undefined') {
+  document.addEventListener('keydown', _onKeyDown)
+}
+
+// ── Keybind API ───────────────────────────────────────────────────────────
+
+const keybind = Object.assign(
+  function keybind(
+    comboOrMap: string | Record<string, string>,
+    handler: (event: KeyboardEvent) => void,
+    opts?: { id?: string; scope?: string },
+  ): () => void {
+    // Resolve per-platform map
+    let combo: string
+    if (typeof comboOrMap === 'object' && !Array.isArray(comboOrMap)) {
+      const plat = typeof navigator !== 'undefined'
+        ? navigator.platform.includes('Mac') ? 'mac'
+        : navigator.platform.includes('Win') ? 'win'
+        : 'linux'
+        : 'linux'
+      combo = comboOrMap[plat] ?? comboOrMap['default'] ?? ''
+      if (!combo) return () => {}
+    } else {
+      combo = comboOrMap as string
+    }
+
+    combo = _normalizeCombo(combo)
+    if (!combo) return () => {}
+
+    const id = opts?.id ?? combo
+    const scope = opts?.scope ?? 'global'
+
+    if (!_keybinds.has(combo)) _keybinds.set(combo, [])
+    _keybinds.get(combo)!.push({ handler, id, scope })
+
+    // Return unregister function
+    return () => {
+      const arr = _keybinds.get(combo)
+      if (!arr) return
+      const idx = arr.findIndex(e => e.id === id)
+      if (idx >= 0) arr.splice(idx, 1)
+      if (arr.length === 0) _keybinds.delete(combo)
+    }
+  },
+  {
+    /** Override a keybind's effective combo at runtime. */
+    setOverride(id: string, combo: string): void {
+      // Store override in a map, re-register under new combo
+      const normalized = _normalizeCombo(combo)
+      _overrides.set(id, normalized)
+
+      // Find existing entries for this id and re-register
+      for (const [oldCombo, entries] of _keybinds) {
+        for (const entry of entries) {
+          if (entry.id === id) {
+            // Remove from old combo
+            const idx = entries.indexOf(entry)
+            if (idx >= 0) entries.splice(idx, 1)
+            if (entries.length === 0) _keybinds.delete(oldCombo)
+
+            // Add under new combo
+            if (!_keybinds.has(normalized)) _keybinds.set(normalized, [])
+            _keybinds.get(normalized)!.push(entry)
+            return
+          }
+        }
+      }
+    },
+
+    /** Clear a runtime override, restoring the original combo. */
+    clearOverride(id: string): void {
+      _overrides.delete(id)
+    },
+
+    /** Load a table of overrides. */
+    loadOverrides(table: Record<string, string>): void {
+      for (const [id, combo] of Object.entries(table)) {
+        _overrides.set(id, _normalizeCombo(combo))
+      }
+    },
+
+    /** Get the effective combo for a keybind id. */
+    getCombo(id: string): string | undefined {
+      // linear scan through keybinds
+      for (const [combo, entries] of _keybinds) {
+        for (const entry of entries) {
+          if (entry.id === id) return _overrides.get(id) ?? combo
+        }
+      }
+      return undefined
+    },
+  } as {
+    setOverride: (id: string, combo: string) => void
+    clearOverride: (id: string) => void
+    loadOverrides: (table: Record<string, string>) => void
+    getCombo: (id: string) => string | undefined
+  },
+)
+
+const _overrides = new Map<string, string>()
+
+// Extend coconut with keybind API
+;(coconut as Record<string, unknown>).keybind = keybind
+
 // Expose globally so injected <script> (non-module) can access `window.coconut`.
 ;(globalThis as any).coconut = coconut
 

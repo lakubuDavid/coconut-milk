@@ -144,13 +144,24 @@ int main(int argc, char* argv[]) {
 #endif
 
   // Change to the specified root directory, if given.
+  // If root looks like a file (not a directory), treat it as a positional
+  // app arg and stay in CWD.
   if (args.root != ".") {
-    debug::info(std::format("changing root to '{}'", args.root));
-    try {
-      std::filesystem::current_path(args.root);
-    } catch (const std::exception& e) {
-      debug::error(std::format("cannot change directory to '{}': {}", args.root, e.what()));
-      return 1;
+    if (std::filesystem::exists(args.root) &&
+        !std::filesystem::is_directory(args.root)) {
+      // Root is a file, not a directory — treat as positional app arg
+      args.positional_args.insert(args.positional_args.begin(), args.root);
+      args.root = ".";
+      debug::info(std::format("root '{}' is a file, treating as positional arg",
+                               args.positional_args.front()));
+    } else {
+      debug::info(std::format("changing root to '{}'", args.root));
+      try {
+        std::filesystem::current_path(args.root);
+      } catch (const std::exception& e) {
+        debug::error(std::format("cannot change directory to '{}': {}", args.root, e.what()));
+        return 1;
+      }
     }
   }
 
@@ -314,6 +325,52 @@ int main(int argc, char* argv[]) {
   // Register Cocoa NSWindow lifecycle observers (resize, focus, blur).
   // These emit bridge events so the frontend can listen with coconut.on().
   lifecycle::registerEvents(app);
+
+  // Expose CLI args as coconut.args (read-only Lua table).
+  {
+    sol::state_view lua(*lua_runtime->lua_state);
+    auto args_tbl = lua.create_table();
+    {
+      sol::table pos = lua.create_table();
+      for (size_t i = 0; i < args.positional_args.size(); ++i) {
+        pos[i + 1] = args.positional_args[i];
+      }
+      args_tbl["positional"] = pos;
+    }
+    {
+      sol::table named = lua.create_table();
+      for (const auto& [k, v] : args.key_value_args) {
+        named[k] = v;
+      }
+      args_tbl["named"] = named;
+    }
+    {
+      sol::table flags = lua.create_table();
+      for (size_t i = 0; i < args.flag_args.size(); ++i) {
+        flags[args.flag_args[i]] = true;
+      }
+      args_tbl["flags"] = flags;
+    }
+    lua["coconut"]["args"] = args_tbl;
+    debug::info(std::format("coconut.args set: {} positional, {} named, {} flags",
+                             args.positional_args.size(),
+                             args.key_value_args.size(),
+                             args.flag_args.size()));
+
+    // Also inject into JS for frontend access.
+    {
+      nlohmann::json j;
+      j["positional"] = args.positional_args;
+      j["named"] = args.key_value_args;
+      j["flags"] = args.flag_args;
+      std::string js = std::format(
+        "window.__coconut_args = {};"
+        "if (window.coconut) coconut.args = window.__coconut_args;",
+        j.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace));
+      webview_eval(app->webview, js.c_str());
+      debug::info("coconut.args injected into JS");
+    }
+  }
 
   // Step 6: load user entry point (main.lua) and apply coconut.config(ctx).
   // The loadEntryPoint function handles:

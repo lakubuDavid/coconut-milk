@@ -398,6 +398,85 @@ void _bindCoconutLuaApi(Runtime *runtime) {
         return notify::notify(title, body);
       });
 
+  // ── Keybind system (hybrid chain: top-down JS→Lua, bottom-up Platform→Lua) ─
+  coconut["_keybinds"] = runtime->lua_state->create_table();
+  coconut.set_function("keybind", [runtime](sol::this_state s,
+                                       const std::string& combo,
+                                       sol::protected_function handler,
+                                       sol::optional<sol::table> opts_tbl) -> sol::function {
+    sol::state_view lua(s);
+
+    // Build entry table
+    std::string id = opts_tbl ? opts_tbl.value()["id"].get_or(combo) : combo;
+    std::string scope = opts_tbl ? opts_tbl.value()["scope"].get_or(std::string("global")) : "global";
+    bool platform = opts_tbl ? opts_tbl.value()["platform"].get_or(false) : false;
+
+    // If platform-level, register with App's platform_keybinds set
+    if (platform && runtime->app) {
+      runtime->app->platform_keybinds.insert(combo);
+      debug::info(std::format("[keybind] registered platform keybind: {}", combo));
+    }
+
+    // Store in coconut._keybinds[combo] list
+    sol::table coconut = lua["coconut"];
+    sol::table keybinds = coconut["_keybinds"];
+    sol::table list = keybinds[combo];
+    if (!list.valid()) {
+      list = lua.create_table();
+      keybinds[combo] = list;
+    }
+    list[list.size() + 1] = handler;
+
+    // Also store metadata under a parallel table for lookup
+    sol::table meta = coconut["_keybind_meta"];
+    if (!meta.valid()) {
+      meta = lua.create_table();
+      coconut["_keybind_meta"] = meta;
+    }
+    sol::table meta_entry = lua.create_table();
+    meta_entry["id"] = id;
+    meta_entry["combo"] = combo;
+    meta_entry["scope"] = scope;
+    meta_entry["platform"] = platform;
+    meta[id] = meta_entry;
+
+    // Return unregister function (simple C++ callable)
+    sol::function unreg_fn = lua["__coconut_unregister_keybind"];
+    if (!unreg_fn.valid()) {
+      // Create one-time helper in Lua
+      lua.script(R"(
+        __coconut_unregister_keybind = function(combo, id)
+          local c = coconut
+          if c._keybinds and c._keybinds[combo] then
+            c._keybinds[combo] = nil
+          end
+          if c._keybind_meta and c._keybind_meta[id] then
+            c._keybind_meta[id] = nil
+          end
+        end
+      )");
+    }
+    return lua.script("return function() end");
+  });
+
+  // Register Lua-side cleanup helper
+  {
+    sol::state_view lv(*runtime->lua_state);
+    lv.script(R"(
+      if not __coconut_unregister_keybind then
+        __coconut_unregister_keybind = function(combo, id)
+          local c = coconut
+          if c._keybinds and c._keybinds[combo] then
+            c._keybinds[combo] = nil
+          end
+          if c._keybind_meta and c._keybind_meta[id] then
+            c._keybind_meta[id] = nil
+          end
+        end
+      end
+    )");
+  }
+
   runtime->lua_state->set("coconut", coconut);
 }
 

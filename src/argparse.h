@@ -2,6 +2,8 @@
 
 #include <string>
 #include <string_view>
+#include <vector>
+#include <map>
 
 namespace coconut::argparse {
 
@@ -31,6 +33,11 @@ struct Args {
   bool override_transparent   = false;  ///< --transparent flag
   bool override_title_given   = false;  ///< true when --title is supplied
   std::string override_title;          ///< --title value
+
+  // Positional arguments (app-level, not framework flags)
+  std::vector<std::string> positional_args;
+  std::map<std::string, std::string> key_value_args;
+  std::vector<std::string> flag_args;
 };
 
 /// Parse command-line arguments.

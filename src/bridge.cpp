@@ -78,6 +78,33 @@ void dispatchEventToLua(coconut::App* app, const std::string& name,
   }
 
   // Call: coconut.events(name, payloadTable, ctx)
+  // But for "keydown" events, check keybind registry first (hybrid chain)
+  if (name == "keydown") {
+    // Check coconut._keybinds for a matching combo
+    sol::table keybinds = coconutTbl["_keybinds"];
+    if (keybinds.valid()) {
+      std::string combo = payload.value("combo", "");
+      sol::object entries = keybinds[combo];
+      if (entries.valid() && entries.is<sol::table>()) {
+        sol::table entryList = entries.as<sol::table>();
+        for (auto& kv : entryList) {
+          sol::object val = kv.second;
+          if (val.is<sol::protected_function>()) {
+            sol::protected_function fn = val.as<sol::protected_function>();
+            auto r = fn(payloadTable);
+            if (!r.valid()) {
+              sol::error err = r;
+              debug::warn(std::format("[keybind] handler error for '{}': {}",
+                                      combo, err.what()));
+            }
+          }
+        }
+        // Keybind handled — don't forward to coconut.events
+        return;
+      }
+    }
+  }
+
   auto result = eventsFn(name, payloadTable, app->lua_state->context);
   if (!result.valid()) {
     sol::error err = result;

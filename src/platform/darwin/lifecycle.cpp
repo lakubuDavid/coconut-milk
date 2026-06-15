@@ -6,12 +6,14 @@
 #include "app.h"
 #include "bridge.h"
 #include "debug.h"
+#include "keyboard.h"
 #include "lifecycle.h"
 
 #include <webview/webview.h>
 
 #include <format>
 #include <iostream>
+#include <string>
 
 #include <objc/runtime.h>
 #include <objc/message.h>
@@ -117,9 +119,34 @@ void platformRegisterEvents(App* app) {
               (IMP)coconut_onBlur, sel_registerName("onBlur:"));
 
   debug::info("registered resize/focus/blur observers");
+
+  // Register NSEvent keyDown monitor (platform layer of hybrid chain).
+  // Uses a C callback to avoid ARC conflicts with webview headers.
+  platform::registerKeyboardMonitor(app, +[](const std::string& combo,
+                                               bool* handled,
+                                               void* userdata) -> bool {
+    auto* a = static_cast<App*>(userdata);
+    if (!a) return false;
+
+    // Check app-registered platform keybinds
+    if (a->platform_keybinds.count(combo) > 0) {
+      debug::info(std::format("[keyboard] app platform keybind consumed: {}", combo));
+      bridge::dispatchEventToLua(a, "keydown",
+          {{"combo", combo}, {"handled", true}});
+      *handled = true;
+      return true; // consume
+    }
+
+    // Not a platform keybind — dispatch to Lua and pass through
+    bridge::dispatchEventToLua(a, "keydown",
+        {{"combo", combo}, {"handled", false}});
+    *handled = false;
+    return false; // pass through
+  }, app);
 }
 
 void platformUnregisterEvents() {
+  platform::unregisterKeyboardMonitor();
   s_app = nullptr;
 }
 

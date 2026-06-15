@@ -157,15 +157,14 @@ COCONUT_TEST(unit, fs_list_dir_root) {
   COCONUT_REQUIRE(!result->empty());  // root always has entries
 }
 
-COCONUT_TEST(unit, fs_list_dir_contains_dotfiles) {
-  // Common entries that should exist
+COCONUT_TEST(unit, fs_list_dir_no_dot_entries) {
+  // listDir should NOT include "." and ".." entries
   auto result = coconut::fs::listDir("/tmp");
   COCONUT_REQUIRE(result.has_value());
-  bool found = false;
   for (const auto& entry : result.value()) {
-    if (entry.name == "." || entry.name == "..") found = true;
+    COCONUT_REQUIRE(entry.name != ".");
+    COCONUT_REQUIRE(entry.name != "..");
   }
-  COCONUT_REQUIRE(found);
 }
 
 COCONUT_TEST(unit, fs_list_dir_types) {
