@@ -68,7 +68,6 @@ static NSString* normalizeCombo(NSEvent* event) {
 // ── Platform-level combo detection ───────────────────────────────────────
 
 static bool isPlatformCombo(NSString* combo) {
-  if ([combo isEqualToString:@"mod+q"]) return true;
   if ([combo isEqualToString:@"mod+h"]) return true;
   if ([combo isEqualToString:@"mod+m"]) return true;
   if ([combo isEqualToString:@"mod+`"]) return true;

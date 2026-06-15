@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "coconut-milk",
-  "updatedAt": "2026-06-15T16:36:04.690Z",
+  "updatedAt": "2026-06-15T19:28:17.714Z",
   "tasks": [
     {
       "id": "task-1781488647239-gwarqhb",
@@ -34,9 +34,9 @@
       "id": "task-1781537118911-vzumsaz",
       "title": "coconut.args — global read-only CLI args on both Lua and JS sides",
       "description": "- argparse::Args gets positional, named, flags fields\n- Convert args to nlohmann::json after parsing, store on bridge state\n- Lua: coconut.args → read-only sol::table from stored JSON\n- JS: inject coconut.args during bridge init (or via __get_args command)\n- { positional=[\"file.lua\"], named={mode=\"dev\"}, flags={verbose=true} }\n- No config pollution, backward-compatible, globally accessible",
-      "status": "pending",
+      "status": "completed",
       "createdAt": "2026-06-15T15:25:18.911Z",
-      "updatedAt": "2026-06-15T15:25:18.911Z"
+      "updatedAt": "2026-06-15T19:28:15.403Z"
     },
     {
       "id": "task-1781541088381-inwk5ld",
@@ -50,9 +50,9 @@
       "id": "task-1781541364690-9oodw9e",
       "title": "coconut.keybind — dual-registry keybind system (JS + Lua)",
       "description": "- JS captures keydown → normalize combo → check JS registry\n- If unconsumed → emit 'keydown' event to Lua via bridge\n- Lua receives via coconut.on('keydown') → check Lua registry\n- API: coconut.keybind(combo, fn|cmd_name, scope?) on both sides\n- Combo format: ctrl+s, cmd+shift+p, alt+f4, esc, up, down, f1..f12\n- Scope: 'global' (always active) or app-defined string\n- Returns unregister function\n- Event payload: { key, ctrl, shift, alt, meta, scope }\n- JS: keydown listener, normalization table, registry, scope management\n- Lua: coconut.keybind() binding, registry table, coconut.on('keydown') handler",
-      "status": "pending",
+      "status": "completed",
       "createdAt": "2026-06-15T16:36:04.690Z",
-      "updatedAt": "2026-06-15T16:36:04.690Z"
+      "updatedAt": "2026-06-15T19:28:17.714Z"
     }
   ]
 }

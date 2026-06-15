@@ -149,6 +149,9 @@ var coconut = {
     write: async (text) => {
       return coconut.call("clipboard_write", { text });
     }
+  },
+  quit: async () => {
+    await coconut.call("__quit", {});
   }
 };
 function _normalizeCombo(raw) {
@@ -323,3 +326,6 @@ coconut.getKeybinds = () => {
   return result;
 };
 globalThis.coconut = coconut;
+keybind({ mac: "mod+q", win: "alt+f4", linux: "alt+f4" }, () => {
+  coconut.quit();
+}, { id: "coconut.quit", description: "Quit application" });

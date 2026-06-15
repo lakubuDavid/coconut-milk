@@ -271,6 +271,13 @@ const coconut = {
       return coconut.call<boolean>("clipboard_write", { text })
     },
   },
+
+  /**
+   * Quit the application.
+   */
+  quit: async (): Promise<void> => {
+    await coconut.call("__quit", {})
+  },
 }
 
 // ── Keybind system (hybrid chain: JS → Lua first, platform bottom-up) ─────
@@ -498,5 +505,11 @@ const _overrides = new Map<string, string>()
 
 // Expose globally so injected <script> (non-module) can access `window.coconut`.
 ;(globalThis as any).coconut = coconut
+
+// ── Default keybinds ──────────────────────────────────────────────────────
+// Quit: mod+q (macOS) / alt+f4 (Win/Linux)
+keybind({ mac: 'mod+q', win: 'alt+f4', linux: 'alt+f4' }, () => {
+  coconut.quit()
+}, { id: 'coconut.quit', description: 'Quit application' })
 
 
