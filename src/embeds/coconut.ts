@@ -275,8 +275,8 @@ const coconut = {
   /**
    * Quit the application.
    */
-  quit: async (): Promise<void> => {
-    await coconut.call("__quit", {})
+  quit: () => {
+    coconut.window.close()
   },
 }
 
@@ -507,9 +507,8 @@ const _overrides = new Map<string, string>()
 ;(globalThis as any).coconut = coconut
 
 // ── Default keybinds ──────────────────────────────────────────────────────
-// Quit: mod+q (macOS) / alt+f4 (Win/Linux)
+// Close window: mod+q (macOS) / alt+f4 (Win/Linux)
 keybind({ mac: 'mod+q', win: 'alt+f4', linux: 'alt+f4' }, () => {
-  coconut.quit()
-}, { id: 'coconut.quit', description: 'Quit application' })
-
+  coconut.window.close()
+}, { id: 'coconut.window.close', description: 'Close window' })
 

@@ -177,13 +177,6 @@ void WebviewTransport::handleCall(const char* id, const rpc::Message& msg) {
             {"error", {{"code", code}, {"message", message}}}};
   };
 
-  // Special: __quit terminates the app immediately.
-  if (msg.name == "__quit") {
-    if (m_webview) webview_terminate(m_webview);
-    respond(nlohmann::json{{"ok", true}});
-    return;
-  }
-
   if (!m_app || !m_app->commands) {
     respond(makeError("BridgeError", "No command registry"));
     return;

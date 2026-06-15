@@ -1,6 +1,6 @@
 # Coconut Milk — Agent Guide
 
-Rules this agent must follow when writing code or making decisions.
+Rules you must follow when writing code or making decisions.
 
 ## Core design decisions
 
@@ -53,9 +53,10 @@ Current modules:
 - Bridge messages are conceptual object-shaped envelopes.
 - `emit` is async and queue-based.
 - `call` is Promise-based and waits for readiness.
-
 ## When in doubt
 
 - Prefer the current spec over inventing new abstractions.
 - Prefer minimal state and explicit ownership.
 - Ask before making irreversible or ambiguous design changes.
+
+

@@ -12,19 +12,14 @@
 
 --- View descriptors returned by View.url/html/load.
 ---@class CoconutViewDescriptor
-
 --- Declare default props for this view.
 ---@field defineProps fun(self: CoconutViewDescriptor, props: table): CoconutViewDescriptor
-
 --- Called once when the view is first loaded/created.
 ---@field on_load fun(self: CoconutViewDescriptor, fn: fun(ctx: CoconutContext)): CoconutViewDescriptor
-
 --- Called when the view becomes the active/visible view.
 ---@field on_mount fun(self: CoconutViewDescriptor, fn: fun(ctx: CoconutContext)): CoconutViewDescriptor
-
---- Called when switching away from this view.
+-- Called when switching away from this view.
 ---@field on_unmount fun(self: CoconutViewDescriptor, fn: fun(ctx: CoconutContext)): CoconutViewDescriptor
-
 --- Called when the frontend emits an event while this view is active.
 ---@field on_frontend_event fun(self: CoconutViewDescriptor, name: string, fn: fun(ctx: CoconutContext, payload: table)): CoconutViewDescriptor
 

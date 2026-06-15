@@ -85,6 +85,21 @@ local function path_join(...)
   return table.concat({ ... }, "/")
 end
 
+--- Find the coconut binary in PATH.
+local function coconut_binary()
+  -- Check Coconut binary location hint env var first
+  local from_env = os.getenv("COCONUT_BINARY")
+  if from_env and from_env ~= "" then return from_env end
+  -- Try which
+  local f = io.popen("which coconut 2>/dev/null || echo \"\"")
+  if f then
+    local path = f:read("*l")
+    f:close()
+    if path and path ~= "" then return path end
+  end
+  return "coconut"
+end
+
 -- ── File generators ──────────────────────────────────────────────────────
 
 local GENERATORS = {}
@@ -476,18 +491,18 @@ function GENERATORS.readme(project_name, template, framework, pkg_manager)
     lines[#lines + 1] = pm .. ' run dev'
     lines[#lines + 1] = ''
     lines[#lines + 1] = '# Terminal 2: run Coconut with env flag'
-    lines[#lines + 1] = 'COCONUT_DEV=1 /path/to/coconut'
+    lines[#lines + 1] = 'COCONUT_DEV=1 coconut'
     lines[#lines + 1] = '```'
     lines[#lines + 1] = ''
     lines[#lines + 1] = '### Production mode'
     lines[#lines + 1] = ''
     lines[#lines + 1] = '```bash'
     lines[#lines + 1] = pm .. ' run build'
-    lines[#lines + 1] = '/path/to/coconut'
+    lines[#lines + 1] = 'coconut'
     lines[#lines + 1] = '```'
   else
     lines[#lines + 1] = '```bash'
-    lines[#lines + 1] = '/path/to/coconut'
+    lines[#lines + 1] = 'coconut'
     lines[#lines + 1] = '```'
   end
   lines[#lines + 1] = ''
@@ -662,6 +677,82 @@ local function scaffold_vite(project_dir, project_name, framework, pkg_manager)
   end
 end
 
+-- ── Agent skill symlink ───────────────────────────────────────────────
+
+--- Detect the framework SKILL.md path by looking relative to the create-coconut-app script.
+local function find_skill_md()
+  local script = arg and arg[0] or "scripts/create-coconut-app"
+  local f = io.popen("readlink -f \"" .. script .. "\" 2>/dev/null || echo \"" .. script .. "\"")
+  if not f then return nil end
+  local real = f:read("*l")
+  f:close()
+  if not real then return nil end
+  -- Strip filename (last component after /)
+  local r = string.reverse(real)
+  local without_first = r:match("/.+")
+  if not without_first then return nil end
+  local dir = string.reverse(without_first)
+  -- Walk up to find SKILL.md (max 5 levels)
+  for i = 1, 5 do
+    local candidate = dir .. "/SKILL.md"
+    local test = io.open(candidate, "r")
+    if test then
+      test:close()
+      return candidate
+    end
+    -- Move up one directory
+    local parent_r = string.reverse(dir)
+    local up = parent_r:match("/.+")
+    if not up then break end
+    dir = string.reverse(up:sub(2))
+    if dir == "" then break end
+  end
+  return nil
+end
+
+--- Prompt to create ./.agents/skills/coconut-milk/SKILL.md -> framework SKILL.md.
+local function prompt_skill_symlink(project_dir, yes)
+  local skill_src = find_skill_md()
+  if not skill_src then
+    -- No SKILL.md found — skip silently
+    return
+  end
+
+  if yes then
+    local ok = os.execute(
+      "mkdir -p \"" .. project_dir .. "/.agents/skills/coconut-milk\" && " ..
+      "ln -sf \"" .. skill_src .. "\" \"" ..
+      project_dir .. "/.agents/skills/coconut-milk/SKILL.md\" 2>/dev/null"
+    )
+    if ok then
+      log("Created ./.agents/skills/coconut-milk/SKILL.md")
+    end
+    return
+  end
+
+  io.write("Create ./.agents/skills/coconut-milk/SKILL.md symlink for Coconut skill?")
+  io.write(" (y/N): ")
+  io.flush()
+  local ans = read_stdin()
+  if ans:lower() ~= "y" then
+    io.write("Skipped. Run this later to add it:\n")
+    io.write("  mkdir -p ./.agents/skills/coconut-milk && ")
+    io.write("ln -sf \"<path-to-SKILL.md>\" ./.agents/skills/coconut-milk/SKILL.md\n")
+    return
+  end
+
+  local ok = os.execute(
+    "mkdir -p \"" .. project_dir .. "/.agents/skills/coconut-milk\" && " ..
+    "ln -sf \"" .. skill_src .. "\" \"" ..
+    project_dir .. "/.agents/skills/coconut-milk/SKILL.md\""
+  )
+  if ok then
+    log("Created ./.agents/skills/coconut-milk/SKILL.md")
+  else
+    io.write("Failed to create symlink.\n")
+  end
+end
+
 -- ── Main ──────────────────────────────────────────────────────────────────
 
 local function parse_args()
@@ -761,14 +852,17 @@ local function main()
     scaffold_vite(project_dir, project_name, framework, pm)
   end
 
+  -- Prompt to add agent skill symlink
+  prompt_skill_symlink(project_dir, opts.yes)
+
   log("Done! Created project in " .. project_dir)
   io.write("\nTo get started:\n")
   io.write("  cd " .. project_name .. "\n")
-  io.write("  /path/to/coconut\n")
+  io.write("  coconut\n")
   if template == "vite" then
     io.write("\nDev mode (with hot reload):\n")
     io.write("  # Terminal 1: " .. pm .. " run dev\n")
-    io.write("  # Terminal 2: COCONUT_DEV=1 /path/to/coconut\n")
+    io.write("  # Terminal 2: COCONUT_DEV=1 coconut " .. project_name .. "\n")
   end
   io.write("\n")
 end

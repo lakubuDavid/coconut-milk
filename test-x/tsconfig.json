@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "checkJs": true,
+    "allowJs": true
+  },
+  "include": ["views/**/*", "assets/**/*", "generated/**/*.d.ts", "scripts/coconut.d.ts"],
+  "exclude": ["node_modules", "dist", "assets/lib"]
+}
