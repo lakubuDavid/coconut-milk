@@ -125,11 +125,22 @@
   let loadedDirs = {};           // cache: path -> entries[]
 
   // ── Command palette state ─────────────────────────────────────────
+  /** Get the shortcut string for the current platform from a per-platform map. */
+  function getShortcut(shortcut) {
+    if (typeof shortcut === 'string') return shortcut;
+    if (typeof shortcut === 'object') {
+      const plat = navigator.platform.includes('Mac') ? 'mac'
+                 : navigator.platform.includes('Win') ? 'win' : 'linux';
+      return shortcut[plat] || shortcut['default'] || '';
+    }
+    return '';
+  }
+
   const paletteCommands = [
     { id: 'open-file',     name: 'Open File',          shortcut: 'mod+o',       description: 'Open a file or folder', action: () => openDialog() },
     { id: 'save',          name: 'Save',               shortcut: 'mod+s',       description: 'Save current buffer', action: () => saveCurrent() },
     { id: 'save-as',       name: 'Save As...',         shortcut: 'mod+shift+s', description: 'Save current buffer as a new file', action: () => saveAsDialog() },
-    { id: 'close-tab',     name: 'Close Tab',          shortcut: 'mod+w',       description: 'Close the current tab', action: () => closeBuffer(buffers.active?.id) },
+    { id: 'close-tab',     name: 'Close Tab',          shortcut: {mac: 'mod+w', win: 'alt+f4', linux: 'alt+f4'}, description: 'Close the current tab', action: () => closeBuffer(buffers.active?.id) },
     { id: 'next-tab',      name: 'Next Tab',           shortcut: 'mod+tab',     description: 'Switch to the next tab', action: () => nextBuffer() },
     { id: 'prev-tab',      name: 'Previous Tab',       shortcut: 'mod+shift+tab', description: 'Switch to the previous tab', action: () => prevBuffer() },
     { id: 'toggle-sidebar',name: 'Toggle Sidebar',     shortcut: 'mod+b',       description: 'Show or hide the sidebar', action: () => toggleSidebar() },
@@ -668,10 +679,11 @@
         nameSpan.textContent = cmd.name;
         item.appendChild(nameSpan);
 
-        if (cmd.shortcut) {
+        const scText = getShortcut(cmd.shortcut);
+        if (scText) {
           const sc = document.createElement('span');
           sc.className = 'shortcut';
-          sc.textContent = cmd.shortcut;
+          sc.textContent = scText;
           item.appendChild(sc);
         }
 
@@ -856,6 +868,11 @@
       coconut.keybind('mod+o', function () {
         openDialog();
       }, { id: 'editor.open', scope: 'editor', description: 'Open file or folder' });
+
+      // Close tab (mod+w on macOS, alt+f4 on Windows/Linux)
+      coconut.keybind({mac: 'mod+w', win: 'alt+f4', linux: 'alt+f4'}, function () {
+        closeBuffer(buffers.active?.id);
+      }, { id: 'editor.close-tab', scope: 'editor', description: 'Close the current tab' });
 
       // Tab switching
       coconut.keybind('mod+tab', function () {
