@@ -422,7 +422,7 @@ loadConfigLua(std::string_view config_path) {
 
   try {
     sol::state lua;
-    lua.open_libraries(sol::lib::base, sol::lib::table);
+    lua.open_libraries(sol::lib::base, sol::lib::table, sol::lib::os);
 
     auto result = lua.safe_script_file(abs_path,
                                        sol::script_pass_on_error);

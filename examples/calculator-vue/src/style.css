@@ -8,3 +8,6 @@ body {
   align-items: center;
   min-height: 100vh;
 }
+
+/* Strip WebKit glossy overlay on <select> elements */
+select { appearance: none; -webkit-appearance: none; -moz-appearance: none; }

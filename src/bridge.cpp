@@ -55,7 +55,8 @@ static std::string escapeLuaString(std::string_view s) {
 // Inbound RPC dispatch helpers (bridge owns the dispatch logic)
 // ---------------------------------------------------------------------------
 
-/// Route an incoming kEvent RPC message to Lua's coconut.events().
+/// Route an incoming kEvent RPC message through the three-tier dispatch chain.
+/// Calls coconut._dispatch(name, payload, target).
 void dispatchEventToLua(coconut::App* app, const std::string& name,
                          const nlohmann::json& payload) {
   if (app == nullptr || app->lua_state == nullptr ||
@@ -64,51 +65,29 @@ void dispatchEventToLua(coconut::App* app, const std::string& name,
   }
 
   sol::state_view lua(*app->lua_state->lua_state);
+
+  // Build a Lua table from the JSON payload
   sol::table payloadTable = toTable(lua, payload);
 
-  sol::object coconutObj = lua["coconut"];
-  if (!coconutObj.valid() || !coconutObj.is<sol::table>()) {
-    return;
-  }
+  // Determine the active view for target
+  std::string target = app->window ? app->window->current_view : "";
 
-  sol::table coconutTbl = coconutObj.as<sol::table>();
-  sol::protected_function eventsFn = coconutTbl["events"];
-  if (!eventsFn.valid()) {
-    return;
-  }
-
-  // Call: coconut.events(name, payloadTable, ctx)
-  // But for "keydown" events, check keybind registry first (hybrid chain)
-  if (name == "keydown") {
-    // Check coconut._keybinds for a matching combo
-    sol::table keybinds = coconutTbl["_keybinds"];
-    if (keybinds.valid()) {
-      std::string combo = payload.value("combo", "");
-      sol::object entries = keybinds[combo];
-      if (entries.valid() && entries.is<sol::table>()) {
-        sol::table entryList = entries.as<sol::table>();
-        for (auto& kv : entryList) {
-          sol::object val = kv.second;
-          if (val.is<sol::protected_function>()) {
-            sol::protected_function fn = val.as<sol::protected_function>();
-            auto r = fn(payloadTable);
-            if (!r.valid()) {
-              sol::error err = r;
-              debug::warn(std::format("[keybind] handler error for '{}': {}",
-                                      combo, err.what()));
-            }
-          }
-        }
-        // Keybind handled — don't forward to coconut.events
-        return;
-      }
+  // Route through the central dispatch: coconut._dispatch(name, payload, target)
+  sol::function dispatch = lua["coconut"]["_dispatch"];
+  if (!dispatch.valid()) {
+    debug::warn("dispatchEventToLua: coconut._dispatch not found");
+    // Fallback: try old-style coconut.events(event) for backward compat
+    sol::function fallback = lua["coconut"]["events"];
+    if (fallback.valid()) {
+      fallback(payloadTable);
     }
+    return;
   }
 
-  auto result = eventsFn(name, payloadTable, app->lua_state->context);
+  auto result = dispatch(name, payloadTable, target);
   if (!result.valid()) {
     sol::error err = result;
-    debug::warn(std::format("dispatchEventToLua('{}'): coconut.events() failed: {}",
+    debug::warn(std::format("dispatchEventToLua('{}'): coconut._dispatch failed: {}",
                             name, err.what()));
   }
 }
@@ -177,31 +156,8 @@ static void dispatchRpcCallToLua(coconut::App* app, const rpc::Message& msg) {
 }
 
 // ---------------------------------------------------------------------------
-// Legacy helper wrappers for Lua/JS bridge operations
+// JS bridge helpers
 // ---------------------------------------------------------------------------
-
-void emitToLua(coconut::App *app, std::string eventName,
-               nlohmann::json payload) {
-  if (app == nullptr || app->lua_state == nullptr ||
-      app->lua_state->lua_state == nullptr) {
-    return;
-  }
-
-  std::string payloadJson;
-  try {
-    payloadJson = payload.dump();
-  } catch (const std::exception&) {
-    payloadJson = "{}";
-  }
-  const auto luaEventName = escapeLuaString(eventName);
-  const auto luaPayloadJson = escapeLuaString(payloadJson);
-
-  const std::string script = std::format(
-      R"(if coconut and coconut.events then coconut.events("{}", "{}", ctx) end)",
-      luaEventName, luaPayloadJson);
-
-  app->lua_state->lua_state->safe_script(script, sol::script_pass_on_error);
-}
 
 void emitToJS(coconut::App *app, std::string eventName,
                nlohmann::json payload) {
@@ -211,36 +167,6 @@ void emitToJS(coconut::App *app, std::string eventName,
   msg.name    = std::move(eventName);
   msg.payload = std::move(payload);
   rpcSend(app, msg);
-}
-
-void callLua(coconut::App *app, std::string functionName,
-              nlohmann::json payload) {
-  if (app == nullptr || app->lua_state == nullptr ||
-      app->lua_state->lua_state == nullptr) {
-    return;
-  }
-
-  sol::state &lua = *app->lua_state->lua_state;
-  sol::protected_function fn = lua[functionName];
-  if (!fn.valid()) {
-    return;
-  }
-
-  std::string payloadDump;
-  try {
-    payloadDump = payload.dump();
-  } catch (const std::exception&) {
-    payloadDump = "{}";
-  }
-  sol::object arg = functionName == "coconut.events"
-                        ? sol::make_object(lua, payloadDump)
-                        : toTable(lua, payload);
-
-  auto result = fn(arg);
-  if (!result.valid()) {
-    sol::error err = result;
-    debug::warn(std::format("callLua('{}') failed: {}", functionName, err.what()));
-  }
 }
 
 void callJS(coconut::App *app, std::string functionName,
@@ -565,6 +491,13 @@ void destroy(State *state) {
   if (state == nullptr) {
     return;
   }
+
+  // Destroy the store
+  if (state->store) {
+    store::destroy(state->store);
+    state->store = nullptr;
+  }
+
   delete state->transport; // WebviewTransport
   state->transport = nullptr;
   delete state;

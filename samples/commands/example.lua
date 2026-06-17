@@ -5,7 +5,7 @@
 local function hello(params, ctx)
   local name = (params and params.name) or "user"
   if ctx and ctx.emit then
-    coconut.emit("greeted", { name = name })
+    coconut.emit({ name = "greeted", user = name })
   end
   return "Hi " .. name
 end
@@ -16,7 +16,7 @@ end
 local function goodbye(params, ctx)
   local name = (params and params.name) or "user"
   if ctx and ctx.emit then
-    coconut.emit("farewell", { name = name })
+    coconut.emit({ name = "farewell", user = name })
   end
   return "Bye " .. name
 end

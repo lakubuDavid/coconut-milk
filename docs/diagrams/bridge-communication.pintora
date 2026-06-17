@@ -1,0 +1,50 @@
+sequenceDiagram
+  title: Bridge Communication Flow - Lua and JavaScript
+
+  participant LUA as Lua Runtime
+  participant BRIDGE as Bridge C++
+  participant TRANSPORT as WebviewTransport
+  participant JS as JavaScript
+
+  @start_note right of LUA
+    Lua to JavaScript Flow
+  @end_note
+
+  LUA ->> BRIDGE : ctx:emit({name:"update", data:"test"})
+  BRIDGE ->> BRIDGE : Serialize to JSON
+  BRIDGE ->> TRANSPORT : Send RPC message
+  
+  TRANSPORT ->> JS : webview_eval("__coconut_dispatch_event(...)")
+  JS ->> JS : Parse JSON
+  JS ->> JS : Dispatch to listeners
+  
+  @start_note right of JS
+    JavaScript to Lua Flow
+  @end_note
+
+  JS ->> TRANSPORT : coconut.call("command", payload)
+  TRANSPORT ->> BRIDGE : webview_bind callback
+  BRIDGE ->> BRIDGE : Parse RPC envelope
+  
+  alt call type
+    BRIDGE ->> LUA : Dispatch to command handler
+    LUA ->> LUA : Execute command
+    LUA ->> BRIDGE : Return result
+    BRIDGE ->> TRANSPORT : Send kReturn
+    TRANSPORT ->> JS : Resolve Promise
+  else event type
+    BRIDGE ->> LUA : Dispatch event
+    LUA ->> LUA : Execute event handlers
+  end
+
+  @start_note right of LUA
+    Error Flow
+  @end_note
+
+  LUA ->> BRIDGE : Command throws error
+  BRIDGE ->> TRANSPORT : Send kError
+  TRANSPORT ->> JS : Reject Promise
+  
+  @start_note right of JS
+    catch(err) handles error
+  @end_note

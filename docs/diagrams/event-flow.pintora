@@ -6,7 +6,7 @@ sequenceDiagram
   participant JS_RUNTIME
   participant APP
 
-  LUA ->> CPP : ctx:emit("toast", {message:"saved"})
+  LUA ->> CPP : ctx:emit({name:"toast", message:"saved"})
   CPP ->> CPP : serialize kEvent envelope
   CPP ->> JS_RUNTIME : __coconut_dispatch_event("toast", payload)
   JS_RUNTIME ->> JS_RUNTIME : parse JSON payload

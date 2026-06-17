@@ -473,53 +473,64 @@ writeShippableConfig(const Config& cfg, const std::string& out_dir) {
 
 // ── Generate manifests ──────────────────────────────────────────────────
 
-StepResult generateManifests(const Config& cfg, const std::string& out_dir) {
+std::expected<std::string, Error> generateManifests(const Config& cfg, const std::string& out_dir) {
   std::string error;
 
   // macOS — Info.plist
   if (!writeInfoPlist(cfg, out_dir, error)) {
-    return StepResult{.ok = false, .message = error};
+    return std::unexpected(Error{
+      .code = ErrorCode::IoError,
+      .message = "generate manifests: " + error
+    });
   }
 
   // macOS — entitlements (optional)
   if (!writeEntitlements(cfg, out_dir, error)) {
-    return StepResult{.ok = false, .message = error};
+    return std::unexpected(Error{
+      .code = ErrorCode::IoError,
+      .message = "generate manifests: " + error
+    });
   }
 
   // Windows — app.manifest
   if (!writeWindowsManifest(cfg, out_dir, error)) {
-    return StepResult{.ok = false, .message = error};
+    return std::unexpected(Error{
+      .code = ErrorCode::IoError,
+      .message = "generate manifests: " + error
+    });
   }
 
   // Linux — .desktop file
   if (!writeDesktopFile(cfg, out_dir, error)) {
-    return StepResult{.ok = false, .message = error};
+    return std::unexpected(Error{
+      .code = ErrorCode::IoError,
+      .message = "generate manifests: " + error
+    });
   }
 
   // Linux — AppStream metainfo
   if (!writeMetainfo(cfg, out_dir, error)) {
-    return StepResult{.ok = false, .message = error};
+    return std::unexpected(Error{
+      .code = ErrorCode::IoError,
+      .message = "generate manifests: " + error
+    });
   }
 
-  // Linux — AppStream metainfo
-  return StepResult{
-    .ok = true,
-    .message = "manifests: Info.plist, app.manifest, .desktop, metainfo.xml generated"
-  };
+  return "manifests: Info.plist, app.manifest, .desktop, metainfo.xml generated";
 }
 
 // ── Assemble bundle ─────────────────────────────────────────────────────
 
-StepResult assembleBundle(const Config& cfg, const std::string& out_dir) {
+std::expected<std::string, Error> assembleBundle(const Config& cfg, const std::string& out_dir) {
   std::string error;
 
   // Detect the running binary path
   std::string self_path = findSelfPath();
   if (self_path.empty()) {
-    return StepResult{
-      .ok = false,
+    return std::unexpected(Error{
+      .code = ErrorCode::Unknown,
       .message = "assemble: could not find running executable path"
-    };
+    });
   }
 
   // macOS: create .app bundle structure
@@ -530,23 +541,26 @@ StepResult assembleBundle(const Config& cfg, const std::string& out_dir) {
   std::error_code ec;
   std::filesystem::create_directories(macos_dir, ec);
   if (ec) {
-    return StepResult{
-      .ok = false,
+    return std::unexpected(Error{
+      .code = ErrorCode::IoError,
       .message = std::format("assemble: failed to create MacOS dir: {}", ec.message())
-    };
+    });
   }
   std::filesystem::create_directories(res_dir, ec);
   if (ec) {
-    return StepResult{
-      .ok = false,
+    return std::unexpected(Error{
+      .code = ErrorCode::IoError,
       .message = std::format("assemble: failed to create Resources dir: {}", ec.message())
-    };
+    });
   }
 
   // Copy binary to MacOS/coconut
   std::string bin_dst = macos_dir + "/coconut";
   if (!copyFile(self_path, bin_dst, error)) {
-    return StepResult{.ok = false, .message = error};
+    return std::unexpected(Error{
+      .code = ErrorCode::IoError,
+      .message = "assemble: " + error
+    });
   }
   std::filesystem::permissions(bin_dst,
       std::filesystem::perms::owner_exec | std::filesystem::perms::group_exec |
@@ -583,25 +597,23 @@ StepResult assembleBundle(const Config& cfg, const std::string& out_dir) {
     copyFile("main.lua", res_dir + "/main.lua", error);
   }
 
-  return StepResult{
-    .ok = true,
-    .message = std::format("assemble: .app bundle created at '{}'", out_dir)
-  };
+  return std::format("assemble: .app bundle created at '{}'", out_dir);
 }
 
 // ── Full pipeline ─────────────────────────────────────────────────────
 
-StepResult bundle(const Config& cfg,
-                  const std::string& out_dir,
-                  bool bytecode_config) {
+std::expected<std::string, Error> bundle(const Config& cfg,
+                                          const std::string& out_dir,
+                                          bool bytecode_config) {
   // Step 1: write shippable config
   auto stripped = writeShippableConfig(cfg, out_dir);
   if (!stripped) {
-    return StepResult{
-      .ok = false,
-      .message = std::format("bundle: failed to write shippable config: {} ({})",
-                             stripped.error().message, stripped.error().details)
-    };
+    return std::unexpected(Error{
+      .code = stripped.error().code,
+      .message = std::format("bundle: failed to write shippable config: {}",
+                             stripped.error().message),
+      .details = stripped.error().details
+    });
   }
 
   // Step 2: auto-generate platform icons
@@ -630,27 +642,25 @@ StepResult bundle(const Config& cfg,
 
   // Step 3: generate manifests
   auto manifests = generateManifests(cfg, out_dir);
-  if (!manifests.ok) {
-    return StepResult{
-      .ok = false,
+  if (!manifests) {
+    return std::unexpected(Error{
+      .code = manifests.error().code,
       .message = std::format("bundle: manifests generation failed: {}",
-                             manifests.message)
-    };
+                             manifests.error().message)
+    });
   }
 
   // Step 4: assemble bundle
   auto assembled = assembleBundle(cfg, out_dir);
-  if (!assembled.ok) {
-    return StepResult{
-      .ok = false,
-      .message = std::format("bundle: assembly failed: {}", assembled.message)
-    };
+  if (!assembled) {
+    return std::unexpected(Error{
+      .code = assembled.error().code,
+      .message = std::format("bundle: assembly failed: {}",
+                             assembled.error().message)
+    });
   }
 
-  return StepResult{
-    .ok = true,
-    .message = std::format("bundle: created -> {}\n  {}", out_dir, assembled.message)
-  };
+  return std::format("bundle: created -> {}\n  {}", out_dir, assembled.value());
 }
 
 } // namespace coconut::bundle

@@ -1,6 +1,7 @@
 #include "context.h"
 
 #include "app.h"
+#include "bridge.h"
 #include "commands.h"
 #include "debug.h"
 #include "dialog.h"
@@ -144,7 +145,14 @@ namespace coconut {
   }
 
   void CoconutContext::reload() {}
-  void CoconutContext::close() {}
+  void CoconutContext::close() {
+    // Delegate to window handle if available (which dispatches close event).
+    if (window_handle) {
+      window_handle->close();
+    } else if (window != nullptr) {
+      window::showView(window, "");
+    }
+  }
 
   void CoconutContext::bind(const std::string& name, sol::protected_function fn) {
     if (commands != nullptr) {
@@ -157,30 +165,65 @@ namespace coconut {
     }
   }
 
-  void CoconutContext::emit(const std::string& name, sol::object payload) {
-    (void)name;
-    (void)payload;
+  void CoconutContext::emit(sol::table event) {
+    if (!app || !lua_state || !lua_state->lua_state) return;
+
+    sol::state_view lua(*lua_state->lua_state);
+    std::string name = event["name"].get_or<std::string>("");
+    if (name.empty()) {
+      debug::warn("ctx:emit: event must have a 'name' field");
+      return;
+    }
+
+    // Determine active view for event target
+    std::string target = app->window ? app->window->current_view : "";
+
+    // Lua-side dispatch via coconut._dispatch
+    sol::function dispatch = lua["coconut"]["_dispatch"];
+    if (dispatch.valid()) {
+      dispatch(name, event, target);
+    }
+
+    // Forward to JS via bridge (strip metatable fields from payload)
+    nlohmann::json payloadJson = bridge::toJson(event);
+    payloadJson.erase("name");
+    payloadJson.erase("type");
+    payloadJson.erase("target");
+    payloadJson.erase("defaultPrevented");
+    payloadJson.erase("propagationStopped");
+    payloadJson.erase("preventDefault");
+    payloadJson.erase("stopPropagation");
+    payloadJson.erase("stopImmediatePropagation");
+    bridge::emitToJS(app, name, payloadJson);
   }
 
-  void CoconutContext::emit_sync(const std::string& name, sol::object payload) {
-    (void)name;
-    (void)payload;
+  void CoconutContext::emit_sync(sol::table event) {
+    // v1: emit_sync has the same behavior as emit.
+    // The sync distinction is a future concern.
+    emit(event);
   }
 
   // ── CoconutWindowHandle methods ───────────────────────────────────
 
   void CoconutWindowHandle::show(const std::string& name) {
     if (app && app->window && app->window->current_view != name) {
-      // Call on_unmount for the current view before switching.
+      // Fire "unmount" lifecycle event through _dispatch for the current view.
       if (app->lua_state && !app->window->current_view.empty()) {
-        lua::invokeViewCallback(app->lua_state,
-                                app->window->current_view,
-                                "on_unmount");
+        lua::dispatchViewLifecycleEvent(
+            app->lua_state,
+            app->window->current_view,
+            "unmount", {});
       }
       window::showView(app->window, name);
-      // Call on_mount for the new view after switching.
+      // Update Lua's active view tracker for event dispatch Tier 1.
+      if (app->lua_state && app->lua_state->lua_state) {
+        sol::state_view lua(*app->lua_state->lua_state);
+        lua["coconut"]["_active_view"] = name;
+      }
+      // Fire "mount" lifecycle event through _dispatch for the new view.
       if (app->lua_state) {
-        lua::invokeViewCallback(app->lua_state, name, "on_mount");
+        lua::dispatchViewLifecycleEvent(
+            app->lua_state, name, "mount", {});
       }
     }
   }
@@ -190,7 +233,31 @@ namespace coconut {
   }
 
   void CoconutWindowHandle::close() {
-    if (app && app->webview) webview_terminate(app->webview);
+    if (!app || !app->webview) return;
+
+    // Dispatch "close" event through the three-tier chain.
+    // If any handler calls event:preventDefault(), the close is vetoed.
+    bool shouldClose = true;
+    if (app->lua_state && app->lua_state->lua_state) {
+      sol::state_view lua(*app->lua_state->lua_state);
+      sol::function dispatch = lua["coconut"]["_dispatch"];
+      if (dispatch.valid()) {
+        auto result = dispatch("close", sol::table(lua, sol::create), "");
+        if (result.valid()) {
+          sol::object ev = result;
+          if (ev.is<sol::table>()) {
+            sol::table eventTable = ev.as<sol::table>();
+            if (eventTable["defaultPrevented"].get_or(false)) {
+              shouldClose = false;
+            }
+          }
+        }
+      }
+    }
+
+    if (shouldClose) {
+      webview_terminate(app->webview);
+    }
   }
 
   void CoconutWindowHandle::minimize() {

@@ -25,12 +25,6 @@
 
 namespace coconut::bundle {
 
-/// Result of one bundle step.
-struct StepResult {
-  bool ok = false;
-  std::string message;
-};
-
 /// Run the full bundle pipeline.
 ///
 /// 1. Strips dev fields from cfg → produces shippable config
@@ -38,9 +32,11 @@ struct StepResult {
 /// 3. Assembles bundle directory, copies binary + stripped config + assets
 ///
 /// @param bytecode_config  If true, compile the stripped config to .luac (B2)
-StepResult bundle(const Config& cfg,
-                  const std::string& out_dir,
-                  bool bytecode_config = false);
+/// @returns  Human-readable success message on ok, Error on failure.
+std::expected<std::string, Error> bundle(
+    const Config& cfg,
+    const std::string& out_dir,
+    bool bytecode_config = false);
 
 /// Strip dev-only fields and write the **shippable** config to out_dir.
 ///
@@ -52,19 +48,23 @@ StepResult bundle(const Config& cfg,
 /// Everything else (window, views, app identity, icon paths,
 /// platform window overrides, ns permission strings) is preserved.
 ///
-/// Returns the path to the written stripped config file.
+/// @returns  Path to the written stripped config file on ok.
 std::expected<std::string, Error> writeShippableConfig(
     const Config& cfg,
     const std::string& out_dir);
 
 /// Generate platform manifests (Info.plist, app.manifest, .desktop)
 /// from the original cfg (which still has manifests.* fields).
-StepResult generateManifests(const Config& cfg,
-                             const std::string& out_dir);
+/// @returns  Human-readable success message on ok.
+std::expected<std::string, Error> generateManifests(
+    const Config& cfg,
+    const std::string& out_dir);
 
 /// Assemble bundle directory structure + copy files.
-StepResult assembleBundle(const Config& cfg,
-                          const std::string& out_dir);
+/// @returns  Human-readable success message on ok.
+std::expected<std::string, Error> assembleBundle(
+    const Config& cfg,
+    const std::string& out_dir);
 
 } // namespace coconut::bundle
 

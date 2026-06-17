@@ -6,9 +6,34 @@ export type CoconutError = {
   details?: unknown
 }
 
-type CoconutEventCallback<TPayload extends CoconutPayload = CoconutPayload> = (
-  payload: TPayload,
-) => void
+class CoconutEvent {
+  readonly name: string
+  readonly target: string
+  defaultPrevented = false
+  propagationStopped = false
+
+  constructor(name: string, payload: CoconutPayload, target: string) {
+    this.name = name
+    this.target = target
+    Object.assign(this, payload)
+  }
+
+  get type(): string { return this.name }
+
+  preventDefault(): void { this.defaultPrevented = true }
+  stopPropagation(): void { this.propagationStopped = true }
+  stopImmediatePropagation(): void {
+    this.defaultPrevented = true
+    this.propagationStopped = true
+  }
+}
+
+type CoconutEventCallback = (event: CoconutEvent) => void
+
+interface ListenerEntry {
+  fn: CoconutEventCallback
+  once: boolean
+}
 
 type CoconutCallWireEnvelope =
   | { ok: true; data: unknown }
@@ -32,7 +57,7 @@ declare function __coconut_call(name: string, payloadJson: string): Promise<stri
  */
 declare function __coconut_emit(name: string, payloadJson: string): Promise<string | undefined>
 
-const _listeners = new Map<string, Set<CoconutEventCallback>>()
+const _listeners = new Map<string, ListenerEntry[]>()
 
 let _ready = false
 let _readyResolve: (() => void) | undefined
@@ -70,9 +95,9 @@ function _markReady() {
  * @param name event name
  * @param payloadJson JSON-string serialized payload
  */
-;(globalThis as any).__coconut_dispatch_event = (name: string, payloadJson: string) => {
-  const set = _listeners.get(name)
-  if (!set || set.size === 0) return
+;(globalThis as any).__coconut_dispatch_event = (name: string, payloadJson: string, target: string) => {
+  const entries = _listeners.get(name)
+  if (!entries || entries.length === 0) return
 
   let payload: CoconutPayload = {}
   if (payloadJson && payloadJson.length > 0) {
@@ -83,12 +108,28 @@ function _markReady() {
     }
   }
 
-  for (const cb of Array.from(set)) {
+  const event = new CoconutEvent(name, payload, target)
+
+  // Snapshot to handle self-unsubscribe during iteration
+  const snapshot = entries.slice()
+  for (const entry of snapshot) {
+    // Check if entry was removed by a previous callback
+    const idx = entries.indexOf(entry)
+    if (idx === -1) continue
+
     try {
-      cb(payload)
+      entry.fn(event)
     } catch {
       // Listener errors should not break dispatch.
     }
+
+    // Remove once listeners after firing
+    if (entry.once) {
+      const rmIdx = entries.indexOf(entry)
+      if (rmIdx >= 0) entries.splice(rmIdx, 1)
+    }
+
+    if (event.propagationStopped) break
   }
 }
 
@@ -110,25 +151,32 @@ const coconut = {
     await _readyPromise
   },
 
-  on: (event: string, callbackFn: CoconutEventCallback) : Unsubscribe => {
-    let set = _listeners.get(event)
-    if (!set) {
-      set = new Set()
-      _listeners.set(event, set)
+  on: (event: string, callbackFn: CoconutEventCallback, opts?: { once?: boolean }) : Unsubscribe => {
+    let entries = _listeners.get(event)
+    if (!entries) {
+      entries = []
+      _listeners.set(event, entries)
     }
-    set.add(callbackFn)
+    const entry: ListenerEntry = { fn: callbackFn, once: opts?.once === true }
+    entries.push(entry)
 
     return () => {
-      set?.delete(callbackFn)
+      const idx = entries.indexOf(entry)
+      if (idx >= 0) entries.splice(idx, 1)
     }
   },
 
-  emit: async (event: string, params?: CoconutPayload) : Promise<void> => {
+  emit: async (event: Record<string, unknown>) : Promise<void> => {
     await coconut.ready()
-    const payloadJson = _stringifyPayload(params ?? {})
+    const name = event.name as string
+    if (!name) throw new Error("event must have a 'name' field")
+
+    // Separate name from rest of payload
+    const { name: _, ...payload } = event
+    const payloadJson = _stringifyPayload(payload)
 
     // ack envelope is optional; if you return a JSON envelope string from C++, we parse it.
-    const ack = await __coconut_emit(event, payloadJson)
+    const ack = await __coconut_emit(name, payloadJson)
     if (!ack || ack.length === 0) return
 
     // if ack is an envelope, treat errors properly
@@ -273,6 +321,39 @@ const coconut = {
   },
 
   /**
+   * Key-value store with event-driven sync.
+   * Usage: await coconut.store.set("key", "value")
+   *       const val = await coconut.store.get("key")
+   *       const exists = await coconut.store.has("key")
+   *       await coconut.store.delete("key")
+   *       await coconut.store.clear()
+   *       const keys = await coconut.store.keys()
+   */
+  store: {
+    set: async (key: string, value: string): Promise<boolean> => {
+      return coconut.call<boolean>("store_set", { key, value })
+    },
+    get: async (key: string): Promise<string> => {
+      const result = await coconut.call<{value: string}>("store_get", { key })
+      return result.value ?? ""
+    },
+    has: async (key: string): Promise<boolean> => {
+      const result = await coconut.call<{has: boolean}>("store_has", { key })
+      return result.has ?? false
+    },
+    delete: async (key: string): Promise<boolean> => {
+      return coconut.call<boolean>("store_delete", { key })
+    },
+    clear: async (): Promise<boolean> => {
+      return coconut.call<boolean>("store_clear", {})
+    },
+    keys: async (): Promise<string[]> => {
+      const result = await coconut.call<{keys: string[]}>("store_keys", {})
+      return result.keys ?? []
+    },
+  },
+
+  /**
    * Quit the application.
    */
   quit: () => {
@@ -345,7 +426,7 @@ function _onKeyDown(e: KeyboardEvent): void {
   const entries = _keybinds.get(combo)
   if (!entries || entries.length === 0) {
     // Unhandled at JS level — let bubble to Lua via event
-    coconut.emit('keydown.unhandled', { combo }).catch(() => {})
+    coconut.emit({ name: 'keydown.unhandled', combo }).catch(() => {})
     return
   }
 
@@ -361,7 +442,7 @@ function _onKeyDown(e: KeyboardEvent): void {
   }
 
   // Notify Lua that this combo was handled at JS level
-  coconut.emit('keydown', { combo, handled: true }).catch(() => {})
+  coconut.emit({ name: 'keydown', combo, handled: true }).catch(() => {})
 }
 
 // Install DOM keydown listener (top of hybrid chain)
@@ -371,8 +452,8 @@ if (typeof document !== 'undefined') {
 
 // Listen for bridge-delivered keydown events (from NSEvent monitor)
 // When platform consumes a modifier combo, it dispatches to JS here
-coconut.on('keydown', (payload) => {
-  const combo = payload?.combo as string | undefined
+coconut.on('keydown', (event) => {
+  const combo = (event as any).combo as string | undefined
   if (!combo) return
   const entries = _keybinds.get(combo)
   if (!entries || entries.length === 0) return

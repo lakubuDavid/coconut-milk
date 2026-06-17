@@ -22,7 +22,8 @@ namespace coconut {
     WebViewError,
     ParseError,
     IoError,
-    NotImplementedYet
+    NotImplementedYet,
+    NotFound
   };
 
   /// Shared error value type.

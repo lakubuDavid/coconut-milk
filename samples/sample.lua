@@ -6,11 +6,11 @@ function coconut.views()
       :defineProps({
         data = {} -- fetch data online or load from disk (default props)
       })
-      :on_mount(function(ctx)
-        -- navigation props are available as ctx.props
-        print("note mounted", ctx.props and ctx.props.data)
+      :on_mount(function(e)
+        -- navigation props are available as e.props
+        print("note mounted", e.props and e.props.data)
       end)
-      :on_unmount(function(ctx)
+      :on_unmount(function(e)
         print("note unmounted")
       end)
 
@@ -34,13 +34,13 @@ function coconut.config(ctx)
   return ctx
 end
 
-function coconut.on_resize(ctx, w, h)
-  coconut.emit("on_resize", { w = w, h = h })
-end
+coconut.on("resize", function(event)
+  coconut.emit({ name = "resize_client", w = event.w, h = event.h })
+end)
 
---- Love2D-like dispatcher for frontend → Lua events.
---- Called for every `coconut.emit(...)` from the frontend.
-function coconut.events(name, payload, ctx)
+--- Last-resort fallback dispatcher.
+--- Called after all view and subscriber handlers.
+function coconut.events(event)
 end
 
 --- Later maybe

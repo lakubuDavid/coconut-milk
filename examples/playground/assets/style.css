@@ -90,7 +90,7 @@ h1 { font-size:1.35rem; font-weight:600; color:var(--text); }
 .input.num { width:4.5rem; flex:none; }
 .input.mono { font-family:var(--mono); }
 
-select.input { cursor:pointer; }
+select.input { cursor:pointer; appearance:none; -webkit-appearance:none; }
 
 .label-sm {
   font-size:.75rem; color:var(--text-dim); text-transform:uppercase;

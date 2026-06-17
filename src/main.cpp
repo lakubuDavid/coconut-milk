@@ -122,8 +122,12 @@ int main(int argc, char* argv[]) {
 
     // Run bundle pipeline
     auto result = coconut::bundle::bundle(cfg_result.value(), bundleDir, args.bytecode_config);
-    std::println("{}", result.message);
-    return result.ok ? 0 : 1;
+    if (!result) {
+      std::println(stderr, "{}", result.error().message);
+      return 1;
+    }
+    std::println("{}", result.value());
+    return 0;
   }
 
   // Detect if running inside a macOS .app bundle.
@@ -423,8 +427,9 @@ int main(int argc, char* argv[]) {
     auto* v = new window::View(std::move(*view_result));
     window::addView(window, name, v);
     debug::info(std::format("view '{}' registered", name));
-    // Call on_load for views created from coconut.views() descriptors.
-    coconut::lua::invokeViewCallback(lua_runtime, name, "on_load");
+    // Fire "load" lifecycle event through _dispatch.
+    coconut::lua::dispatchViewLifecycleEvent(
+        lua_runtime, name, "load", {});
   }
 
   // Pass view names to the route resolver so coconut://view_name links
@@ -465,8 +470,24 @@ int main(int argc, char* argv[]) {
     // No need to signalReady — it auto-fires when the page loads.
     debug::info(std::format("showing initial view '{}'", cfg.initial_view));
     window::showView(window, cfg.initial_view);
-    // Call on_mount for the initial view.
-    coconut::lua::invokeViewCallback(lua_runtime, cfg.initial_view, "on_mount");
+    // Track active view in Lua for event dispatch Tier 1.
+    if (lua_runtime && lua_runtime->lua_state) {
+      sol::state_view lv(*lua_runtime->lua_state);
+      lv["coconut"]["_active_view"] = cfg.initial_view;
+    }
+    // Fire "mount" lifecycle event through _dispatch.
+    coconut::lua::dispatchViewLifecycleEvent(
+        lua_runtime, cfg.initial_view, "mount", {});
+
+    // Fire the "ready" lifecycle event — flows through coconut._dispatch.
+    // Subscribers can use coconut.on("ready", fn, { once = true }).
+    if (lua_runtime && lua_runtime->lua_state) {
+      sol::state_view lv(*lua_runtime->lua_state);
+      sol::function dispatch = lv["coconut"]["_dispatch"];
+      if (dispatch.valid()) {
+        dispatch("ready", sol::table(lv, sol::create), "");
+      }
+    }
   }
 
   debug::info("main: calling app::run()...");

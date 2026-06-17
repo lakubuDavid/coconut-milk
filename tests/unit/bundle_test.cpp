@@ -139,7 +139,7 @@ COCONUT_TEST(unit, bundle_pipeline_success) {
   cfg.window_width = 800;
 
   auto result = coconut::bundle::bundle(cfg, "/tmp/coconut-bundle-unit-test");
-  COCONUT_REQUIRE(result.ok);
+  COCONUT_REQUIRE(result.has_value());
 
   // Verify stripped config was written (relocated to Contents/Resources/ by assemble)
   std::string configPath = "/tmp/coconut-bundle-unit-test/Contents/Resources/coconut.config.json";
@@ -169,7 +169,7 @@ COCONUT_TEST(unit, bundle_generate_manifests_now_implemented) {
   cfg.app.id = "com.test.app";
 
   auto result = coconut::bundle::generateManifests(cfg, "/tmp/coconut-manifest-test");
-  COCONUT_REQUIRE(result.ok);
+  COCONUT_REQUIRE(result.has_value());
 
   // Verify generated files
   std::ifstream plist("/tmp/coconut-manifest-test/Contents/Info.plist");
@@ -195,7 +195,7 @@ COCONUT_TEST(unit, bundle_assemble_now_implemented) {
   coconut::Config cfg{};
 
   auto result = coconut::bundle::assembleBundle(cfg, "/tmp/coconut-assemble-test");
-  COCONUT_REQUIRE(result.ok);
+  COCONUT_REQUIRE(result.has_value());
 
   // Verify bundle structure
   COCONUT_REQUIRE(std::filesystem::exists("/tmp/coconut-assemble-test/Contents/MacOS/coconut"));

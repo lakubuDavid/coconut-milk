@@ -9,7 +9,7 @@ local function hello(arg0, ctx)
   local message = "Hi " .. name
 
   if ctx and ctx.emit then
-    coconut.emit("greeted", { name = name })
+    coconut.emit({ name = "greeted", user = name })
   end
 
   return message
@@ -25,7 +25,7 @@ local function hey(arg0, ctx)
   local message = "Hi " .. name
 
   if ctx and ctx.emit then
-    coconut.emit("greeted", { name = name })
+    coconut.emit({ name = "greeted", user = name })
   end
 
   return message

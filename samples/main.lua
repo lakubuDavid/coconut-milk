@@ -28,14 +28,14 @@ function coconut.config(ctx)
   return ctx
 end
 
---- Love2D-like dispatcher for frontend → Lua events.
-function coconut.events(name, payload, ctx)
-  coconut.info("event: " .. name)
+--- Last-resort fallback for frontend → Lua events.
+function coconut.events(event)
+  coconut.info("event: " .. event.name)
 
-  if name == "navigate" then
-    ctx:show(payload.view)
-  elseif name == "move" then
-    ctx.window:move({ x = payload.dx, y = -payload.dy })
+  if event.name == "navigate" then
+    ctx:show(event.view)
+  elseif event.name == "move" then
+    ctx.window:move({ x = event.dx, y = -event.dy })
   end
 end
 

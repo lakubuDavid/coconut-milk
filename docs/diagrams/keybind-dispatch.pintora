@@ -1,0 +1,61 @@
+sequenceDiagram
+  title: Keybind Dispatch Chain
+
+  participant USER as User
+  participant PLATFORM as Platform Layer
+  participant JS as JavaScript
+  participant LUA as Lua
+
+  USER ->> PLATFORM : Press Cmd+S
+  
+  @start_note right of PLATFORM
+    Check platform keybinds
+  @end_note
+  
+  alt Platform keybind registered
+    PLATFORM ->> PLATFORM : Consume key event
+    
+    alt Bound to command
+      PLATFORM ->> LUA : Dispatch command
+      LUA ->> LUA : Execute handler
+    else Bound to callback
+      PLATFORM ->> JS : Forward to JS
+      JS ->> JS : Execute callback
+    end
+    
+    @start_note right of PLATFORM
+      Event consumed
+    @end_note
+  else Not a platform keybind
+    PLATFORM ->> JS : Forward to WebView
+  end
+  
+  @start_note right of JS
+    Check JS keybinds
+  @end_note
+  
+  alt JS keybind registered
+    JS ->> JS : Execute handler
+    
+    alt preventDefault called
+      @start_note right of JS
+        Event consumed
+      @end_note
+    else Continue propagation
+      JS ->> LUA : Emit keydown event
+    end
+  else No JS handler
+    JS ->> LUA : Emit keydown event
+  end
+  
+  @start_note right of LUA
+    Check Lua keybinds
+  @end_note
+  
+  alt Lua keybind registered
+    LUA ->> LUA : Execute handler
+  else No Lua handler
+    @start_note right of LUA
+      Event ignored
+    @end_note
+  end

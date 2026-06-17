@@ -11,22 +11,41 @@
 ---@field meta? table
 
 --- View descriptors returned by View.url/html/load.
+--- Lifecycle event object — passed to view:on_load, :on_mount, :on_unmount, etc.
+--- The callback receives an event object with ctx and props fields instead of
+--- a bare context table:
+---   view:on_mount(function(e) e.ctx:set_title("Hi") end)
+---@class CoconutViewLifecycleEvent
+---@field name string
+---@field target string
+---@field type string
+---@field ctx CoconutContext
+---@field props table
+
 ---@class CoconutViewDescriptor
 
 --- Declare default props for this view.
 ---@field defineProps fun(self: CoconutViewDescriptor, props: table): CoconutViewDescriptor
 
 --- Called once when the view is first loaded/created.
----@field on_load fun(self: CoconutViewDescriptor, fn: fun(ctx: CoconutContext)): CoconutViewDescriptor
+--- Receives a lifecycle event with ctx + props.
+---@field on_load fun(self: CoconutViewDescriptor, fn: fun(e: CoconutViewLifecycleEvent)): CoconutViewDescriptor
 
 --- Called when the view becomes the active/visible view.
----@field on_mount fun(self: CoconutViewDescriptor, fn: fun(ctx: CoconutContext)): CoconutViewDescriptor
+--- Receives a lifecycle event with ctx + props.
+---@field on_mount fun(self: CoconutViewDescriptor, fn: fun(e: CoconutViewLifecycleEvent)): CoconutViewDescriptor
 
 --- Called when switching away from this view.
----@field on_unmount fun(self: CoconutViewDescriptor, fn: fun(ctx: CoconutContext)): CoconutViewDescriptor
+--- Receives a lifecycle event with ctx + props.
+---@field on_unmount fun(self: CoconutViewDescriptor, fn: fun(e: CoconutViewLifecycleEvent)): CoconutViewDescriptor
 
---- Called when the frontend emits an event while this view is active.
----@field on_frontend_event fun(self: CoconutViewDescriptor, name: string, fn: fun(ctx: CoconutContext, payload: table)): CoconutViewDescriptor
+--- Called before the window closes while this view is active.
+--- Call e:preventDefault() to veto the close.
+---@field on_before_close fun(self: CoconutViewDescriptor, fn: fun(e: table)): CoconutViewDescriptor
+
+--- Called when an event fires while this view is active.
+--- Fires before global coconut.on() listeners.
+---@field on fun(self: CoconutViewDescriptor, name: string, fn: fun(event: table)): CoconutViewDescriptor
 
 ---@class CoconutViewModule
 ---@field url fun(url: string): CoconutViewDescriptor
@@ -116,13 +135,9 @@ View = {}
 ---@class CoconutModule
 ---@field views fun(): table<string, CoconutViewDescriptor|fun(): CoconutViewDescriptor>
 ---@field config fun(ctx: CoconutContext): CoconutContext
----@field emit fun(name: string, payload: table)
----@field events? fun(name: string, payload: table, ctx: CoconutContext)
----@field on_ready? fun(ctx: CoconutContext)
----@field on_close? fun(ctx: CoconutContext)
----@field on_focus? fun()
----@field on_blur? fun()
----@field on_resize fun(ctx: CoconutContext, w: integer, h: integer)
+---@field emit fun(event: table)
+---@field events? fun(event: table)
+---@field on fun(name: string, fn: fun(event: table), opts?: {once?: boolean}): function
 ---@field log fun(msg: string)
 ---@field info fun(msg: string)
 ---@field warn fun(msg: string)

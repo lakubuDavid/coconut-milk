@@ -7,8 +7,12 @@
 
 namespace coconut::argparse {
 
+#ifndef COCONUT_VERSION
+#define COCONUT_VERSION "0.1.0"
+#endif
+
 /// Coconut Milk version string.
-inline constexpr std::string_view VERSION = "0.1.0";
+inline constexpr std::string_view VERSION = COCONUT_VERSION;
 
 /// Parsed command-line arguments.
 struct Args {

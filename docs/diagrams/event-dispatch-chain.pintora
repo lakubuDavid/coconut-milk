@@ -1,0 +1,42 @@
+sequenceDiagram
+  title: Three-Tier Event Dispatch Chain
+
+  participant EMITTER as Event Emitter
+  participant DISPATCH as coconut._dispatch
+  participant TIER1 as Tier 1 - View
+  participant TIER2 as Tier 2 - Global
+  participant TIER3 as Tier 3 - Fallback
+
+  EMITTER ->> DISPATCH : emit({name:"save"})
+  
+  @start_note right of DISPATCH
+    Create event object
+  @end_note
+  
+  DISPATCH ->> TIER1 : view:on("save")
+  
+  TIER1 ->> TIER1 : Execute handler
+  
+  alt stopPropagation called
+    TIER1 -->> DISPATCH : Event stopped
+    DISPATCH -->> EMITTER : Return event
+  else Continue propagation
+    TIER1 -->> DISPATCH : Continue
+  end
+  
+  DISPATCH ->> TIER2 : coconut.on("save")
+  
+  TIER2 ->> TIER2 : Execute listener
+  
+  alt stopPropagation called
+    TIER2 -->> DISPATCH : Event stopped
+    DISPATCH -->> EMITTER : Return event
+  else Continue
+    TIER2 -->> DISPATCH : Continue
+  end
+  
+  DISPATCH ->> TIER3 : coconut.events(event)
+  
+  TIER3 ->> TIER3 : Execute fallback
+  
+  DISPATCH -->> EMITTER : Return event

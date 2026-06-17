@@ -51,12 +51,15 @@ namespace coconut {
     /// after lua_runtime->app = app).
     void wireWindowHandle(Runtime* runtime);
 
-    /// Invoke a view descriptor lifecycle callback (on_load, on_mount, on_unmount).
-    /// Looks up the view descriptor in the Lua registry and calls the stored
-    /// callback if it exists.  on_load is only called once per view.
-    void invokeViewCallback(Runtime* runtime,
-                            const std::string& viewName,
-                            const std::string& eventName);
+    /// Dispatch a view lifecycle event through coconut._dispatch.
+    /// Builds a payload with { ctx, props, ...extraPayload }, guards
+    /// "load" so it fires only once per view, and routes through the
+    /// three-tier event chain (view:on → coconut.on → coconut.events).
+    /// Use for load, mount, unmount, or custom view lifecycle events.
+    void dispatchViewLifecycleEvent(Runtime* runtime,
+                                     const std::string& viewName,
+                                     const std::string& eventName,
+                                     sol::table extraPayload = sol::table());
 
     /// Call a registered Lua command by name.
     ///

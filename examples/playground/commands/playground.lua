@@ -44,7 +44,7 @@ end
 
 ---@command playground_send_event
 local function playground_send_event(params, ctx)
-  coconut.emit("playground_event", {
+  coconut.emit({ name = "playground_event",
     message = params.message or "hello from Lua",
     count = params.count or 1,
   })

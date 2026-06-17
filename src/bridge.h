@@ -4,6 +4,7 @@
 #include "config.h"
 #include "error.h"
 #include "rpc_envelope.h"
+#include "store.h"
 #include "transport.h"
 
 #include <nlohmann/json.hpp>
@@ -22,19 +23,17 @@ namespace coconut {
     struct State {
       Config*                   configs    = nullptr;
       transport::Transport*     transport  = nullptr; ///< owned, deleted in destroy()
+      store::Store*             store      = nullptr; ///< owned, deleted in destroy()
     };
 
     std::expected<State*, Error> create(Config* config);
     void                         destroy(State* state);
 
-    /// Dispatch a named event + JSON payload to Lua's coconut.events(name, payload, ctx).
+    /// Dispatch a named event + JSON payload through coconut._dispatch().
     void dispatchEventToLua(coconut::App* app, const std::string& name,
                             const nlohmann::json& payload);
 
-    void emitToLua(coconut::App* app,std::string eventName, nlohmann::json payload);
     void emitToJS(coconut::App* app,std::string eventName,nlohmann::json payload);
-
-    void callLua(coconut::App* app,std::string fuctionName,nlohmann::json payload);
     void callJS(coconut::App* app,std::string functionName,nlohmann::json payload);
 
     /// Create a transport for the given app and store it on the bridge State.

@@ -26,10 +26,13 @@ Rules you must follow when writing code or making decisions.
 - Prefer free functions inside namespaces for behavior.
 - Keep config as a shared startup object.
 - Pass config by pointer/reference, not by value, when modules share the same runtime config.
-- Prefer `std::expected<T, Error>` for recoverable failures.
-- Be defensive, use error as values where possible, try catch where somehing may fail, bubble up the errors
+
+## Error Handling
+- Prefer `std::expected<T, Error>` or `std::optional` for recoverable failures.
+- Be defensive, use error as values where possible, try catch where something may fail or might need to bubble up the errors
 - Use `ErrorCode` + `Error` as the shared error vocabulary.
 - Avoid exceptions for normal control flow.
+- Avoid silent failure
 
 ## Module layout
 
@@ -53,7 +56,19 @@ Current modules:
 - Bridge messages are conceptual object-shaped envelopes.
 - `emit` is async and queue-based.
 - `call` is Promise-based and waits for readiness.
-## When in doubt
+
+## Platform Specific Actions
+- Platform events/interactions should path trough an "interface/adapter" object/module;
+If any module need to interact with platform specific features that call platforms API,
+it should call the interface/adapter.
+`
+  DONT: module -> plaform code
+  DONT: (needs to move window) call platform/OS/window.h window_api::move
+  DO: module -> interface module -> platform code
+  DO: (needs to move window) call window::move -> which calls platforms/OS/window.h window_api::move
+`
+
+## When in Doubt
 
 - Prefer the current spec over inventing new abstractions.
 - Prefer minimal state and explicit ownership.

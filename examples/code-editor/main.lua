@@ -28,8 +28,8 @@ end
 
 -- ── Events ──────────────────────────────────────────────────────────────
 
-function coconut.events(name, payload, ctx)
-  if name == "navigate" then
-    ctx:show(payload.view)
+function coconut.events(event)
+  if event.name == "navigate" then
+    ctx:show(event.view)
   end
 end

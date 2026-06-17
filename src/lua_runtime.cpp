@@ -144,6 +144,36 @@ void _registerBuiltinCommands(Runtime *runtime) {
       end
       return { ok = false, error = "missing combo or binding" }
     end)
+    ctx:bind("store_set", function(params)
+      local ok, err = pcall(coconut.store.set, params.key, params.value)
+      if ok then return { ok = true } end
+      return { ok = false, error = tostring(err) }
+    end)
+    ctx:bind("store_get", function(params)
+      local ok, value = pcall(coconut.store.get, params.key)
+      if ok then return { ok = true, value = value } end
+      return { ok = false, error = tostring(value) }
+    end)
+    ctx:bind("store_has", function(params)
+      local ok, has = pcall(coconut.store.has, params.key)
+      if ok then return { ok = true, has = has } end
+      return { ok = false, error = tostring(has) }
+    end)
+    ctx:bind("store_delete", function(params)
+      local ok, err = pcall(coconut.store.delete, params.key)
+      if ok then return { ok = true } end
+      return { ok = false, error = tostring(err) }
+    end)
+    ctx:bind("store_clear", function()
+      local ok, err = pcall(coconut.store.clear)
+      if ok then return { ok = true } end
+      return { ok = false, error = tostring(err) }
+    end)
+    ctx:bind("store_keys", function()
+      local ok, keys = pcall(coconut.store.keys)
+      if ok then return { ok = true, keys = keys } end
+      return { ok = false, error = tostring(keys) }
+    end)
   )";
 
   auto result = lua.script(src, sol::script_pass_on_error);
@@ -157,19 +187,18 @@ void _bindCoconutLuaApi(Runtime *runtime) {
   sol::table coconut =
       (*runtime->lua_state)["coconut"].get_or_create<sol::table>();
 
-  // Global frontend emitter: coconut.emit(name, payload)
+  // Low-level bridge helper: forwards to JS (called from Lua coconut.emit)
   coconut.set_function(
-      "emit", [runtime](const std::string &name, sol::object payloadObj) {
-        if (runtime == nullptr || runtime->app == nullptr) {
-          return;
+      "_bridge_emit", [runtime](const std::string &name,
+                                 const std::string &payloadJson) {
+        if (runtime == nullptr || runtime->app == nullptr) return;
+        try {
+          auto json = nlohmann::json::parse(payloadJson);
+          bridge::emitToJS(runtime->app, name, json);
+        } catch (const std::exception &e) {
+          debug::warn(std::format("_bridge_emit: failed to parse payload: {}",
+                                  e.what()));
         }
-
-        nlohmann::json payloadJson = nlohmann::json::object();
-        if (payloadObj.is<sol::table>()) {
-          payloadJson = bridge::toJson(payloadObj.as<sol::table>());
-        }
-
-        bridge::emitToJS(runtime->app, name, payloadJson);
       });
 
   // Debug logging functions exposed to Lua as coconut.log / .info / .warn / .error
@@ -186,7 +215,7 @@ void _bindCoconutLuaApi(Runtime *runtime) {
         return sol::state_view(s).create_table();
       });
   coconut.set_function("events",
-      [](const std::string&, sol::object, CoconutContext*) { });
+      [](sol::object) { });
 
   // Register a combo with the platform-level keybind set (for NSEvent monitor)
   coconut.set_function("__registerPlatformKeybind", [runtime](sol::table params) -> bool {
@@ -363,6 +392,101 @@ void _bindCoconutLuaApi(Runtime *runtime) {
 
   coconut["fs"] = fs_mod;
 
+  // ── Store: coconut.store ─────────────────────────────────────
+  // Key-value store with event-driven sync to JS.
+  {
+    sol::table store_mod = (*runtime->lua_state).create_table();
+
+    store_mod.set_function("set",
+        [runtime](const std::string& key, const std::string& value) {
+          if (!runtime->app || !runtime->app->bridge_state ||
+              !runtime->app->bridge_state->store) {
+            debug::warn("store.set: store is null");
+            return;
+          }
+          store::set(runtime->app->bridge_state->store, key, value);
+
+          // Emit store:update event to JS (not back to Lua to avoid loops)
+          if (runtime->app->bridge_state->transport) {
+            nlohmann::json payload = {{"key", key}, {"value", value}};
+            bridge::emitToJS(runtime->app, "store:update", payload);
+          }
+        });
+
+    store_mod.set_function("get",
+        [runtime](const std::string& key) -> sol::object {
+          if (!runtime->app || !runtime->app->bridge_state ||
+              !runtime->app->bridge_state->store) {
+            debug::warn("store.get: store is null");
+            return sol::lua_nil;
+          }
+          auto result = store::get(runtime->app->bridge_state->store, key);
+          if (result) {
+            return sol::make_object(runtime->lua_state->lua_state(), *result);
+          } else {
+            debug::warn(std::format("store.get: {}", result.error().message));
+            return sol::lua_nil;
+          }
+        });
+
+    store_mod.set_function("has",
+        [runtime](const std::string& key) -> bool {
+          if (!runtime->app || !runtime->app->bridge_state ||
+              !runtime->app->bridge_state->store) {
+            debug::warn("store.has: store is null");
+            return false;
+          }
+          return store::has(runtime->app->bridge_state->store, key);
+        });
+
+    store_mod.set_function("delete",
+        [runtime](const std::string& key) {
+          if (!runtime->app || !runtime->app->bridge_state ||
+              !runtime->app->bridge_state->store) {
+            debug::warn("store.delete: store is null");
+            return;
+          }
+          store::remove(runtime->app->bridge_state->store, key);
+
+          // Emit store:update event to JS
+          if (runtime->app->bridge_state->transport) {
+            nlohmann::json payload = {{"key", key}, {"value", nullptr}};
+            bridge::emitToJS(runtime->app, "store:update", payload);
+          }
+        });
+
+    store_mod.set_function("clear", [runtime]() {
+      if (!runtime->app || !runtime->app->bridge_state ||
+          !runtime->app->bridge_state->store) {
+        debug::warn("store.clear: store is null");
+        return;
+      }
+      store::clear(runtime->app->bridge_state->store);
+
+      // Emit store:update event to JS
+      if (runtime->app->bridge_state->transport) {
+        nlohmann::json payload = {{"key", ""}, {"value", nullptr}};
+        bridge::emitToJS(runtime->app, "store:update", payload);
+      }
+    });
+
+    store_mod.set_function("keys", [runtime]() -> sol::table {
+      sol::table result = (*runtime->lua_state).create_table();
+      if (!runtime->app || !runtime->app->bridge_state ||
+          !runtime->app->bridge_state->store) {
+        debug::warn("store.keys: store is null");
+        return result;
+      }
+      auto keys_vec = store::keys(runtime->app->bridge_state->store);
+      for (size_t i = 0; i < keys_vec.size(); ++i) {
+        result[i + 1] = keys_vec[i];
+      }
+      return result;
+    });
+
+    coconut["store"] = store_mod;
+  }
+
   // ── Environment table: coconut.env ──────────────────────────
   // Uses __index metamethod so coconut.env.HOME lazily calls getenv().
   {
@@ -497,12 +621,161 @@ void _bindCoconutLuaApi(Runtime *runtime) {
     )");
   }
 
+  // ── Event dispatch system ──────────────────────────────────────────
+  // Injects the Lua-side event object model, subscribe API, and central
+  // dispatcher.  This replaces the old (name, payload, ctx) triple with
+  // a DOM-like event object and three-tier dispatch chain.
+  {
+    auto result = runtime->lua_state->safe_script(R"(
+      coconut._listeners = {}
+
+      -- Event factory: builds a DOM-like event object with methods.
+      function coconut._makeEvent(name, payload, target)
+        local methods = {
+          preventDefault = function(self)
+            self.defaultPrevented = true
+          end,
+          stopPropagation = function(self)
+            self.propagationStopped = true
+          end,
+          stopImmediatePropagation = function(self)
+            self.defaultPrevented = true
+            self.propagationStopped = true
+          end,
+        }
+        local event = setmetatable({
+          name = name,
+          target = target or "",
+          defaultPrevented = false,
+          propagationStopped = false,
+        }, {
+          __index = function(_, key)
+            if key == "type" then return name end
+            return methods[key]
+          end
+        })
+        -- Merge payload fields (skip name/type)
+        if type(payload) == "table" then
+          for k, v in pairs(payload) do
+            if k ~= "name" and k ~= "type" then
+              event[k] = v
+            end
+          end
+        end
+        return event
+      end
+
+      -- Subscribe API: coconut.on(name, fn, { once? }) -> unregister fn
+      function coconut.on(name, fn, opts)
+        opts = opts or {}
+        if not coconut._listeners[name] then
+          coconut._listeners[name] = {}
+        end
+        local entry = { fn = fn, once = opts.once == true }
+        table.insert(coconut._listeners[name], entry)
+        return function()
+          for i, e in ipairs(coconut._listeners[name]) do
+            if e == entry then
+              table.remove(coconut._listeners[name], i)
+              return
+            end
+          end
+        end
+      end
+
+      -- Central dispatcher: routes through three-tier chain.
+      -- Called by both C++ bridge (dispatchEventToLua) and ctx:emit().
+      function coconut._dispatch(name, payload, target)
+        local event = coconut._makeEvent(name, payload, target or "")
+
+        -- Tier 1: active view's on(name, fn)
+        local active = coconut._active_view
+        if active and active ~= "" then
+          local registry = coconut._view_descriptors
+          if registry and registry[active] then
+            local view = registry[active]
+            if view._callbacks and view._callbacks[name] then
+              view._callbacks[name](event)
+              if event.propagationStopped then return event end
+            end
+          end
+        end
+
+        -- Tier 2: global coconut.on(name, fn) — FIFO
+        -- Snapshot listeners before iteration so self-unsubscribe
+        -- during dispatch doesn't corrupt the loop.
+        local listeners = coconut._listeners[name]
+        if listeners then
+          local snapshot = {}
+          for i = 1, #listeners do
+            snapshot[i] = listeners[i]
+          end
+          for _, entry in ipairs(snapshot) do
+            entry.fn(event)
+            if entry.once then
+              for i = #listeners, 1, -1 do
+                if listeners[i] == entry then
+                  table.remove(listeners, i)
+                  break
+                end
+              end
+            end
+            if event.propagationStopped then return event end
+          end
+        end
+
+        -- Tier 3: coconut.events(event) fallback
+        if type(coconut.events) == "function" then
+          coconut.events(event)
+        end
+
+        return event
+      end
+
+      -- coconut.emit(event) — send event to JS via bridge.
+      -- Overrides the C++ binding with a Lua function that also
+      -- runs the three-tier dispatch chain on the Lua side.
+      coconut.emit = function(event)
+        if type(event) ~= "table" then
+          error("coconut.emit expects a table with a 'name' field")
+        end
+        local name = event.name
+        if not name then
+          error("coconut.emit: event must have a 'name' field")
+        end
+
+        -- Build a clean payload for JS (no metatable methods)
+        local payload = {}
+        for k, v in pairs(event) do
+          if k ~= "name" and k ~= "type" and k ~= "target"
+             and k ~= "preventDefault" and k ~= "stopPropagation"
+             and k ~= "stopImmediatePropagation"
+             and k ~= "defaultPrevented" and k ~= "propagationStopped" then
+            payload[k] = v
+          end
+        end
+
+        local target = coconut._active_view or ""
+
+        -- Run Lua dispatch chain
+        coconut._dispatch(name, payload, target)
+
+        -- Forward to JS via low-level bridge helper
+        coconut._bridge_emit(name, coconut.json.jsonify(payload))
+      end
+    )", sol::script_pass_on_error);
+    if (!result.valid()) {
+      sol::error err = result;
+      debug::warn(std::format("event dispatch system: {}", err.what()));
+    }
+  }
+
   runtime->lua_state->set("coconut", coconut);
 }
 
 void _bindViewClass(Runtime *runtime) {
   // Build the View module as Lua code so the descriptor methods (defineProps,
-  // on_load, on_mount, on_unmount, on_frontend_event) are easy to read and
+  // on_load, on_mount, on_unmount, on) are easy to read and
   // maintain.  Each factory creates a table with kind/value and chainable
   // lifecycle methods.
   const char* viewSrc = R"(
@@ -518,26 +791,31 @@ void _bindViewClass(Runtime *runtime) {
           return self
         end,
 
+        -- Lifecycle hooks are sugar over the generic view:on(name, fn).
+        -- They store under unified keys ("load", "mount", "unmount", "close")
+        -- so Tier 1 of _dispatch can find them by event name.
         on_load = function(self, fn)
-          self._callbacks.on_load = fn
+          self:on("load", fn)
           return self
         end,
 
         on_mount = function(self, fn)
-          self._callbacks.on_mount = fn
+          self:on("mount", fn)
           return self
         end,
 
         on_unmount = function(self, fn)
-          self._callbacks.on_unmount = fn
+          self:on("unmount", fn)
           return self
         end,
 
-        on_frontend_event = function(self, name, fn)
-          if not self._callbacks.frontend_events then
-            self._callbacks.frontend_events = {}
-          end
-          self._callbacks.frontend_events[name] = fn
+        on_before_close = function(self, fn)
+          self:on("close", fn)
+          return self
+        end,
+
+        on = function(self, name, fn)
+          self._callbacks[name] = fn
           return self
         end,
       }
@@ -612,7 +890,9 @@ void _bindUserType(Runtime *runtime) {
       "show",   &CoconutContext::show,
       "reload", &CoconutContext::reload,
       "close",  &CoconutContext::close,
-      "bind",   &CoconutContext::bind);
+      "bind",   &CoconutContext::bind,
+      "emit",    &CoconutContext::emit,
+      "emit_sync", &CoconutContext::emit_sync);
 
   // ── CoconutWindowHandle usertype ───────────────────────────────
   // move takes a table { x = dx, y = dy } — sol3 can't auto-convert
@@ -698,11 +978,12 @@ std::expected<sol::object, Error> call(Runtime* runtime,
   return result;
 }
 
-// ── View callback invocation ───────────────────────────────────────────
+// ── View lifecycle dispatch ───────────────────────────────────────────
 
-void invokeViewCallback(Runtime* runtime,
-                          const std::string& viewName,
-                          const std::string& eventName) {
+void dispatchViewLifecycleEvent(Runtime* runtime,
+                                  const std::string& viewName,
+                                  const std::string& eventName,
+                                  sol::table extraPayload) {
   if (runtime == nullptr || runtime->lua_state == nullptr ||
       runtime->context == nullptr) {
     return;
@@ -713,7 +994,6 @@ void invokeViewCallback(Runtime* runtime,
   // Look up the view descriptor registry.
   sol::object registry = lua["coconut"]["_view_descriptors"];
   if (!registry.is<sol::table>()) {
-    debug::warn("invokeViewCallback: _view_descriptors not found");
     return;
   }
 
@@ -726,35 +1006,41 @@ void invokeViewCallback(Runtime* runtime,
 
   sol::table descriptor = desc.as<sol::table>();
 
-  // Track on_load so it's only called once.
-  if (eventName == "on_load") {
+  // Guard: "load" fires only once per view.
+  if (eventName == "load") {
     sol::object loaded = descriptor["_loaded"];
     if (loaded.is<bool>() && loaded.as<bool>()) {
-      return; // already loaded
+      return;
     }
     descriptor["_loaded"] = true;
   }
 
-  sol::object callbacks = descriptor["_callbacks"];
-  if (!callbacks.is<sol::table>()) return;
-
-  sol::object cb = callbacks.as<sol::table>()[eventName];
-  if (!cb.is<sol::function>()) return;
-
-  // Build a context table with props and the runtime context.
-  sol::table ctx = lua.create_table();
-  ctx["ctx"] = runtime->context;
+  // Build payload with ctx and view props so handlers can access
+  // them via event.ctx / event.props (same shape for all lifecycle events).
+  sol::table payload = lua.create_table();
+  payload["ctx"] = runtime->context;
   sol::table props = descriptor["_props"];
   if (props.is<sol::table>()) {
-    ctx["props"] = props;
+    payload["props"] = props;
   } else {
-    ctx["props"] = lua.create_table();
+    payload["props"] = lua.create_table();
   }
 
-  auto result = cb.as<sol::function>()(ctx);
+  // Merge extra payload fields (e.g. {w=1024, h=768} for resize).
+  for (const auto& kv : extraPayload) {
+    payload[kv.first] = kv.second;
+  }
+
+  // Dispatch through the three-tier event system.
+  sol::function dispatch = lua["coconut"]["_dispatch"];
+  if (!dispatch.valid()) {
+    return;
+  }
+
+  auto result = dispatch(eventName, payload, viewName);
   if (!result.valid()) {
     sol::error err = result;
-    debug::warn(std::format("view callback '{}' for '{}' failed: {}",
+    debug::warn(std::format("lifecycle event '{}' for '{}' failed: {}",
                             eventName, viewName, err.what()));
   }
 }

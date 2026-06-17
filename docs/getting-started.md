@@ -340,7 +340,7 @@ Open `views/index.html`:
 </html>
 ```
 
-**Note:** We use `coconut://` URLs for assets. These resolve relative to the app root, not the view's directory. See [The coconut:// Scheme](./concepts.md#the-coconut-scheme) for details.
+**Note:** We use `coconut://` URLs for assets. These resolve relative to the app root, not the view's directory. See [The coconut:// Scheme](./explanation/concepts.md#the-coconut-scheme) for details.
 
 ### Step 3: Write the Frontend Logic
 
@@ -388,7 +388,7 @@ local function greet(params, ctx)
   local greeting = "Hello, " .. name .. "!"
 
   -- Emit an event back to the frontend
-  ctx:emit("greeted", { name = name })
+  ctx:emit({ name = "greeted", user = name })
 
   return { greeting = greeting }
 end
@@ -448,7 +448,7 @@ A 600×400 window opens with your HTML view. Type a name, click "Greet", and the
 
 ### Step 8: Try Events
 
-In the frontend, we added `coconut.on('greeted', ...)`. The Lua command calls `ctx:emit("greeted", { name })`, which triggers the frontend listener. This demonstrates the two-way communication:
+In the frontend, we added `coconut.on('greeted', ...)`. The Lua command calls `ctx:emit({ name = "greeted", user = name })`, which triggers the frontend listener. This demonstrates the two-way communication:
 
 - **Frontend → Lua**: `coconut.call()` returns a Promise
 - **Lua → Frontend**: `ctx:emit()` fires event listeners
@@ -557,8 +557,8 @@ Or configure Vite to output IIFE (not default). For most projects, the developme
 | **Single window** | ✅ Only one window supported | Use view switching (`ctx:show()`) for multi-page |
 | **System tray** | ❌ Not implemented | Planned for future |
 | **Menu bar** | ❌ Not implemented | Use HTML/CSS for custom menus |
-| **Notifications** | ❌ Not implemented | Use HTML/CSS for in-app toasts |
-| **Clipboard** | ❌ Not implemented | Use JS `navigator.clipboard` API |
+| **Notifications** | ✅ Implemented | Use `coconut.notify()` for native OS notifications |
+| **Clipboard** | ✅ Implemented | Use `coconut.clipboard.readText()` / `coconut.clipboard.writeText()` |
 | **Threading** | ❌ Single-threaded Lua | Commands run synchronously |
 | **Windows/Linux scheme handler** | 🔲 Stub | `coconut://` only works on macOS |
 | **Frameless window on Windows/Linux** | 🔲 Stub | Only macOS supports frameless/transparent |
@@ -568,7 +568,7 @@ Or configure Vite to output IIFE (not default). For most projects, the developme
 ### Payload Limitations
 
 - **Table-only payloads**: All bridge payloads must be Lua tables / JS objects
-- **No raw primitives**: `ctx:emit("event", "string")` won't work — use `ctx:emit("event", { message = "string" })`
+- **Event objects**: Use `ctx:emit({ name = "event", ... })` — a single table with a `name` field
 - **JSON serialization**: All payloads are serialized to JSON. Circular references will fail.
 - **Binary data**: Not supported through the bridge. Use file paths instead (e.g., return `/path/to/image.png` and load via `<img src="file:///path/to/image.png">`).
 
@@ -596,7 +596,7 @@ Or configure Vite to output IIFE (not default). For most projects, the developme
 
 ## Next Steps
 
-- Read the **[Concepts](./concepts.md)** page for architecture details
-- Follow the **[Lua Backend Guide](./lua-guide.md)** for command patterns
-- Check the **[API Reference](./api-reference.md)** for all functions
-- See **[Examples](./examples.md)** for real-world projects
+- Read the **[Concepts](./explanation/concepts.md)** page for architecture details
+- Follow the **[Lua Backend Guide](./reference/lua-guide.md)** for command patterns
+- Check the **[API Reference](./reference/api-reference.md)** for all functions
+- See **[Examples](./examples/examples.md)** for real-world projects

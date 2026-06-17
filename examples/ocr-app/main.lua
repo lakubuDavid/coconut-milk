@@ -1,13 +1,13 @@
 function coconut.views()
   return {
     scan = View.load("views/scan.html")
-      :on_load(function(ctx)
+      :on_load(function(e)
         print("[ocr] scan view loaded")
       end)
-      :on_mount(function(ctx)
+      :on_mount(function(e)
         print("[ocr] scan view mounted")
       end)
-      :on_unmount(function(ctx)
+      :on_unmount(function(e)
         print("[ocr] scan view unmounted")
       end),
   }
@@ -23,6 +23,13 @@ function coconut.config(ctx)
   return ctx
 end
 
-function coconut.on_resize(ctx, w, h)
-  ctx:emit("window_resized", { w = w, h = h })
+function coconut.events(event)
+  if event.name == "window_resized" then
+    -- forward to frontend
+    ctx:emit({ name = "window_resized", w = event.w, h = event.h })
+  end
 end
+
+coconut.on("resize", function(event)
+  ctx:emit({ name = "window_resized", w = event.w, h = event.h })
+end)

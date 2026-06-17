@@ -90,11 +90,12 @@ namespace coconut {
     /// Registers a single command handler (one command name => one handler).
     void bind(const std::string& name, sol::protected_function fn);
 
-    /// Sends an event to the frontend asynchronously.
-    void emit(const std::string& name, sol::object payload);
+    /// Dispatches an event through the three-tier chain and forwards to JS.
+    /// Accepts a single event table with a 'name' field.
+    void emit(sol::table event);
 
-    /// Sends an event to the frontend synchronously.
-    void emit_sync(const std::string& name, sol::object payload);
+    /// Synchronous version of emit().
+    void emit_sync(sol::table event);
   };
 
   /// Window handle exposed to Lua as `ctx.window`.
