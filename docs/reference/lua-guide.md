@@ -738,6 +738,65 @@ end
 
 ---
 
+### Logging (`coconut.log`, `coconut.info`, `coconut.warn`, `coconut.error`)
+
+**Signature:** `coconut.log(msg: string) → nil` (and similarly for info, warn, error)
+
+Print messages to the debug log with severity level filtering.
+
+**Example:**
+
+```lua
+coconut.log("starting app")
+coconut.info("verbode mode enabled")
+coconut.warn("deprecated API used")
+coconut.error("connection failed")
+```
+
+**Notes:**
+- Output goes to stdout/stderr depending on level
+- Visible when running with `--debug` flag
+- Unlike Lua's `print()`, these respect log level filtering
+
+---
+
+### Key-Value Store (`coconut.store`)
+
+**Signature:** `coconut.store` (table)
+
+In-memory key-value store shared between Lua and JavaScript.
+
+**Methods:**
+
+| Method | Signature | Description |
+|---|---|---|
+| `set` | `coconut.store.set(key, value)` | Set a key-value pair |
+| `get` | `coconut.store.get(key)` → `value or nil, err` | Get value by key |
+| `has` | `coconut.store.has(key)` → `boolean` | Check if key exists |
+| `delete` | `coconut.store.delete(key)` | Remove a key-value pair |
+| `clear` | `coconut.store.clear()` | Remove all entries |
+| `keys` | `coconut.store.keys()` → `table` | Return all keys |
+
+**Example:**
+
+```lua
+coconut.store.set("username", "ada")
+local name = coconut.store.get("username")  -- "ada"
+local exists = coconut.store.has("username") -- true
+for _, k in ipairs(coconut.store.keys()) do
+  print(k)
+end
+coconut.store.delete("username")
+```
+
+**Notes:**
+- In-memory only, not persisted to disk
+- Changes are visible to both Lua and JavaScript
+- `get` returns `nil, error_message` for missing keys
+- Thread-safe for concurrent access
+
+---
+
 ## Lua HTML DSL
 
 Coconut Milk works with any **pure Lua HTML DSL** for generating HTML without build tools. The library is an external Lua file that uses metatables for dynamic tag generation.

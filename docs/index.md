@@ -62,6 +62,7 @@ A cross-platform desktop app framework powered by **Lua** for backend logic and 
 
 - **[coconut](./reference/cli.md#coconut-binary)** — Run apps, generate, flags (`--help`, `--version`, `--debug`, `--root`)
 - **[coconut generate](./reference/cli.md#coconut-generate)** — Command generation, `--out-dir`
+- **[coconut bundle](./guide/how-to-bundle.md)** — Package app for distribution
 - **[create-coconut-app](./reference/cli.md#create-coconut-app)** — Scaffolding CLI, templates, flags
 
 ## Examples

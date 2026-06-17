@@ -189,6 +189,31 @@ unreg()
 
 ---
 
+### coconut.log(msg)
+### coconut.info(msg)
+### coconut.warn(msg)
+### coconut.error(msg)
+
+**Signature:** `coconut.log(msg: string) → nil` (and similarly for info, warn, error)
+
+**Description:** Print a message to the debug log with severity level. `coconut.log` is plain output, `coconut.info`/`coconut.warn`/`coconut.error` are level-filtered.
+
+**Example:**
+
+```lua
+coconut.log("starting app")
+coconut.info("verbose mode enabled")
+coconut.warn("deprecated API used")
+coconut.error("connection failed")
+```
+
+**Notes:**
+- Output goes to stdout/stderr depending on level
+- Visible when running with `--debug` flag
+- Unlike `print()`, these respect log level filtering
+
+---
+
 ### coconut.args
 
 **Signature:** `coconut.args: table`
@@ -375,6 +400,170 @@ end
 - Returns `true` on success, `false` on failure
 - Platform-specific implementation (NSUserNotification on macOS)
 - May require user permission on some platforms
+
+---
+
+### coconut.store
+
+**Signature:** `coconut.store` (table)
+
+**Description:** In-memory key-value store shared between Lua and JavaScript.
+
+**Methods:**
+
+#### `coconut.store.set(key, value)`
+- **Signature:** `coconut.store.set(key: string, value: string) → nil`
+- Sets a key-value pair
+
+#### `coconut.store.get(key)`
+- **Signature:** `coconut.store.get(key: string) → string | nil, error?`
+- Returns value for key, or `nil, error` if key not found
+
+#### `coconut.store.has(key)`
+- **Signature:** `coconut.store.has(key: string) → boolean`
+- Returns `true` if key exists
+
+#### `coconut.store.delete(key)`
+- **Signature:** `coconut.store.delete(key: string) → nil`
+- Removes a key-value pair
+
+#### `coconut.store.clear()`
+- **Signature:** `coconut.store.clear() → nil`
+- Removes all entries
+
+#### `coconut.store.keys()`
+- **Signature:** `coconut.store.keys() → table`
+- Returns a table of all keys (array of strings)
+
+**Example:**
+
+```lua
+coconut.store.set("username", "ada")
+local name = coconut.store.get("username")  -- "ada"
+local exists = coconut.store.has("username") -- true
+coconut.store.delete("username")
+coconut.store.clear()
+local all = coconut.store.keys()  -- {}
+```
+
+**Notes:**
+- In-memory only, not persisted to disk
+- Changes are visible to both Lua and JavaScript
+- Returns `nil, error_message` for missing keys on `get`
+
+---
+
+### coconut.fs
+
+**Signature:** `coconut.fs` (table)
+
+**Description:** Filesystem operations module.
+
+**Methods:**
+
+#### `coconut.fs.readText(path)`
+- **Signature:** `coconut.fs.readText(path: string) → string | nil, error?`
+- Read a text file. Returns contents or `nil, error`.
+
+#### `coconut.fs.readBytes(path)`
+- **Signature:** `coconut.fs.readBytes(path: string) → string | nil, error?`
+- Read a binary file. Returns raw bytes (Lua string) or `nil, error`.
+
+#### `coconut.fs.writeText(path, content)`
+- **Signature:** `coconut.fs.writeText(path: string, content: string) → boolean`
+- Write text to a file.
+
+#### `coconut.fs.writeBytes(path, content)`
+- **Signature:** `coconut.fs.writeBytes(path: string, content: string) → boolean`
+- Write raw bytes to a file.
+
+#### `coconut.fs.exists(path)`
+- **Signature:** `coconut.fs.exists(path: string) → boolean`
+- Check if a file or directory exists.
+
+#### `coconut.fs.resolve(root, relpath)`
+- **Signature:** `coconut.fs.resolve(root: string, relpath: string) → string`
+- Resolve a relative path against a root directory.
+
+#### `coconut.fs.listDir(path)`
+- **Signature:** `coconut.fs.listDir(path: string) → table | nil, error?`
+- List directory contents. Returns array of `{name, path, is_dir}` entries or `nil, error`.
+
+**Example:**
+
+```lua
+local ok = coconut.fs.writeText("/tmp/hello.txt", "Hello, World!")
+if ok then
+  local content = coconut.fs.readText("/tmp/hello.txt")
+  print(content)  -- "Hello, World!"
+end
+
+-- Binary file I/O
+local bytes = coconut.fs.readBytes("/path/to/image.png")
+if bytes then
+  coconut.fs.writeBytes("/tmp/copy.png", bytes)
+end
+
+-- Directory listing
+local entries = coconut.fs.listDir("/app/views")
+if entries then
+  for _, entry in ipairs(entries) do
+    print(entry.name, entry.is_dir and "[dir]" or "")
+  end
+end
+```
+
+**Notes:**
+- Paths should be absolute (not relative)
+- `readBytes`/`writeBytes` handle binary data safely (Lua strings are byte-safe)
+- Errors return `nil, error_message` pattern
+
+---
+
+### coconut.dialog
+
+**Signature:** `coconut.dialog` (table)
+
+**Description:** Native system dialogs (message, open file, save file).
+
+**Methods:**
+
+#### `coconut.dialog.message(message, title?, kind?)`
+- **Signature:** `coconut.dialog.message(message: string, title?: string, kind?: string) → {confirmed: boolean}`
+- Show a message dialog. `kind` can be `"info"`, `"warning"`, or `"error"`.
+
+#### `coconut.dialog.open(title?, multi?, chooseDir?)`
+- **Signature:** `coconut.dialog.open(title?: string, multi?: boolean, chooseDir?: boolean) → {confirmed: boolean, path: string, paths: string[]}`
+- Show an open file dialog.
+
+#### `coconut.dialog.save(title?, defaultName?)`
+- **Signature:** `coconut.dialog.save(title?: string, defaultName?: string) → {confirmed: boolean, path: string}`
+- Show a save file dialog.
+
+**Example:**
+
+```lua
+-- Message dialog
+local result = coconut.dialog.message("File saved!", "Success", "info")
+print(result.confirmed)  -- true
+
+-- Open file dialog
+local file = coconut.dialog.open("Select a file", false, false)
+if file.confirmed then
+  print("Selected:", file.path)
+end
+
+-- Save file dialog
+local save = coconut.dialog.save("Save As", "untitled.txt")
+if save.confirmed then
+  print("Saving to:", save.path)
+end
+```
+
+**Notes:**
+- Dialogs block the Lua thread until the user responds
+- Returns `{confirmed = false}` if the user cancels
+- Platform-specific native dialog appearance
 
 ---
 
@@ -683,6 +872,80 @@ ctx:reload()
 
 ```lua
 ctx:close()
+```
+
+---
+
+### ctx.window
+
+**Signature:** `ctx.window` (table)
+
+**Description:** Window control handle exposed as `ctx.window`. Provides methods for window manipulation.
+
+#### `ctx.window.show(name)`
+- **Signature:** `ctx.window.show(name: string) → nil`
+- Switch to a named view (alias for `ctx:show()`)
+
+#### `ctx.window.reload()`
+- **Signature:** `ctx.window.reload() → nil`
+- Reload the current view
+
+#### `ctx.window.close()`
+- **Signature:** `ctx.window.close() → nil`
+- Close the window / quit the application
+
+#### `ctx.window.minimize()`
+- **Signature:** `ctx.window.minimize() → nil`
+- Minimize the window to dock/taskbar
+
+#### `ctx.window.maximize()`
+- **Signature:** `ctx.window.maximize() → nil`
+- Maximize the window
+
+#### `ctx.window.setFullscreen(on)`
+- **Signature:** `ctx.window.setFullscreen(on: boolean) → nil`
+- Enter or exit fullscreen mode
+
+#### `ctx.window.toggleFullscreen()`
+- **Signature:** `ctx.window.toggleFullscreen() → nil`
+- Toggle fullscreen mode
+
+#### `ctx.window.resize(w, h)`
+- **Signature:** `ctx.window.resize(w: integer, h: integer) → nil`
+- Resize the window to the given dimensions
+
+#### `ctx.window.setMovableByBackground(on)`
+- **Signature:** `ctx.window.setMovableByBackground(on: boolean) → nil`
+- Allow window dragging by clicking the background (frameless windows)
+
+#### `ctx.window.setBackgroundColor(r, g, b, a)`
+- **Signature:** `ctx.window.setBackgroundColor(r: float, g: float, b: float, a: float) → nil`
+- Set window background color (values 0-1 range)
+
+#### `ctx.window.setPosition(x, y)`
+- **Signature:** `ctx.window.setPosition(x: integer, y: integer) → nil`
+- Set absolute screen position (bottom-left origin on macOS)
+
+#### `ctx.window.move(offset)`
+- **Signature:** `ctx.window.move(offset: {x: integer, y: integer}) → nil`
+- Move window by offset (dx = right, dy = up in screen coords)
+
+#### `ctx.window.getPosition()`
+- **Signature:** `ctx.window.getPosition() → {x: integer, y: integer}`
+- Get current screen position
+
+**Example:**
+
+```lua
+-- Toggle fullscreen
+ctx.window.toggleFullscreen()
+
+-- Center window
+local screen_w, screen_h = 1920, 1080
+ctx.window.setPosition((screen_w - 800) / 2, (screen_h - 600) / 2)
+
+-- Allow background dragging (frameless)
+ctx.window.setMovableByBackground(true)
 ```
 
 ---
@@ -1233,6 +1496,49 @@ const pong = await coconut.ping()
 
 ---
 
+### coconut.dialog
+
+**Signature:** `coconut.dialog` (object)
+
+**Description:** Native system dialogs (message, open file, save file).
+
+**Methods:**
+
+#### `coconut.dialog.message(message?, title?, kind?)`
+- **Signature:** `await coconut.dialog.message(message?: string, title?: string, kind?: string): Promise<{confirmed: boolean}>`
+- Show a message dialog. `kind` can be `"info"`, `"warning"`, or `"error"`.
+
+#### `coconut.dialog.open(title?, multi?, chooseDir?)`
+- **Signature:** `await coconut.dialog.open(title?: string, multi?: boolean, chooseDir?: boolean): Promise<{confirmed: boolean, path: string, paths: string[]}>`
+- Show an open file dialog.
+
+#### `coconut.dialog.save(title?, defaultName?)`
+- **Signature:** `await coconut.dialog.save(title?: string, defaultName?: string): Promise<{confirmed: boolean, path: string}>`
+- Show a save file dialog.
+
+**Example:**
+
+```js
+const msg = await coconut.dialog.message("File saved!", "Success", "info")
+console.log(msg.confirmed)  // true
+
+const file = await coconut.dialog.open("Select a file", false, false)
+if (file.confirmed) {
+  console.log("Selected:", file.path)
+}
+
+const save = await coconut.dialog.save("Save As", "untitled.txt")
+if (save.confirmed) {
+  console.log("Saving to:", save.path)
+}
+```
+
+**Notes:**
+- Dialogs block the Lua thread until the user responds
+- Returns `{confirmed: false}` if the user cancels
+
+---
+
 ### coconut.keybind()
 
 **Signature:** `coconut.keybind(combo: string | object, handler: function | string, opts?: object): () => void`
@@ -1270,6 +1576,81 @@ unreg()
 - `mod` maps to `cmd` on macOS, `ctrl` on Windows/Linux
 - JS keybinds fire before Lua keybinds in the dispatch chain
 - Returns unregister function
+
+---
+
+#### `coconut.keybind.setOverride(id, combo)`
+
+**Signature:** `coconut.keybind.setOverride(id: string, combo: string): void`
+
+**Description:** Override a keybind's effective combo at runtime. The keybind keeps its original handler but fires on a different key combination.
+
+**Example:**
+
+```js
+coconut.keybind.setOverride("editor.save", "mod+shift+s")
+```
+
+---
+
+#### `coconut.keybind.clearOverride(id)`
+
+**Signature:** `coconut.keybind.clearOverride(id: string): void`
+
+**Description:** Clear a runtime override, restoring the original combo.
+
+**Example:**
+
+```js
+coconut.keybind.clearOverride("editor.save")
+```
+
+---
+
+#### `coconut.keybind.loadOverrides(table)`
+
+**Signature:** `coconut.keybind.loadOverrides(table: object): void`
+
+**Description:** Load a table of keybind overrides at once.
+
+**Example:**
+
+```js
+coconut.keybind.loadOverrides({
+  "editor.save": "mod+shift+s",
+  "app.palette": "mod+p",
+})
+```
+
+---
+
+#### `coconut.keybind.getCombo(id)`
+
+**Signature:** `coconut.keybind.getCombo(id: string): string | undefined`
+
+**Description:** Get the effective combo for a keybind id (respects overrides).
+
+**Example:**
+
+```js
+const combo = coconut.keybind.getCombo("editor.save")
+console.log(combo)  // e.g., "mod+shift+s"
+```
+
+---
+
+#### `coconut.getKeybinds()`
+
+**Signature:** `coconut.getKeybinds(): Array<{id: string, combo: string, description: string, scope: string}>`
+
+**Description:** Return all registered JS keybinds as a list.
+
+**Example:**
+
+```js
+const binds = coconut.getKeybinds()
+binds.forEach(b => console.log(`${b.id}: ${b.combo}`))
+```
 
 ---
 
@@ -1392,6 +1773,56 @@ if (ok) {
 
 ---
 
+### coconut.store
+
+**Signature:** `coconut.store` (object)
+
+**Description:** In-memory key-value store shared between JavaScript and Lua.
+
+**Methods:**
+
+#### `coconut.store.set(key, value)`
+- **Signature:** `await coconut.store.set(key: string, value: string): Promise<boolean>`
+- Sets a key-value pair
+
+#### `coconut.store.get(key)`
+- **Signature:** `await coconut.store.get(key: string): Promise<string>`
+- Returns value for key, or empty string if not found
+
+#### `coconut.store.has(key)`
+- **Signature:** `await coconut.store.has(key: string): Promise<boolean>`
+- Returns `true` if key exists
+
+#### `coconut.store.delete(key)`
+- **Signature:** `await coconut.store.delete(key: string): Promise<boolean>`
+- Removes a key-value pair
+
+#### `coconut.store.clear()`
+- **Signature:** `await coconut.store.clear(): Promise<boolean>`
+- Removes all entries
+
+#### `coconut.store.keys()`
+- **Signature:** `await coconut.store.keys(): Promise<string[]>`
+- Returns an array of all keys
+
+**Example:**
+
+```js
+await coconut.store.set("username", "ada")
+const name = await coconut.store.get("username")  // "ada"
+const exists = await coconut.store.has("username") // true
+await coconut.store.delete("username")
+await coconut.store.clear()
+const all = await coconut.store.keys()  // []
+```
+
+**Notes:**
+- In-memory only, not persisted to disk
+- Changes are visible to both JavaScript and Lua
+- All methods are async
+
+---
+
 ### coconut.window
 
 #### coconut.window.minimize()
@@ -1436,6 +1867,24 @@ await coconut.window.close()
 
 ---
 
+### coconut.quit()
+
+**Signature:** `coconut.quit(): void`
+
+**Description:** Alias for `coconut.window.close()`. Quit the application.
+
+**Example:**
+
+```js
+coconut.quit()
+```
+
+**Notes:**
+- Same behavior as `coconut.window.close()`
+- May trigger `close` lifecycle event
+
+---
+
 ### coconut.fs
 
 #### coconut.fs.readText()
@@ -1456,6 +1905,63 @@ if (ok) {
 } else {
   console.error(error)
 }
+```
+
+---
+
+#### coconut.fs.writeText()
+
+**Signature:** `await coconut.fs.writeText(path: string, content: string): Promise<{ ok: boolean; error?: string }>`
+
+**Description:** Write text content to a file.
+
+**Example:**
+
+```js
+const { ok, error } = await coconut.fs.writeText("/path/to/file.txt", "Hello world")
+```
+
+---
+
+#### coconut.fs.exists()
+
+**Signature:** `await coconut.fs.exists(path: string): Promise<{ ok: boolean; exists?: boolean; error?: string }>`
+
+**Description:** Check if a file or directory exists.
+
+**Example:**
+
+```js
+const { exists } = await coconut.fs.exists("/path/to/file")
+```
+
+---
+
+#### coconut.fs.resolve()
+
+**Signature:** `await coconut.fs.resolve(root: string, relpath: string): Promise<{ ok: boolean; data?: string; error?: string }>`
+
+**Description:** Resolve a relative path against a root directory.
+
+**Example:**
+
+```js
+const { data: fullPath } = await coconut.fs.resolve("/app", "views/home.html")
+```
+
+---
+
+#### coconut.fs.listDir()
+
+**Signature:** `await coconut.fs.listDir(path: string): Promise<{ ok: boolean; data?: Array<{name: string, path: string, is_dir: boolean}>; error?: string }>`
+
+**Description:** List directory contents.
+
+**Example:**
+
+```js
+const { data: entries } = await coconut.fs.listDir("/app/views")
+entries.forEach(e => console.log(e.name, e.is_dir ? "[dir]" : ""))
 ```
 
 ---
