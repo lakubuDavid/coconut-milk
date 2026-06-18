@@ -19,7 +19,7 @@ namespace coconut {
     std::expected<std::string, Error> get(Store* store, const std::string& key) {
       if (!store) {
         return std::unexpected(Error{
-            .code = ErrorCode::Internal,
+            .code = ErrorCode::Unknown,
             .message = "store is null",
         });
       }

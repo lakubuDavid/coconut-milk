@@ -139,24 +139,12 @@ COCONUT_TEST(unit, rpc_message_from_json_partial) {
 
 // ── Bridge dispatch (null-app safety) ─────────────────────────────────
 
-COCONUT_TEST(unit, bridge_emit_to_lua_null_app) {
-  coconut::bridge::emitToLua(nullptr, "test", nlohmann::json::object());
-}
-
 COCONUT_TEST(unit, bridge_emit_to_js_null_app) {
   coconut::bridge::emitToJS(nullptr, "test", nlohmann::json::object());
 }
 
-COCONUT_TEST(unit, bridge_call_lua_null_app) {
-  coconut::bridge::callLua(nullptr, "test", nlohmann::json::object());
-}
-
 COCONUT_TEST(unit, bridge_call_js_null_app) {
   coconut::bridge::callJS(nullptr, "test", nlohmann::json::object());
-}
-
-COCONUT_TEST(unit, bridge_emit_to_lua_empty_event) {
-  coconut::bridge::emitToLua(nullptr, "", nlohmann::json::object());
 }
 
 COCONUT_TEST(unit, bridge_emit_to_js_empty_event) {

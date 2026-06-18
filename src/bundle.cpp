@@ -4,6 +4,8 @@
 #include "fs.h"
 #include "icon_gen.h"
 
+#include <sol/sol.hpp>
+
 #include <nlohmann/json.hpp>
 
 #include <filesystem>
@@ -11,6 +13,7 @@
 #include <expected>
 #include <format>
 #include <fstream>
+#include <sol/types.hpp>
 #include <string>
 
 #if defined(__APPLE__)
@@ -597,14 +600,118 @@ std::expected<std::string, Error> assembleBundle(const Config& cfg, const std::s
     copyFile("main.lua", res_dir + "/main.lua", error);
   }
 
+  // Copy generated files (output_dir from config) if the directory exists
+  if (!cfg.output_dir.empty() && std::filesystem::exists(cfg.output_dir)) {
+    copyDir(cfg.output_dir, res_dir + "/" + cfg.output_dir, error);
+  }
+
+  // Copy lib/ if it exists (commonly used for Lua libraries)
+  if (std::filesystem::exists("lib")) {
+    copyDir("lib", res_dir + "/lib", error);
+  }
+
   return std::format("assemble: .app bundle created at '{}'", out_dir);
+}
+
+// ── Bytecode compilation ──────────────────────────────────────────────
+
+std::expected<std::string, Error> compileLuaFile(
+    const std::string& lua_path) {
+  // Use the embedded LuaJIT (statically linked) to compile to bytecode.
+  // This ensures the bytecode format matches exactly what the runtime uses.
+
+  std::string bytecode_path = lua_path + "c";
+
+  try {
+    sol::state lua;
+    lua.open_libraries(sol::lib::jit,sol::lib::base, sol::lib::string, sol::lib::io, sol::lib::os);
+
+    // Load source file, compile to bytecode via string.dump, write output
+    auto script = lua.load(R"(
+      local inp, outp = ...
+      local f = io.open(inp, "rb")
+      if not f then io.stderr:write("cannot open: " .. inp); os.exit(1) end
+      local src = f:read("*a")
+      f:close()
+      local chunk, err = load(src, "@" .. inp)
+      if not chunk then io.stderr:write(err); os.exit(1) end
+      local bc = string.dump(chunk)
+      local o = io.open(outp, "wb")
+      o:write(bc)
+      o:close()
+    )");
+
+    if (!script.valid()) {
+      return std::unexpected(Error{
+        .code = ErrorCode::LuaError,
+        .message = "failed to load bytecode compilation script"
+      });
+    }
+
+    auto result = script(lua_path, bytecode_path);
+    if (!result.valid()) {
+      sol::error err = result;
+      return std::unexpected(Error{
+        .code = ErrorCode::LuaError,
+        .message = "bytecode compilation failed",
+        .details = err.what()
+      });
+    }
+  } catch (const std::exception& e) {
+    return std::unexpected(Error{
+      .code = ErrorCode::LuaError,
+      .message = "bytecode compilation exception",
+      .details = e.what()
+    });
+  }
+
+  // Verify the bytecode file was created
+  std::error_code ec;
+  if (!std::filesystem::exists(bytecode_path, ec)) {
+    return std::unexpected(Error{
+      .code = ErrorCode::IoError,
+      .message = "bytecode file not created after compilation",
+      .details = bytecode_path
+    });
+  }
+
+  // Replace the original .lua with the compiled bytecode
+  std::filesystem::rename(bytecode_path, lua_path, ec);
+  if (ec) {
+    return bytecode_path;
+  }
+
+  return lua_path;
+}
+
+std::expected<int, Error> compileLuaDirectory(const std::string& dir) {
+  std::error_code ec;
+  if (!std::filesystem::exists(dir, ec)) {
+    return 0;  // Directory doesn't exist, nothing to compile
+  }
+
+  int compiled = 0;
+  for (auto& entry : std::filesystem::recursive_directory_iterator(dir, ec)) {
+    if (ec) break;
+    if (entry.path().extension() == ".lua") {
+      auto result = compileLuaFile(entry.path().string());
+      if (result) {
+        compiled++;
+      } else {
+        // Warn but continue compiling other files
+        std::println(stderr, "bundle: warning: {}", result.error().message);
+      }
+    }
+  }
+
+  return compiled;
 }
 
 // ── Full pipeline ─────────────────────────────────────────────────────
 
 std::expected<std::string, Error> bundle(const Config& cfg,
                                           const std::string& out_dir,
-                                          bool bytecode_config) {
+                                          bool bytecode_flag) {
   // Step 1: write shippable config
   auto stripped = writeShippableConfig(cfg, out_dir);
   if (!stripped) {
@@ -658,6 +765,35 @@ std::expected<std::string, Error> bundle(const Config& cfg,
       .message = std::format("bundle: assembly failed: {}",
                              assembled.error().message)
     });
+  }
+
+  // Step 5 (optional): compile Lua files to bytecode
+  if (bytecode_flag) {
+    std::string res_dir = out_dir + "/Contents/Resources";
+    auto compileResult = compileLuaDirectory(res_dir);
+    if (compileResult) {
+      std::println("bundle: compiled {} Lua file(s) to bytecode",
+                   compileResult.value());
+    } else {
+      std::println(stderr, "bundle: warning: bytecode compilation failed: {}",
+                   compileResult.error().message);
+    }
+  }
+
+  // Ensure bundle path ends with .app so macOS treats it as a launchable bundle
+  std::string bundlePath = out_dir;
+  if (!bundlePath.ends_with(".app") && bundlePath.size() >= 4) {
+    bundlePath += ".app";
+    std::error_code ec;
+    // Remove stale bundle if it exists
+    if (std::filesystem::exists(bundlePath, ec)) {
+      std::filesystem::remove_all(bundlePath, ec);
+    }
+    std::filesystem::rename(out_dir, bundlePath, ec);
+    if (!ec) {
+      return std::format("bundle: created -> {}\n  {}", bundlePath, assembled.value());
+    }
+    // If rename fails, report original path (user can manually add .app)
   }
 
   return std::format("bundle: created -> {}\n  {}", out_dir, assembled.value());

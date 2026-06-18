@@ -11,7 +11,7 @@ add_requires("lunasvg")
 set_languages("c23", "c++26")
 add_includedirs("thirdparty/webview/core/include")
 add_includedirs("thirdparty")
-add_defines("COCONUT_VERSION=0.1.0")
+add_defines("COCONUT_VERSION=\"0.1.0\"")
 
 -- =================================================================
 -- Task: build TS->JS embed
