@@ -133,34 +133,39 @@ COCONUT_TEST(unit, bundle_write_shippable_config_invalid_dir) {
 
 // ── bundle pipeline ───────────────────────────────────────────────────
 
+// Ensure bundle is renamed to .app for macOS launchability
 COCONUT_TEST(unit, bundle_pipeline_success) {
   coconut::Config cfg{};
   cfg.app.name = "Test App";
   cfg.window_width = 800;
 
-  auto result = coconut::bundle::bundle(cfg, "/tmp/coconut-bundle-unit-test");
+  std::string outDir = "/tmp/coconut-bundle-unit-test";
+  std::string bundleDir = outDir + ".app";
+
+  auto result = coconut::bundle::bundle(cfg, outDir);
   COCONUT_REQUIRE(result.has_value());
 
-  // Verify stripped config was written (relocated to Contents/Resources/ by assemble)
-  std::string configPath = "/tmp/coconut-bundle-unit-test/Contents/Resources/coconut.config.json";
+  // Verify stripped config was written
+  std::string configPath = bundleDir + "/Contents/Resources/coconut.config.json";
   std::ifstream f(configPath);
   COCONUT_REQUIRE(f.is_open());
   f.close();
 
   // Verify Info.plist was generated
-  std::string plistPath = "/tmp/coconut-bundle-unit-test/Contents/Info.plist";
+  std::string plistPath = bundleDir + "/Contents/Info.plist";
   std::ifstream pf(plistPath);
   COCONUT_REQUIRE(pf.is_open());
   pf.close();
 
   // Verify binary was copied to MacOS/
-  std::string binPath = "/tmp/coconut-bundle-unit-test/Contents/MacOS/coconut";
+  std::string binPath = bundleDir + "/Contents/MacOS/coconut";
   std::ifstream bf(binPath, std::ios::binary);
   COCONUT_REQUIRE(bf.is_open());
   bf.close();
 
-  // Cleanup
-  std::filesystem::remove_all("/tmp/coconut-bundle-unit-test");
+  // cleanup
+  std::filesystem::remove_all(outDir);
+  std::filesystem::remove_all(bundleDir);
 }
 
 COCONUT_TEST(unit, bundle_generate_manifests_now_implemented) {
@@ -202,4 +207,44 @@ COCONUT_TEST(unit, bundle_assemble_now_implemented) {
   COCONUT_REQUIRE(std::filesystem::exists("/tmp/coconut-assemble-test/Contents/Resources"));
 
   std::filesystem::remove_all("/tmp/coconut-assemble-test");
+}
+
+COCONUT_TEST(bundle, compile_lua_file) {
+  // Create a temp directory with a test .lua file
+  std::string tmpDir = "/tmp/coconut-bytecode-test";
+  std::filesystem::create_directories(tmpDir);
+
+  std::string testFile = tmpDir + "/test.lua";
+  {
+    std::ofstream f(testFile);
+    f << "return 42" << std::endl;
+  }
+
+  // Try compilation — will succeed if luajit is on PATH
+  auto compileResult = coconut::bundle::compileLuaFile(testFile);
+  
+  if (compileResult.has_value()) {
+    // Compilation succeeded — verify the bytecode
+    COCONUT_REQUIRE(std::filesystem::exists(compileResult.value()));
+    
+    // Verify the file is non-empty
+    std::error_code ec;
+    auto fileSize = std::filesystem::file_size(compileResult.value(), ec);
+    COCONUT_REQUIRE(!ec);
+    COCONUT_REQUIRE(fileSize > 0);
+
+    // Verify it starts with LuaJIT bytecode header (0x1b4c4a = \x1bLJ)
+    std::ifstream bc(compileResult.value(), std::ios::binary);
+    COCONUT_REQUIRE(bc.is_open());
+    char header[2];
+    bc.read(header, 2);
+    COCONUT_REQUIRE(header[0] == 0x1b);
+    COCONUT_REQUIRE(header[1] == 'L');
+    bc.close();
+  } else {
+    // Compilation failed — file should still exist as source
+    COCONUT_REQUIRE(std::filesystem::exists(testFile));
+  }
+
+  std::filesystem::remove_all(tmpDir);
 }

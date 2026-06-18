@@ -14,8 +14,9 @@ COCONUT_TEST(store, set_and_get) {
   auto* store = result.value();
 
   coconut::store::set(store, "key1", "value1");
-  std::string value = coconut::store::get(store, "key1");
-  COCONUT_REQUIRE_EQ(value, "value1");
+  auto getResult = coconut::store::get(store, "key1");
+  COCONUT_REQUIRE(getResult.has_value());
+  COCONUT_REQUIRE_EQ(getResult.value(), "value1");
 
   coconut::store::destroy(store);
 }
@@ -25,8 +26,9 @@ COCONUT_TEST(store, get_nonexistent_key) {
   COCONUT_REQUIRE(result.has_value());
   auto* store = result.value();
 
-  std::string value = coconut::store::get(store, "nonexistent");
-  COCONUT_REQUIRE_EQ(value, "");
+  auto getResult = coconut::store::get(store, "nonexistent");
+  COCONUT_REQUIRE(!getResult.has_value());
+  COCONUT_REQUIRE_EQ(getResult.error().code, coconut::ErrorCode::NotFound);
 
   coconut::store::destroy(store);
 }
@@ -111,10 +113,14 @@ COCONUT_TEST(store, overwrite_value) {
   auto* store = result.value();
 
   coconut::store::set(store, "key1", "value1");
-  COCONUT_REQUIRE_EQ(coconut::store::get(store, "key1"), "value1");
+  auto r1 = coconut::store::get(store, "key1");
+  COCONUT_REQUIRE(r1.has_value());
+  COCONUT_REQUIRE_EQ(r1.value(), "value1");
 
   coconut::store::set(store, "key1", "value2");
-  COCONUT_REQUIRE_EQ(coconut::store::get(store, "key1"), "value2");
+  auto r2 = coconut::store::get(store, "key1");
+  COCONUT_REQUIRE(r2.has_value());
+  COCONUT_REQUIRE_EQ(r2.value(), "value2");
 
   auto keys = coconut::store::keys(store);
   COCONUT_REQUIRE_EQ(keys.size(), 1);

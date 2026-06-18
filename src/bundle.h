@@ -66,6 +66,20 @@ std::expected<std::string, Error> assembleBundle(
     const Config& cfg,
     const std::string& out_dir);
 
+/// Compile a single Lua file to LuaJIT bytecode (.luac) in-place.
+/// The original .lua is replaced with the compiled bytecode.
+/// Requires `luajit` to be on PATH.
+/// @returns  Path to the compiled file on ok.
+std::expected<std::string, Error> compileLuaFile(
+    const std::string& lua_path);
+
+/// Scan a directory for .lua files and compile each to bytecode.
+/// Skips files already compiled, requires `luajit` on PATH.
+/// @param dir  Directory to scan recursively.
+/// @returns  Number of compiled files on ok.
+std::expected<int, Error> compileLuaDirectory(
+    const std::string& dir);
+
 } // namespace coconut::bundle
 
 #endif // COCONUT_BUNDLE_H
