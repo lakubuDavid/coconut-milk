@@ -28,7 +28,6 @@ task("coconut_bridge_embeds")
         local js_out  = "src/embeds/coconut.js"
         local dts_out = "src/embeds/coconut.d.ts"
         local hdr_out = "src/embeds/coconut_embed.h"
-
         os.run("bun build " .. ts_in .. " --outfile " .. js_out .. " --format esm")
         os.run("bunx tsc " .. ts_in .. " --declaration --emitDeclarationOnly --outDir src/embeds --lib ES2020,DOM --target ES2020")
         os.run("python3 scripts/js2c_to_header.py --input " .. js_out .. " --output " .. hdr_out .. " --symbol coconut_js_embed")
@@ -46,23 +45,12 @@ target("webview")
         add_frameworks("Cocoa", "WebKit", "Foundation")
     end
     add_files("thirdparty/webview/core/src/webview.cc")
-    add_defines("WEBVIEW_STATIC") -- export C API symbols from the library
+    add_defines("WEBVIEW_STATIC")
     set_languages("c11", "c++17")
-
-    -- Linux: add GTK3 + WebKitGTK include paths via pkg-config
     if is_plat("linux") then
-        on_config(function (target)
-            local pkgs = {"gtk+-3.0", "webkit2gtk-4.1"}
-            for _, pkg in ipairs(pkgs) do
-                local ok, out = os.iorun("pkg-config --cflags " .. pkg)
-                if ok and out then
-                    for flag in out:gmatch("%S+") do
-                        target:add("includedirs", flag:match("^-I(.+)$") or "")
-                        target:add("cxflags", flag)
-                    end
-                end
-            end
-        end)
+        -- pkg-config for GTK3 and WebKitGTK
+        add_cxflags("$(shell pkg-config --cflags gtk+-3.0 webkit2gtk-4.1)")
+        add_ldflags("$(shell pkg-config --libs gtk+-3.0 webkit2gtk-4.1)")
     end
 
 -- =================================================================
@@ -90,7 +78,6 @@ target("coconut")
     if is_plat("macosx") then
         add_files("src/platform/darwin/*.cpp")
         add_files("src/platform/darwin/*.mm")
-        -- Embed Info.plist so NSBundle has a bundle identifier for native notifications
         add_ldflags("-Wl,-sectcreate,__TEXT,__info_plist,$(projectdir)/res/Info.plist", {force = true})
     elseif is_plat("windows") then
         add_files("src/platform/win/*.cpp")
@@ -100,26 +87,10 @@ target("coconut")
     add_files("src/permissions.cpp")
     add_packages("sol2", "luajit", "nlohmann_json", "lunasvg")
     add_deps("webview")
-
-    -- Linux: link GTK3, WebKitGTK, libnotify via pkg-config
     if is_plat("linux") then
-        on_config(function (target)
-            local pkgs = {"gtk+-3.0", "webkit2gtk-4.1", "libnotify"}
-            for _, pkg in ipairs(pkgs) do
-                local ok, out = os.iorun("pkg-config --libs " .. pkg)
-                if ok and out then
-                    for flag in out:gmatch("%S+") do
-                        target:add("ldflags", flag)
-                    end
-                end
-                local ok2, out2 = os.iorun("pkg-config --cflags " .. pkg)
-                if ok2 and out2 then
-                    for flag in out2:gmatch("%S+") do
-                        target:add("cxflags", flag)
-                    end
-                end
-            end
-        end)
+        -- pkg-config for GTK3, WebKitGTK, and libnotify
+        add_cxflags("$(shell pkg-config --cflags gtk+-3.0 webkit2gtk-4.1 libnotify)")
+        add_ldflags("$(shell pkg-config --libs gtk+-3.0 webkit2gtk-4.1 libnotify)")
     end
 
 -- =================================================================
@@ -153,24 +124,8 @@ target("coconut-milk-tests")
     add_files("tests/*.cpp", "tests/**/*.cpp")
     add_packages("sol2", "luajit", "nlohmann_json", "lunasvg")
     add_deps("webview")
-
-    -- Linux: link GTK3, WebKitGTK, libnotify via pkg-config
     if is_plat("linux") then
-        on_config(function (target)
-            local pkgs = {"gtk+-3.0", "webkit2gtk-4.1", "libnotify"}
-            for _, pkg in ipairs(pkgs) do
-                local ok, out = os.iorun("pkg-config --libs " .. pkg)
-                if ok and out then
-                    for flag in out:gmatch("%S+") do
-                        target:add("ldflags", flag)
-                    end
-                end
-                local ok2, out2 = os.iorun("pkg-config --cflags " .. pkg)
-                if ok2 and out2 then
-                    for flag in out2:gmatch("%S+") do
-                        target:add("cxflags", flag)
-                    end
-                end
-            end
-        end)
+        -- pkg-config for GTK3, WebKitGTK, and libnotify
+        add_cxflags("$(shell pkg-config --cflags gtk+-3.0 webkit2gtk-4.1 libnotify)")
+        add_ldflags("$(shell pkg-config --libs gtk+-3.0 webkit2gtk-4.1 libnotify)")
     end
