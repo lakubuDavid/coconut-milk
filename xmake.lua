@@ -52,9 +52,9 @@ target("webview")
         on_config(function (target)
             local pkgs = {"gtk+-3.0", "webkit2gtk-4.1"}
             for _, pkg in ipairs(pkgs) do
-                local cflags = trycall("pkg-config --cflags " .. pkg)
-                if cflags then
-                    for flag in cflags:gmatch("%S+") do
+                local ok, out = os.iorun("pkg-config --cflags " .. pkg)
+                if ok and out then
+                    for flag in out:gmatch("%S+") do
                         target:add("includedirs", flag:match("^-I(.+)$") or "")
                         target:add("cxflags", flag)
                     end
@@ -104,15 +104,15 @@ target("coconut")
         on_config(function (target)
             local pkgs = {"gtk+-3.0", "webkit2gtk-4.1", "libnotify"}
             for _, pkg in ipairs(pkgs) do
-                local libs = trycall("pkg-config --libs " .. pkg)
-                if libs then
-                    for flag in libs:gmatch("%S+") do
+                local ok, out = os.iorun("pkg-config --libs " .. pkg)
+                if ok and out then
+                    for flag in out:gmatch("%S+") do
                         target:add("ldflags", flag)
                     end
                 end
-                local cflags = trycall("pkg-config --cflags " .. pkg)
-                if cflags then
-                    for flag in cflags:gmatch("%S+") do
+                local ok2, out2 = os.iorun("pkg-config --cflags " .. pkg)
+                if ok2 and out2 then
+                    for flag in out2:gmatch("%S+") do
                         target:add("cxflags", flag)
                     end
                 end
@@ -157,15 +157,15 @@ target("coconut-milk-tests")
         on_config(function (target)
             local pkgs = {"gtk+-3.0", "webkit2gtk-4.1", "libnotify"}
             for _, pkg in ipairs(pkgs) do
-                local libs = trycall("pkg-config --libs " .. pkg)
-                if libs then
-                    for flag in libs:gmatch("%S+") do
+                local ok, out = os.iorun("pkg-config --libs " .. pkg)
+                if ok and out then
+                    for flag in out:gmatch("%S+") do
                         target:add("ldflags", flag)
                     end
                 end
-                local cflags = trycall("pkg-config --cflags " .. pkg)
-                if cflags then
-                    for flag in cflags:gmatch("%S+") do
+                local ok2, out2 = os.iorun("pkg-config --cflags " .. pkg)
+                if ok2 and out2 then
+                    for flag in out2:gmatch("%S+") do
                         target:add("cxflags", flag)
                     end
                 end
