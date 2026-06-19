@@ -200,7 +200,7 @@ Result platformSaveFile(const std::string& title,
     }
 
     // Set first filter as default
-    GtkFileFilter* first = gtk_file_chooser_list_filters(chooser)->data;
+    GtkFileFilter* first = static_cast<GtkFileFilter*>(gtk_file_chooser_list_filters(chooser)->data);
     if (first) {
       gtk_file_chooser_set_filter(chooser, first);
     }
