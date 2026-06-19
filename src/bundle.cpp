@@ -739,7 +739,7 @@ std::expected<std::string, Error> bundle(const Config& cfg,
         std::println(std::cerr, "bundle: warning: icon generation failed: {}",
                      icons.error().message);
       } else {
-        std::println("bundle: icons generated (icns={}, ico={}, png={})",
+        std::println(std::cout, "bundle: icons generated (icns={}, ico={}, png={})",
                      icons->icns.empty() ? "none" : icons->icns,
                      icons->ico.empty() ? "none" : icons->ico,
                      icons->png.empty() ? "none" : icons->png);
@@ -772,7 +772,7 @@ std::expected<std::string, Error> bundle(const Config& cfg,
     std::string res_dir = out_dir + "/Contents/Resources";
     auto compileResult = compileLuaDirectory(res_dir);
     if (compileResult) {
-      std::println("bundle: compiled {} Lua file(s) to bytecode",
+      std::println(std::cout, "bundle: compiled {} Lua file(s) to bytecode",
                    compileResult.value());
     } else {
       std::println(std::cerr, "bundle: warning: bytecode compilation failed: {}",
