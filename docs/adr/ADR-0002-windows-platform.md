@@ -201,7 +201,7 @@ Phase 4 — Polish
 └── bundle         ← Windows installer (.msi) and directory structure
 ```
 
-### 5. xmake.lua changes
+### 5. xmake.lua changes — cross-compilation findings
 
 The current `xmake.lua` already has Windows platform branches:
 
@@ -210,11 +210,24 @@ elseif is_plat("windows") then
     add_files("src/platform/win/*.cpp")
 ```
 
-No structural changes needed to the build system. The MinGW configuration will:
-- Link against `-lgdi32`, `-luser32`, `-lshell32`, `-lole32`, `-loleaut32`,
-  `-lshlwapi`, `-lruntimeobject` (Win32 API libraries)
-- Set Windows subsystem (`-mwindows` for GUI, or `-mconsole` for debug)
-- Use `xmake f -p windows -s x86_64 --toolchain=mingw` to configure
+#### macOS → Windows cross-compilation (attempted)
+
+MinGW-w64 was installed via Homebrew (`brew install mingw-w64`) but the bottle
+(`mingw-w64--14.0.0_1.sonoma.bottle.tar.gz`) was built for macOS Sonoma x86_64.
+On macOS Sequoia ARM64, the compiler binaries had unresolved `@@HOMEBREW_PREFIX@@`
+rpath placeholders and the linker produced "file too short" errors on valid COFF
+object files. This appears to be a bottle incompatibility with the host system.
+
+**Recommendation:** Develop on real Windows or in a Windows VM for compilation.
+The MinGW-w64 cross-compiler works reliably on actual Windows. CI can use
+GitHub Actions with `windows-latest` runners for automated builds.
+
+For macOS-based testing, the macos-native `coconut` binary can already be tested
+under Wine for basic non-UI module validation (clipboard, open_url, lifecycle,
+etc.), but full Windows compilation requires:
+- A Windows machine (physical, VM, or CI runner)
+- Visual Studio Build Tools (MSVC) or MinGW-w64 on Windows
+- WebView2 runtime installed
 
 ### 6. Detailed module stubs
 
