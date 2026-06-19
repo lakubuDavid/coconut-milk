@@ -178,22 +178,21 @@ void registerKeyboardMonitor(void* app_ptr, KeyEventCallback cb, void* userdata)
   }
   GtkWidget* window = GTK_WIDGET(win_raw);
 
-  // Create and attach the key event controller
-  s_keyController = gtk_event_controller_key_new();
-  gtk_event_controller_set_propagation_phase(
-      s_keyController, GTK_PHASE_CAPTURE);  // capture phase: intercept before webview
+  // Create the key event controller (GTK3: attaches to widget via constructor)
+  s_keyController = gtk_event_controller_key_new(window);
 
+  // Connect before default handler to intercept before webview
   g_signal_connect(s_keyController, "key-pressed",
       G_CALLBACK(coconut_on_key_pressed), nullptr);
-
-  gtk_widget_add_controller(window, s_keyController);
 
   g_message("[coconut.keyboard] GtkEventControllerKey registered");
 }
 
 void unregisterKeyboardMonitor() {
   if (s_keyController) {
-    g_object_unref(s_keyController);
+    // Disconnect all signal handlers from the controller.
+    // GTK3: don't unref — widget owns the controller; we just stop processing.
+    g_signal_handlers_disconnect_by_data(s_keyController, nullptr);
     s_keyController = nullptr;
   }
   s_callback = nullptr;
