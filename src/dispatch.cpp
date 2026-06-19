@@ -3,6 +3,33 @@
 #include "debug.h"
 #include "lua_runtime.h"
 
+// ── Platform-specific run-loop integration ─────────────────────────────
+// On macOS, a CFRunLoopSource is registered to drain the outbox on every
+// iteration of the main run loop.  Linux would use a GMainLoop idle
+// callback; Windows would use a timer or a custom Windows message.
+//
+// The source fires at the "common modes" priority so it also fires during
+// modal tracking (menus, scroll views) — important for timely dispatch of
+// command results and view lifecycle events.
+
+#if defined(__APPLE__)
+#include <CoreFoundation/CFRunLoop.h>
+#endif
+
+namespace {
+
+/// The App pointer used by the platform run-loop callback.
+/// Set by coconut::dispatch::init(), cleared by shutdown().
+/// Only one App at a time per process.
+coconut::App* g_dispatch_app = nullptr;
+
+#if defined(__APPLE__)
+/// The CFRunLoopSource registered by init() and removed by shutdown().
+CFRunLoopSourceRef g_runloop_source = nullptr;
+#endif
+
+}  // anonymous namespace
+
 namespace coconut::dispatch {
 
 // ── Outbox — lock-free SPSC ring buffer ──────────────────────────────
@@ -46,15 +73,52 @@ size_t Outbox::size() const {
 // ── Lifecycle ─────────────────────────────────────────────────────────
 
 void init(App* app) {
-  (void)app;
-  debug::info("dispatch::init: dispatch system initialized");
-  // TODO: Register CFRunLoopSource on main thread.
+  if (app == nullptr) {
+    return;
+  }
+  g_dispatch_app = app;
+
+#if defined(__APPLE__)
+  // Create a CFRunLoopSource whose perform callback drains the outbox.
+  // The source fires on every iteration of the main run loop.
+  CFRunLoopSourceContext ctx{};
+  ctx.version  = 0;
+  ctx.info     = nullptr;  // We use g_dispatch_app instead.
+  ctx.perform  = [](void* /*info*/) {
+    drain(g_dispatch_app);
+  };
+
+  g_runloop_source = CFRunLoopSourceCreate(
+      kCFAllocatorDefault, 0, &ctx);
+
+  if (g_runloop_source) {
+    CFRunLoopAddSource(CFRunLoopGetMain(), g_runloop_source,
+                       kCFRunLoopCommonModes);
+    debug::info("dispatch::init: CFRunLoopSource registered (common modes)");
+  } else {
+    debug::warn("dispatch::init: failed to create CFRunLoopSource");
+  }
+#else
+  debug::info("dispatch::init: no platform run-loop integration (polling not yet implemented)");
+#endif
 }
 
 void shutdown(App* app) {
+  // Drain any remaining messages before tearing down.
   drain(app);
-  debug::info("dispatch::shutdown: dispatch system shut down");
-  // TODO: Remove CFRunLoopSource.
+
+#if defined(__APPLE__)
+  if (g_runloop_source) {
+    CFRunLoopRemoveSource(CFRunLoopGetMain(), g_runloop_source,
+                          kCFRunLoopCommonModes);
+    CFRelease(g_runloop_source);
+    g_runloop_source = nullptr;
+    debug::info("dispatch::shutdown: CFRunLoopSource removed");
+  }
+#endif
+
+  g_dispatch_app = nullptr;
+  (void)app;
 }
 
 void drain(App* app) {
