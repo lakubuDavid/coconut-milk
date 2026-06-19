@@ -229,36 +229,24 @@ etc.), but full Windows compilation requires:
 - Visual Studio Build Tools (MSVC) or MinGW-w64 on Windows
 - WebView2 runtime installed
 
-### 6. Detailed module stubs
+## Implementation Status
 
-Each module should provide a minimal 'works under Wine' implementation first,
-then be enhanced for full Windows fidelity later.
+### Module implementation summary
 
-#### clipboard.h / clipboard.cpp
-```cpp
-// Win32 clipboard
-std::string platformReadText() {
-    if (!OpenClipboard(nullptr)) return {};
-    HANDLE h = GetClipboardData(CF_UNICODETEXT);
-    if (!h) { CloseClipboard(); return {}; }
-    auto* p = static_cast<wchar_t*>(GlobalLock(h));
-    if (!p) { CloseClipboard(); return {}; }
-    std::wstring ws(p);
-    GlobalUnlock(h);
-    CloseClipboard();
-    return std::string(ws.begin(), ws.end());
-}
-```
-
-#### open_url.h / open_url.cpp
-```cpp
-bool platformOpenUrl(const std::string& url) {
-    std::wstring wurl(url.begin(), url.end());
-    HINSTANCE r = ShellExecuteW(nullptr, L"open", wurl.c_str(),
-                                nullptr, nullptr, SW_SHOWNORMAL);
-    return reinterpret_cast<INT_PTR>(r) > 32;
-}
-```
+| Module | File(s) | Status | Win32 API |
+|---|---|---|---|
+| clipboard | `clipboard.h/.cpp` | ✅ Implemented | `OpenClipboard`, `GetClipboardData(CF_UNICODETEXT)`, `SetClipboardData`, `GlobalLock/Unlock` |
+| open_url | `open_url.h/.cpp` | ✅ Implemented | `ShellExecuteW` with `SW_SHOWNORMAL` |
+| notify | `notify.h/.cpp` | ✅ Implemented | `Shell_NotifyIconW` with `NIF_INFO` balloon |
+| lifecycle | `lifecycle.h/.cpp` | ✅ Implemented | Window subclassing, `WM_SIZE`/`WM_SETFOCUS`/`WM_KILLFOCUS`/`WM_CLOSE` |
+| create_window | `create_window.h/.cpp` | ✅ Implemented | `RegisterClassW` + `CreateWindowExW` (frameless via `WS_POPUP`, standard via `WS_OVERLAPPEDWINDOW`) |
+| window | `window.h` | ✅ Implemented | Platform style application, transparency via `WS_EX_LAYERED` + `SetLayeredWindowAttributes` |
+| window_style | `window_style.cpp` | ✅ Implemented | Applies frameless, transparent, size from Config |
+| window_handle | `window_handle.h/.cpp` | ✅ Implemented | `SetWindowPos`, `ShowWindow`, `GetWindowRect`, `MonitorFromWindow`, fullscreen toggle |
+| keyboard | `keyboard.h/.cpp` | ✅ Implemented | `SetWindowsHookExW(WH_KEYBOARD_LL)`, VK code mapping to combo strings |
+| dialog | `dialog.h/.cpp` | ✅ Implemented | `MessageBoxW`, `IFileOpenDialog` (COM), `IFileSaveDialog` (COM), `CoInitializeEx` |
+| permissions | `permissions.cpp` | ✅ Implemented | Weak symbol override — all return Granted by default (Windows model differs from macOS) |
+| scheme_handler | `scheme_handler_win.cpp` | ✅ Implemented | WebView2 `WebResourceRequested` hook (requires ICoreWebView2 interface) |
 
 ### 7. Testing strategy
 

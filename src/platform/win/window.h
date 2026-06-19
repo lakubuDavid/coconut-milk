@@ -7,14 +7,15 @@ namespace coconut {
   struct Config;
 
   namespace window {
-    /// Apply Windows-native window style (frameless, etc.) — stub.
-    inline void platformApplyWindowStyle(webview_t /*wv*/, Config* /*cfg*/) {}
+    /// Apply Windows-native window style (frameless, transparent, etc.)
+    /// based on Config settings.
+    void platformApplyWindowStyle(webview_t wv, Config* cfg);
 
-    /// Install WebView2 navigation delegate for external URL interception — stub.
-    inline void platformInstallNavDelegate(webview_t /*wv*/) {}
+    /// Install WebView2 navigation delegate for external URL interception.
+    void platformInstallNavDelegate(webview_t wv);
 
-    /// Set window background color (0-1 range) — stub.
-    inline void platformSetWindowBackgroundColor(webview_t /*wv*/, float, float, float, float) {}
+    /// Set window background color (0-1 range).
+    void platformSetWindowBackgroundColor(webview_t wv, float r, float g, float b, float a);
   }
 }
 
