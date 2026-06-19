@@ -1,23 +1,20 @@
 #include "dispatch.h"
+#include "app.h"
+#include "debug.h"
 
 namespace coconut::dispatch {
 
 // ── Outbox — lock-free SPSC ring buffer ──────────────────────────────
 
 bool Outbox::push(Message msg) {
-  // Snapshot both indices atomically.
   const size_t w = write_idx_.load(std::memory_order_relaxed);
   const size_t r = read_idx_.load(std::memory_order_acquire);
 
-  // Queue is full when the producer has wrapped entirely around.
   if (w - r >= kQueueCapacity) {
     return false;
   }
 
   ring_[w % kQueueCapacity] = std::move(msg);
-
-  // Ensure the message is fully written before publishing w+1 to the
-  // consumer thread.
   write_idx_.store(w + 1, std::memory_order_release);
   return true;
 }
@@ -31,9 +28,6 @@ std::optional<Message> Outbox::pop() {
   }
 
   Message msg = ring_[r % kQueueCapacity];
-
-  // Ensure the message is fully read before publishing r+1 (which tells
-  // the producer that this slot is available for reuse).
   read_idx_.store(r + 1, std::memory_order_release);
   return msg;
 }
@@ -52,43 +46,73 @@ size_t Outbox::size() const {
 
 void init(App* app) {
   (void)app;
+  debug::info("dispatch::init: dispatch system initialized");
   // TODO: Register CFRunLoopSource on main thread.
-  // This will be wired up once the App struct holds an Outbox.
+  // This will call dispatch::drain() on each event loop iteration.
 }
 
 void shutdown(App* app) {
-  (void)app;
-  // TODO: Remove CFRunLoopSource, drain remaining messages.
+  // Drain any remaining messages before shutting down.
+  drain(app);
+  debug::info("dispatch::shutdown: dispatch system shut down");
+  // TODO: Remove CFRunLoopSource.
 }
 
 void drain(App* app) {
-  (void)app;
-  // TODO: Pop messages from the App's Outbox and dispatch them.
-  // This will be called by the CFRunLoopSource on each iteration.
+  if (app == nullptr) {
+    return;
+  }
+
+  while (auto msg = app->outbox.pop()) {
+    switch (msg->kind) {
+      case MessageKind::EvalJS:
+        debug::info(std::format("dispatch::drain: EvalJS ({})",
+                                 msg->payload.substr(0, 100)));
+        // TODO: Call webview_eval(app->webview, msg->payload.c_str())
+        // once the webview is guaranteed to be in a safe state.
+        break;
+
+      case MessageKind::LifecycleEvent:
+        debug::info(std::format("dispatch::drain: LifecycleEvent ({})",
+                                 msg->payload));
+        // TODO: Call lua::dispatchViewLifecycleEvent(runtime, viewName, eventName)
+        // once the Lua state is guaranteed to be initialized.
+        break;
+
+      case MessageKind::CommandCall:
+        debug::info(std::format("dispatch::drain: CommandCall ({})",
+                                 msg->payload));
+        // TODO: Dispatch to the command registry.
+        break;
+    }
+  }
 }
 
 // ── Enqueue helpers ───────────────────────────────────────────────────
 
 void evalJS(App* app, std::string_view js) {
-  (void)app;
-  (void)js;
-  // TODO: Push an EvalJS message into the App's Outbox.
+  if (app == nullptr) {
+    return;
+  }
+  app->outbox.push({MessageKind::EvalJS, std::string(js)});
 }
 
 void lifecycleEvent(App* app, std::string_view view_name,
                     std::string_view event_name) {
-  (void)app;
-  (void)view_name;
-  (void)event_name;
-  // TODO: Push a LifecycleEvent message into the App's Outbox.
+  if (app == nullptr) {
+    return;
+  }
+  std::string payload = std::string(view_name) + "|" + std::string(event_name);
+  app->outbox.push({MessageKind::LifecycleEvent, std::move(payload)});
 }
 
 void commandCall(App* app, std::string_view command_name,
                  std::string_view json_args) {
-  (void)app;
-  (void)command_name;
-  (void)json_args;
-  // TODO: Push a CommandCall message into the App's Outbox.
+  if (app == nullptr) {
+    return;
+  }
+  std::string payload = std::string(command_name) + "|" + std::string(json_args);
+  app->outbox.push({MessageKind::CommandCall, std::move(payload)});
 }
 
 }  // namespace coconut::dispatch

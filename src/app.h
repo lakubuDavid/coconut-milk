@@ -5,6 +5,7 @@
 #include "commands.h"
 #include "config.h"
 #include "context.h"
+#include "dispatch.h"
 #include "error.h"
 #include "fs.h"
 #include "lua_runtime.h"
@@ -39,6 +40,9 @@ namespace coconut {
     /// reaching the webview). Populated by Lua coconut.keybind() with
     /// opts.platform=true.
     std::unordered_set<std::string> platform_keybinds;
+
+    /// Lock-free SPSC queue for async dispatch of events to JS and Lua.
+    dispatch::Outbox outbox;
   };
 
   namespace app {
