@@ -43,7 +43,7 @@ Permission fromString(std::string_view name);
 #endif
 
 /// The result of a permission check or request.
-enum Status {
+enum class Status {
   Granted,        ///< Permission is available
   Denied,         ///< User denied, cannot request again without OS settings
   NotDetermined,  ///< Not yet requested (prompt will be shown on request)
