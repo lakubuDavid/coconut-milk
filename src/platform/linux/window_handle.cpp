@@ -16,6 +16,9 @@
 
 #include <format>
 
+// Track fullscreen state manually (gtk_window_is_fullscreen not available in older GTK3)
+static bool s_is_fullscreen = false;
+
 namespace coconut::window {
 
 /// Get the GtkWindow from webview.
@@ -92,10 +95,12 @@ void platformToggleFullscreen(webview_t wv) {
   GtkWindow* win = getWindow(wv);
   if (!win) return;
 
-  if (gtk_window_is_fullscreen(win)) {
+  if (s_is_fullscreen) {
     gtk_window_unfullscreen(win);
+    s_is_fullscreen = false;
   } else {
     gtk_window_fullscreen(win);
+    s_is_fullscreen = true;
   }
   debug::log("window_handle: toggled fullscreen");
 }
@@ -109,6 +114,7 @@ void platformSetFullscreen(webview_t wv, bool on) {
   } else {
     gtk_window_unfullscreen(win);
   }
+  s_is_fullscreen = on;
   debug::log(std::format("window_handle: setFullscreen({})", on));
 }
 
