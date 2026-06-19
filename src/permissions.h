@@ -36,8 +36,14 @@ Permission fromString(std::string_view name);
 
 // ── Permission Status ─────────────────────────────────────────────────
 
+// X11 headers (included by GTK) define `Status` as a macro → `int`.
+// Undefine it so our enum class works correctly.
+#if defined(Status)
+#undef Status
+#endif
+
 /// The result of a permission check or request.
-enum Status {
+enum class Status {
   Granted,        ///< Permission is available
   Denied,         ///< User denied, cannot request again without OS settings
   NotDetermined,  ///< Not yet requested (prompt will be shown on request)
