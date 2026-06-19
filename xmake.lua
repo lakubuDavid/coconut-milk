@@ -47,6 +47,22 @@ target("webview")
     add_defines("WEBVIEW_STATIC") -- export C API symbols from the library
     set_languages("c11", "c++17")
 
+    -- Linux: add GTK3 + WebKitGTK include paths via pkg-config
+    if is_plat("linux") then
+        on_config(function (target)
+            local pkgs = {"gtk+-3.0", "webkit2gtk-4.1"}
+            for _, pkg in ipairs(pkgs) do
+                local cflags = trycall("pkg-config --cflags " .. pkg)
+                if cflags then
+                    for flag in cflags:gmatch("%S+") do
+                        target:add("includedirs", flag:match("^-I(.+)$") or "")
+                        target:add("cxflags", flag)
+                    end
+                end
+            end
+        end)
+    end
+
 -- =================================================================
 -- Core coconut binary
 -- =================================================================
@@ -59,10 +75,12 @@ target("coconut")
             os.run("xmake coconut_bridge_embeds")
         end
     end)
-    add_frameworks("Cocoa", "WebKit", "Foundation",
-                   "AVFoundation", "UserNotifications",
-                   "Contacts", "Photos", "Security",
-                   "ApplicationServices", "ScreenCaptureKit")
+    if not is_plat("linux") then
+        add_frameworks("Cocoa", "WebKit", "Foundation",
+                       "AVFoundation", "UserNotifications",
+                       "Contacts", "Photos", "Security",
+                       "ApplicationServices", "ScreenCaptureKit")
+    end
     add_files("src/*.cpp")
     add_files("src/packages/*.cpp")
     add_files("src/generators/*.cpp")
@@ -81,6 +99,27 @@ target("coconut")
     add_packages("sol2", "luajit", "nlohmann_json", "lunasvg")
     add_deps("webview")
 
+    -- Linux: link GTK3, WebKitGTK, libnotify via pkg-config
+    if is_plat("linux") then
+        on_config(function (target)
+            local pkgs = {"gtk+-3.0", "webkit2gtk-4.1", "libnotify"}
+            for _, pkg in ipairs(pkgs) do
+                local libs = trycall("pkg-config --libs " .. pkg)
+                if libs then
+                    for flag in libs:gmatch("%S+") do
+                        target:add("ldflags", flag)
+                    end
+                end
+                local cflags = trycall("pkg-config --cflags " .. pkg)
+                if cflags then
+                    for flag in cflags:gmatch("%S+") do
+                        target:add("cxflags", flag)
+                    end
+                end
+            end
+        end)
+    end
+
 -- =================================================================
 -- Tests
 -- =================================================================
@@ -89,10 +128,12 @@ target("coconut-milk-tests")
     set_kind("binary")
     add_includedirs("src", "tests", "thirdparty/webview/core/include")
     add_includedirs("thirdparty")
-    add_frameworks("Cocoa", "WebKit", "Foundation",
-                   "AVFoundation", "EventKit", "UserNotifications",
-                   "CoreLocation", "Contacts", "Photos", "Security",
-                   "ApplicationServices", "ScreenCaptureKit")
+    if not is_plat("linux") then
+        add_frameworks("Cocoa", "WebKit", "Foundation",
+                       "AVFoundation", "EventKit", "UserNotifications",
+                       "CoreLocation", "Contacts", "Photos", "Security",
+                       "ApplicationServices", "ScreenCaptureKit")
+    end
     add_files("src/*.cpp")
     add_files("src/packages/*.cpp")
     add_files("src/generators/*.cpp")
@@ -110,3 +151,24 @@ target("coconut-milk-tests")
     add_files("tests/*.cpp", "tests/**/*.cpp")
     add_packages("sol2", "luajit", "nlohmann_json", "lunasvg")
     add_deps("webview")
+
+    -- Linux: link GTK3, WebKitGTK, libnotify via pkg-config
+    if is_plat("linux") then
+        on_config(function (target)
+            local pkgs = {"gtk+-3.0", "webkit2gtk-4.1", "libnotify"}
+            for _, pkg in ipairs(pkgs) do
+                local libs = trycall("pkg-config --libs " .. pkg)
+                if libs then
+                    for flag in libs:gmatch("%S+") do
+                        target:add("ldflags", flag)
+                    end
+                end
+                local cflags = trycall("pkg-config --cflags " .. pkg)
+                if cflags then
+                    for flag in cflags:gmatch("%S+") do
+                        target:add("cxflags", flag)
+                    end
+                end
+            end
+        end)
+    end
