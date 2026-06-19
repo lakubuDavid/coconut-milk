@@ -12,7 +12,9 @@
 #include <string_view>
 
 // ── Forward declarations ────────────────────────────────────────────
+namespace coconut {
 struct App;
+}
 
 namespace coconut::dispatch {
 
