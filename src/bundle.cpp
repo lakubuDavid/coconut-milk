@@ -699,7 +699,7 @@ std::expected<int, Error> compileLuaDirectory(const std::string& dir) {
         compiled++;
       } else {
         // Warn but continue compiling other files
-        std::println(stderr, "bundle: warning: {}", result.error().message);
+        std::println(std::cerr, "bundle: warning: {}", result.error().message);
       }
     }
   }
@@ -736,10 +736,10 @@ std::expected<std::string, Error> bundle(const Config& cfg,
     if (!hasExplicitPaths) {
       auto icons = icon_gen::generateIcons(cfg.icon.source, out_dir, app_id);
       if (!icons) {
-        std::println(stderr, "bundle: warning: icon generation failed: {}",
+        std::println(std::cerr, "bundle: warning: icon generation failed: {}",
                      icons.error().message);
       } else {
-        std::println("bundle: icons generated (icns={}, ico={}, png={})",
+        std::println(std::cout, "bundle: icons generated (icns={}, ico={}, png={})",
                      icons->icns.empty() ? "none" : icons->icns,
                      icons->ico.empty() ? "none" : icons->ico,
                      icons->png.empty() ? "none" : icons->png);
@@ -772,10 +772,10 @@ std::expected<std::string, Error> bundle(const Config& cfg,
     std::string res_dir = out_dir + "/Contents/Resources";
     auto compileResult = compileLuaDirectory(res_dir);
     if (compileResult) {
-      std::println("bundle: compiled {} Lua file(s) to bytecode",
+      std::println(std::cout, "bundle: compiled {} Lua file(s) to bytecode",
                    compileResult.value());
     } else {
-      std::println(stderr, "bundle: warning: bytecode compilation failed: {}",
+      std::println(std::cerr, "bundle: warning: bytecode compilation failed: {}",
                    compileResult.error().message);
     }
   }

@@ -11,6 +11,7 @@
 /// in the platform adapters.
 
 #include <set>
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>

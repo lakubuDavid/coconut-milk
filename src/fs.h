@@ -7,6 +7,7 @@
 #include <expected>
 #include <string>
 #include <vector>
+#include <cstdint>
 
 namespace coconut {
   namespace fs {
