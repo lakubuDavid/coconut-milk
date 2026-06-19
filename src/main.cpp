@@ -494,8 +494,16 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  // Start the dispatch run-loop source so queued events are drained
+  // automatically on every iteration of the main loop.
+  debug::info("main: starting dispatch system...");
+  coconut::dispatch::init(app);
+
   debug::info("main: calling app::run()...");
   coconut::app::run(app);
+
+  // Tear down the dispatch system (drains remaining messages).
+  coconut::dispatch::shutdown(app);
 
   coconut::app::destroy(app);
   return 0;
