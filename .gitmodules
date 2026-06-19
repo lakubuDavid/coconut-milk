@@ -1,0 +1,3 @@
+[submodule "thirdparty/webview"]
+	path = thirdparty/webview
+	url = https://github.com/webview/webview.git
