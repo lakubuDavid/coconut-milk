@@ -73,7 +73,7 @@ extern "C" gboolean coconut_nav_policy_decision(
   }
 
   WebKitNavigationAction* action =
-      webkit_policy_decision_get_navigation_action(
+      webkit_navigation_policy_decision_get_navigation_action(
           WEBKIT_NAVIGATION_POLICY_DECISION(decision));
   if (!action) return FALSE;
 
