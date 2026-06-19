@@ -137,35 +137,8 @@ void platformSetMovableByBackground(webview_t wv, bool on) {
 }
 
 // ── Background color ────────────────────────────────────────────────────
-
-void platformSetWindowBackgroundColor(webview_t wv, float r, float g, float b, float a) {
-  // Delegates to the window.cpp implementation for CSS-based background.
-  // We include the same logic here to avoid cross-file dependency issues.
-  GtkWindow* win = getWindow(wv);
-  if (!win) return;
-
-  GtkWidget* widget = gtk_bin_get_child(GTK_BIN(win));
-  if (!widget) widget = GTK_WIDGET(win);
-
-  int ri = static_cast<int>(r * 255);
-  int gi = static_cast<int>(g * 255);
-  int bi = static_cast<int>(b * 255);
-  int ai = static_cast<int>(a * 255);
-
-  std::string css = std::format(
-      "window {{ background: rgba({},{},{},{}); }}",
-      ri, gi, bi, ai);
-
-  GtkCssProvider* provider = gtk_css_provider_new();
-  gtk_css_provider_load_from_data(provider, css.c_str(), -1, nullptr);
-
-  GdkScreen* screen = gtk_window_get_screen(win);
-  gtk_style_context_add_provider_for_screen(
-      screen,
-      GTK_STYLE_PROVIDER(provider),
-      GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-
-  g_object_unref(provider);
-}
+// Implemented in window.cpp to avoid duplicate symbol. This header declares
+// it for API consistency; the implementation lives alongside other window
+// style functions.
 
 } // namespace coconut::window
