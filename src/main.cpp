@@ -5,6 +5,7 @@
 #include "new_project.h"
 #include "config.h"
 #include "debug.h"
+#include "dispatch.h"
 #include "generators/generate.h"
 #include "lifecycle.h"
 #include "permissions.h"
@@ -427,10 +428,13 @@ int main(int argc, char* argv[]) {
     auto* v = new window::View(std::move(*view_result));
     window::addView(window, name, v);
     debug::info(std::format("view '{}' registered", name));
-    // Fire "load" lifecycle event through _dispatch.
-    coconut::lua::dispatchViewLifecycleEvent(
-        lua_runtime, name, "load", {});
+    // Fire "load" lifecycle event through the dispatch queue.
+    dispatch::lifecycleEvent(app, name, "load");
   }
+
+  // Route queued lifecycle events through the dispatch system,
+  // ensuring Lua state is fully initialized before direct access.
+  dispatch::drain(app);
 
   // Pass view names to the route resolver so coconut://view_name links
   // trigger navigation instead of file serving.
@@ -475,9 +479,9 @@ int main(int argc, char* argv[]) {
       sol::state_view lv(*lua_runtime->lua_state);
       lv["coconut"]["_active_view"] = cfg.initial_view;
     }
-    // Fire "mount" lifecycle event through _dispatch.
-    coconut::lua::dispatchViewLifecycleEvent(
-        lua_runtime, cfg.initial_view, "mount", {});
+    // Fire "mount" lifecycle event through the dispatch queue.
+    dispatch::lifecycleEvent(app, cfg.initial_view, "mount");
+    dispatch::drain(app);
 
     // Fire the "ready" lifecycle event — flows through coconut._dispatch.
     // Subscribers can use coconut.on("ready", fn, { once = true }).
