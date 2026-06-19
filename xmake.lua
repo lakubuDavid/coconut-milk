@@ -42,7 +42,9 @@ task("coconut_bridge_embeds")
 target("webview")
     set_kind("static")
     add_includedirs("thirdparty/webview/core/include")
-    add_frameworks("Cocoa", "WebKit", "Foundation")
+    if not is_plat("linux") then
+        add_frameworks("Cocoa", "WebKit", "Foundation")
+    end
     add_files("thirdparty/webview/core/src/webview.cc")
     add_defines("WEBVIEW_STATIC") -- export C API symbols from the library
     set_languages("c11", "c++17")
