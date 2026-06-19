@@ -31,6 +31,7 @@ std::expected<Runtime *, Error> create(Config *cfg, CoconutContext *ctx) {
 
   runtime->lua_state = new sol::state();
   runtime->lua_state->open_libraries(
+      sol::lib::jit,
       sol::lib::base, sol::lib::package, sol::lib::io, sol::lib::os,
       sol::lib::table, sol::lib::string, sol::lib::math);
 
@@ -1027,8 +1028,11 @@ void dispatchViewLifecycleEvent(Runtime* runtime,
   }
 
   // Merge extra payload fields (e.g. {w=1024, h=768} for resize).
-  for (const auto& kv : extraPayload) {
-    payload[kv.first] = kv.second;
+  // Guard: extraPayload may be a default-constructed table (null lua_State*).
+  if (extraPayload.valid() && extraPayload.lua_state() != nullptr) {
+    for (const auto& kv : extraPayload) {
+      payload[kv.first] = kv.second;
+    }
   }
 
   // Dispatch through the three-tier event system.

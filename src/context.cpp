@@ -5,6 +5,7 @@
 #include "commands.h"
 #include "debug.h"
 #include "dialog.h"
+#include "dispatch.h"
 #include "lua_runtime.h"
 #include "window.h"
 
@@ -207,12 +208,9 @@ namespace coconut {
 
   void CoconutWindowHandle::show(const std::string& name) {
     if (app && app->window && app->window->current_view != name) {
-      // Fire "unmount" lifecycle event through _dispatch for the current view.
-      if (app->lua_state && !app->window->current_view.empty()) {
-        lua::dispatchViewLifecycleEvent(
-            app->lua_state,
-            app->window->current_view,
-            "unmount", {});
+      // Fire "unmount" lifecycle event through the dispatch queue.
+      if (!app->window->current_view.empty()) {
+        dispatch::lifecycleEvent(app, app->window->current_view, "unmount");
       }
       window::showView(app->window, name);
       // Update Lua's active view tracker for event dispatch Tier 1.
@@ -220,11 +218,8 @@ namespace coconut {
         sol::state_view lua(*app->lua_state->lua_state);
         lua["coconut"]["_active_view"] = name;
       }
-      // Fire "mount" lifecycle event through _dispatch for the new view.
-      if (app->lua_state) {
-        lua::dispatchViewLifecycleEvent(
-            app->lua_state, name, "mount", {});
-      }
+      // Fire "mount" lifecycle event through the dispatch queue.
+      dispatch::lifecycleEvent(app, name, "mount");
     }
   }
 

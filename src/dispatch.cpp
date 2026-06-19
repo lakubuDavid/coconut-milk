@@ -1,6 +1,7 @@
 #include "dispatch.h"
 #include "app.h"
 #include "debug.h"
+#include "lua_runtime.h"
 
 namespace coconut::dispatch {
 
@@ -48,11 +49,9 @@ void init(App* app) {
   (void)app;
   debug::info("dispatch::init: dispatch system initialized");
   // TODO: Register CFRunLoopSource on main thread.
-  // This will call dispatch::drain() on each event loop iteration.
 }
 
 void shutdown(App* app) {
-  // Drain any remaining messages before shutting down.
   drain(app);
   debug::info("dispatch::shutdown: dispatch system shut down");
   // TODO: Remove CFRunLoopSource.
@@ -66,24 +65,49 @@ void drain(App* app) {
   while (auto msg = app->outbox.pop()) {
     switch (msg->kind) {
       case MessageKind::EvalJS:
-        debug::info(std::format("dispatch::drain: EvalJS ({})",
-                                 msg->payload.substr(0, 100)));
-        // TODO: Call webview_eval(app->webview, msg->payload.c_str())
-        // once the webview is guaranteed to be in a safe state.
+        if (app->webview != nullptr) {
+          webview_eval(app->webview, msg->payload.c_str());
+        }
         break;
 
-      case MessageKind::LifecycleEvent:
-        debug::info(std::format("dispatch::drain: LifecycleEvent ({})",
-                                 msg->payload));
-        // TODO: Call lua::dispatchViewLifecycleEvent(runtime, viewName, eventName)
-        // once the Lua state is guaranteed to be initialized.
-        break;
+      case MessageKind::LifecycleEvent: {
+        // Split "viewName|eventName".
+        size_t pipe = msg->payload.find('|');
+        if (pipe == std::string::npos) {
+          debug::warn("dispatch::drain: malformed LifecycleEvent payload");
+          break;
+        }
+        std::string_view view(msg->payload.data(), pipe);
+        std::string_view event(msg->payload.data() + pipe + 1,
+                               msg->payload.size() - pipe - 1);
 
-      case MessageKind::CommandCall:
-        debug::info(std::format("dispatch::drain: CommandCall ({})",
-                                 msg->payload));
-        // TODO: Dispatch to the command registry.
+        if (app->lua_state != nullptr) {
+          lua::dispatchViewLifecycleEvent(
+              app->lua_state,
+              std::string(view),
+              std::string(event),
+              {});
+        }
         break;
+      }
+
+      case MessageKind::CommandCall: {
+        // Split "commandName|jsonArgs".
+        size_t pipe = msg->payload.find('|');
+        if (pipe == std::string::npos) {
+          debug::warn("dispatch::drain: malformed CommandCall payload");
+          break;
+        }
+        std::string_view cmd(msg->payload.data(), pipe);
+        std::string_view args(msg->payload.data() + pipe + 1,
+                              msg->payload.size() - pipe - 1);
+
+        // TODO: Dispatch to command registry via bridge.
+        debug::info(std::format("dispatch::drain: CommandCall '{}' (not yet dispatched)",
+                                 cmd));
+        (void)args;
+        break;
+      }
     }
   }
 }
