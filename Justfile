@@ -118,9 +118,9 @@ rebuild:
 format:
 	clang-format -i src/**/*.h src/**/*.cpp tests/**/*.cpp
 
-install:
+install: build
 	mkdir -p {{INSTALL_DIR}}
 	ln -sf "$$(cd {{PROJECT_ROOT}} && just --justfile {{PROJECT_ROOT}}/Justfile _targetfile {{DEFAULT_TARGET}})" "{{INSTALL_DIR}}/coconut"
-	ln -sf "$$(pwd)/scripts/create-coconut-app" "{{INSTALL_DIR}}/create-coconut-app"
+	ln -sf "{{PROJECT_ROOT}}/scripts/create-coconut-app" "{{INSTALL_DIR}}/create-coconut-app"
 	@echo "installed to {{INSTALL_DIR}}:"
 	@ls -la "{{INSTALL_DIR}}/coconut" "{{INSTALL_DIR}}/create-coconut-app"
