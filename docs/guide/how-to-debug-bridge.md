@@ -493,17 +493,12 @@ coconut.on("message", (event) => {
 
 ### Open DevTools
 
-**macOS:** Press `Cmd+Option+I` or run:
+**macOS:** Run with `--debug`, then open Safari → Develop → [Computer Name] → WebView.
+Right-click → Inspect Element also works. A 🐚 hint bar appears at the top of the app.
 
-```lua
-ctx:bind("open_devtools", function(params, ctx)
-  -- macOS: open WebKit inspector
-  os.execute("open -a 'Safari' --args -webinspector")
-  return { success = true }
-end)
-```
+**Windows:** Run with `--debug`, then press `F12` or right-click → Inspect.
 
-**Windows/Linux:** Use debug build with inspector enabled
+**Linux:** Run with `--debug` — the WebKitGTK Inspector opens automatically.
 
 ---
 

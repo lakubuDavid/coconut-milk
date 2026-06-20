@@ -255,51 +255,71 @@ UnoCSS reset must be loaded as a stylesheet, not a script:
 ### Enable Debug Mode
 
 ```bash
-coconut --debug
+coconut -d
+coconut --debug           # same thing
 ```
 
-This enables verbose logging including:
-- Window hierarchy dumps
-- Bridge message details
-- View loading steps
-- Command registration
+This enables:
+- Verbose logging to stdout (file operations, bridge messages, lifecycle events)
+- **Native WebView DevTools** on all platforms
+- A visible 🐚 hint bar at the top of the app window
 
-### Transport Logging
+### Per-Platform JS Debugger Access
 
-Dump all RPC messages:
+When `--debug` is active, each platform opens or hints at its native WebView
+inspector (the same debugging tools used by Safari, Edge, or WebKitGTK):
 
-```lua
--- coconut.config.lua
-return {
-  debug = {
-    enabled = true,
-    showTransportDump = true,  -- Log every message
-    logLevel = "debug",
-  },
-}
+| Platform | How to access | What opens |
+|---|---|---|
+| **macOS** | Safari → Develop → [Computer Name] → WebView | Safari Web Inspector |
+| **Windows** | Press `F12` or right-click → Inspect | Edge DevTools |
+| **Linux** | Opens automatically | WebKitGTK Inspector |
+
+**macOS — Step by step:**
+
+1. Open **Safari** → **Settings** → **Advanced** → check ✅ **"Show Develop menu in menu bar"**
+2. Run your app: `coconut -d`
+3. In Safari's menu bar: **Develop → [Your Mac's Name] → coconut** (or your app's webview)
+4. The Web Inspector opens with Console, Elements, Sources, Network, etc.
+
+> 💡 If the webview doesn't appear in the Develop menu, make sure:
+> - Safari's Develop menu is enabled (restart Safari after enabling)
+> - Your app has loaded at least one page (run from a project with views)
+> - You're on **macOS 13.3+** (required for `WKWebView.setInspectable:`)
+
+**Windows — Step by step:**
+
+1. Run your app: `coconut -d`
+2. Press **F12** or **right-click** anywhere in the webview → **Inspect**
+3. Edge DevTools opens with full debugging capabilities
+
+**Linux — Step by step:**
+
+1. Run your app: `coconut -d`
+2. The WebKitGTK Inspector window opens automatically
+3. Console messages are also written to stdout
+
+### The 🐚 Hint Bar
+
+When `--debug` is active, a small green bar appears at the top of your app:
+
+```
+🐚 Debug: Safari → Develop → WebView          ✕
 ```
 
-Output:
+This tells you how to access the debugger on your platform. Click ✕ to dismiss.
 
-```
-[DEBUG] transport: send → {"type":"call","id":"u1","name":"greet","payload":{"name":"Ada"}}
-[DEBUG] transport: recv → {"type":"return","id":"u1","payload":{"greeting":"Hello, Ada!"}}
-```
+The hint is injected as a document-start script and appears automatically on
+every page load. It does not appear in production builds (no `--debug`).
 
-### WebKit Inspector
+### Console Forwarding
 
-Enable the WebKit inspector for frontend debugging:
+On **Linux**, `console.log/warn/error` output from the frontend is automatically
+written to stdout when `--debug` is active (via WebKitGTK's
+`enable_write_console_messages_to_stdout`).
 
-```lua
--- In coconut.config.lua
-return {
-  debug = {
-    enabled = true,
-  },
-}
-```
-
-Then in the webview, right-click and select "Inspect Element" (macOS).
+On **macOS and Windows**, use Safari Web Inspector or Edge DevTools to see
+console output.
 
 ### Lua Logging
 

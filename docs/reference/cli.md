@@ -62,14 +62,22 @@ coconut --version
 
 #### Debug Mode
 
-With `--debug`, additional diagnostic information is logged:
+With `--debug` (or `-d`), the runtime:
 
-- Window hierarchy dumps
-- Bridge message details
-- View loading steps
-- Command registration
+- Enables verbose logging to stdout
+- Opens (or hints at) the **native WebView DevTools** for JS debugging
+- Injects a 🐚 hint bar at the top of the app window
 
-You can also control logging via `coconut.config.lua`:
+| Platform | DevTools access |
+|---|---|
+| **macOS** | Safari → Develop → [Computer Name] → WebView |
+| **Windows** | Press F12 or right-click → Inspect |
+| **Linux** | Opens automatically |
+
+See [Debugging](../explanation/troubleshooting.md#debugging) for step-by-step
+instructions per platform.
+
+You can also enable debug mode via `coconut.config.lua`:
 
 ```lua
 return {
@@ -79,6 +87,15 @@ return {
     logLevel = "debug",         -- "debug", "info", "warn", "error"
   },
 }
+```
+
+### Transport Logging
+
+With `showTransportDump = true` in the config, all bridge messages are logged:
+
+```
+[DEBUG] transport: send → {"type":"call","id":"u1","name":"greet","payload":{"name":"Ada"}}
+[DEBUG] transport: recv → {"type":"return","id":"u1","payload":{"greeting":"Hello, Ada!"}}
 ```
 
 ---
