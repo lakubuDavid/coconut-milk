@@ -497,6 +497,12 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  // Open DevTools when --debug is active
+  if (cfg.debug.enabled) {
+    debug::info("main: opening DevTools (debug mode)");
+    window::openDevTools(window);
+  }
+
   // Start the dispatch run-loop source so queued events are drained
   // automatically on every iteration of the main loop.
   debug::info("main: starting dispatch system...");

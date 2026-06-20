@@ -20,6 +20,9 @@ namespace coconut {
     /// Connects to decide-policy-for-navigation-action signal.
     void platformInstallNavDelegate(webview_t wv);
 
+    /// Open WebKitGTK inspector.
+    void platformOpenDevTools(webview_t wv);
+
     /// Set window background color (0-1 range) using CSS/GTK background.
     void platformSetWindowBackgroundColor(webview_t wv, float r, float g, float b, float a);
   }

@@ -51,6 +51,10 @@ void applyWindowStyle(Window *window);
 /// interfering with the first page load (white screen bug).
 void installNavDelegate(Window* window);
 
+/// Open developer tools (DevTools / Inspector) for the webview.
+/// Dispatches to the platform-specific implementation.
+void openDevTools(Window* window);
+
 /// Set window background color (0-1 range).
 void setWindowBackgroundColor(Window* window, float r, float g, float b, float a = 1.0f);
 

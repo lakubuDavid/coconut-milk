@@ -251,4 +251,11 @@ void installNavDelegate(Window* window) {
   platformInstallNavDelegate(window->webview);
 }
 
+void openDevTools(Window* window) {
+  if (window == nullptr || window->webview == nullptr) {
+    return;
+  }
+  platformOpenDevTools(window->webview);
+}
+
 } // namespace coconut::window

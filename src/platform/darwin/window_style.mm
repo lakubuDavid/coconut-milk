@@ -300,4 +300,28 @@ void platformInstallNavDelegate(webview_t wv) {
   installNavDelegate(win);
 }
 
+/// On macOS there is no public API to programmatically open Safari Web Inspector.
+/// The webview library already calls WKWebView.setInspectable(true) when debug=1.
+/// We inject a visible hint in the page so the user knows how to access it.
+void platformOpenDevTools(webview_t wv) {
+  if (!wv) return;
+  debug::info("🐚 Debug mode enabled — open Safari → Develop → [Machine Name] → [WebView]");
+  debug::info("   or right-click → Inspect Element in the webview.");
+  // Inject a brief hint overlay
+  webview_eval(wv, R"JS(
+    if (!window.__coconutDevtoolsHint) {
+      window.__coconutDevtoolsHint = true;
+      var d = document.createElement('div');
+      d.id = 'coconut-devtools-hint';
+      d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;'
+        + 'background:#2b2b2b;color:#8bc34a;padding:6px 12px;font:12px/1.4 monospace;'
+        + 'border-bottom:1px solid #444;display:flex;align-items:center;gap:8px;';
+      d.innerHTML = '<span>🐚</span>'
+        + '<span>Debug: Safari → Develop → WebView</span>'
+        + '<span style="margin-left:auto;cursor:pointer;color:#888" onclick="this.parentNode.remove()">✕</span>';
+      document.body && document.body.prepend(d);
+    }
+  )JS");
+}
+
 } // namespace coconut::window

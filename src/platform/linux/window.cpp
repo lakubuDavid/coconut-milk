@@ -156,4 +156,23 @@ void platformSetWindowBackgroundColor(webview_t wv, float r, float g, float b, f
   g_object_unref(provider);
 }
 
+// ── Open DevTools (WebKitGTK Inspector) ─────────────────────────────────
+
+void platformOpenDevTools(webview_t wv) {
+  if (!wv) return;
+  void* handle = webview_get_native_handle(wv, WEBVIEW_NATIVE_HANDLE_KIND_BROWSER_CONTROLLER);
+  if (!handle) {
+    debug::warn("platformOpenDevTools: no browser controller handle");
+    return;
+  }
+  WebKitWebView* webview = WEBKIT_WEB_VIEW(handle);
+  WebKitWebInspector* inspector = webkit_web_view_get_inspector(webview);
+  if (!inspector) {
+    debug::warn("platformOpenDevTools: no WebKitWebInspector");
+    return;
+  }
+  webkit_web_inspector_show(inspector);
+  debug::info("platformOpenDevTools: WebKitGTK inspector opened");
+}
+
 } // namespace coconut::window

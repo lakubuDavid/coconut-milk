@@ -16,6 +16,10 @@ namespace coconut {
     /// Implementation in window_style.mm.
     void platformInstallNavDelegate(webview_t wv);
 
+    /// Open developer tools (DevTools / Inspector) for the webview.
+    /// No-op on platforms that don't support programmatic opening.
+    void platformOpenDevTools(webview_t wv);
+
     /// Set window background color (0-1 range).
     void platformSetWindowBackgroundColor(webview_t wv, float r, float g, float b, float a);
   }
