@@ -463,6 +463,13 @@ int main(int argc, char* argv[]) {
   window::installNavDelegate(window);
   debug::info("main: window::installNavDelegate done");
 
+  // Open DevTools before any navigation so the hint script is
+  // registered at document start on the first page load.
+  if (cfg.debug.enabled) {
+    debug::info("main: opening DevTools (debug mode)");
+    window::openDevTools(window);
+  }
+
   // Apply native window style (frameless, transparent, etc.) after
   // the Lua entry point has had a chance to set config overrides via
   // coconut.config(ctx).  This must happen before showWindow().
@@ -501,12 +508,6 @@ int main(int argc, char* argv[]) {
         dispatch("ready", sol::table(lv, sol::create), "");
       }
     }
-  }
-
-  // Open DevTools when --debug is active
-  if (cfg.debug.enabled) {
-    debug::info("main: opening DevTools (debug mode)");
-    window::openDevTools(window);
   }
 
   // Start the dispatch run-loop source so queued events are drained
