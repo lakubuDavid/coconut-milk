@@ -1,6 +1,8 @@
 #include "routes.h"
 #include "test.h"
 
+#include <filesystem>
+#include <fstream>
 #include <set>
 #include <string>
 
@@ -130,6 +132,74 @@ COCONUT_TEST(unit, route_handle_root_as_file) {
   // "/" is not a view name and not a file path → NOT_FOUND
   auto r = coconut::routes::handle("/", "/tmp");
   COCONUT_REQUIRE_EQ(r.type, coconut::routes::RouteResult::NOT_FOUND);
+}
+
+// ── Fallback file (SPA routing) ───────────────────────────────────────
+
+COCONUT_TEST(unit, route_fallback_no_fallback) {
+  coconut::routes::setViewNames({"home"});
+  coconut::routes::setFallbackFile("");
+
+  auto r = coconut::routes::handle("unknown/path", "/tmp");
+  COCONUT_REQUIRE_EQ(r.type, coconut::routes::RouteResult::NOT_FOUND);
+}
+
+COCONUT_TEST(unit, route_fallback_serves_when_missing) {
+  // When fallback file doesn't exist on disk, still NOT_FOUND
+  coconut::routes::setViewNames({"home"});
+  coconut::routes::setFallbackFile("does-not-exist.html");
+
+  auto r = coconut::routes::handle("unknown/path", "/tmp");
+  COCONUT_REQUIRE_EQ(r.type, coconut::routes::RouteResult::NOT_FOUND);
+}
+
+COCONUT_TEST(unit, route_fallback_serves_index_html) {
+  // Create temp dir with an index.html
+  auto tmp = std::filesystem::temp_directory_path() / "coconut_route_test";
+  std::filesystem::create_directories(tmp);
+  {
+    std::ofstream f(tmp / "index.html");
+    f << "<html><body>SPA</body></html>";
+  }
+
+  coconut::routes::setViewNames({"home"});
+  coconut::routes::setFallbackFile("index.html");
+
+  auto r = coconut::routes::handle("some/spa/route", tmp.string());
+  COCONUT_REQUIRE_EQ(r.type, coconut::routes::RouteResult::SERVE_FILE);
+  COCONUT_REQUIRE(!r.data.empty());
+  COCONUT_REQUIRE_EQ(r.mime_type, std::string("text/html"));
+
+  std::filesystem::remove_all(tmp);
+}
+
+COCONUT_TEST(unit, route_fallback_does_not_override_real_file) {
+  auto tmp = std::filesystem::temp_directory_path() / "coconut_route_test2";
+  std::filesystem::create_directories(tmp);
+  {
+    std::ofstream f(tmp / "index.html");
+    f << "<html>fallback</html>";
+    std::ofstream f2(tmp / "real.js");
+    f2 << "console.log('real')";
+  }
+
+  coconut::routes::setViewNames({"home"});
+  coconut::routes::setFallbackFile("index.html");
+
+  auto r = coconut::routes::handle("real.js", tmp.string());
+  COCONUT_REQUIRE_EQ(r.type, coconut::routes::RouteResult::SERVE_FILE);
+  COCONUT_REQUIRE_EQ(r.mime_type, std::string("application/javascript"));
+
+  std::filesystem::remove_all(tmp);
+}
+
+COCONUT_TEST(unit, route_fallback_does_not_override_view) {
+  coconut::routes::setViewNames({"dashboard"});
+  coconut::routes::setFallbackFile("index.html");
+
+  auto r = coconut::routes::handle("dashboard", "/tmp");
+  COCONUT_REQUIRE_EQ(r.type, coconut::routes::RouteResult::NAVIGATE_VIEW);
+  COCONUT_REQUIRE_EQ(r.view_name, std::string("dashboard"));
 }
 
 // ── Route enum values ─────────────────────────────────────────────────

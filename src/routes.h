@@ -45,6 +45,11 @@ struct RouteResult {
 /// Called from main.cpp after all views are registered.
 void setViewNames(const std::set<std::string>& names);
 
+/// Set a fallback file path (relative to root_dir) served on 404.
+/// For SPA routing: when a request doesn't match a view or file,
+/// serve this file instead (e.g. "index.html").  Empty = no fallback.
+void setFallbackFile(std::string_view path);
+
 /// Resolve a coconut:// URL and return the action to take.
 /// Handles view-name routing, file serving, and 404s.
 /// @param url       The full URL (e.g. "assets/app.js" or "home")

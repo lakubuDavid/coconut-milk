@@ -1126,6 +1126,7 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
       mergeStr("initial_view",    cfg->initial_view);
       mergeStr("title",            cfg->title);
       mergeStr("view_root",       cfg->view_root);
+      mergeStr("fallback_file",   cfg->fallback_file);
       mergeStr("asset_root",      cfg->asset_root);
       mergeStr("command_root",    cfg->command_root);
 

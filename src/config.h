@@ -142,6 +142,7 @@ struct Config {
   std::string title = "Coconut";
   std::string initial_view = "home";
   std::string view_root = "views";
+  std::string fallback_file;          ///< SPA fallback: serve this file on 404 (relative to project root)
   std::string asset_root = "assets";
   std::string command_root = "commands";
   std::string output_dir = "generated";

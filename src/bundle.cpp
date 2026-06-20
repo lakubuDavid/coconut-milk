@@ -428,6 +428,7 @@ writeShippableConfig(const Config& cfg, const std::string& out_dir) {
   j["title"]       = shippable.title;
   j["initial_view"] = shippable.initial_view;
   j["view_root"]   = shippable.view_root;
+  j["fallback_file"] = shippable.fallback_file;
   j["asset_root"]  = shippable.asset_root;
   j["command_root"] = shippable.command_root;
   j["output_dir"]  = shippable.output_dir;

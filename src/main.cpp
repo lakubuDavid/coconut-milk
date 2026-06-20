@@ -444,6 +444,11 @@ int main(int argc, char* argv[]) {
     routes::setViewNames(names);
   }
 
+  // Set fallback file for SPA routing (empty = no fallback)
+  if (!cfg.fallback_file.empty()) {
+    routes::setFallbackFile(cfg.fallback_file);
+  }
+
   // Install the WKNavigationDelegate before showing the first view
   // so it's in place when the navigation starts.  This intercepts
   // external links and opens them in the system browser instead of

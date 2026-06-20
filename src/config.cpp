@@ -345,6 +345,7 @@ loadConfigJson(std::string_view config_path) {
     jsonCopyStr(j, "title",            cfg.title);
     jsonCopyStr(j, "initial_view",     cfg.initial_view);
     jsonCopyStr(j, "view_root",        cfg.view_root);
+    jsonCopyStr(j, "fallback_file",    cfg.fallback_file);
     jsonCopyStr(j, "asset_root",       cfg.asset_root);
     jsonCopyStr(j, "command_root",     cfg.command_root);
     jsonCopyStr(j, "output_dir",       cfg.output_dir);
@@ -454,6 +455,7 @@ loadConfigLua(std::string_view config_path) {
     cfg.title             = t["title"].get_or<std::string>("Coconut");
     cfg.initial_view      = t["initial_view"].get_or<std::string>("home");
     cfg.view_root         = t["view_root"].get_or<std::string>("views");
+    cfg.fallback_file     = t["fallback_file"].get_or<std::string>("");
     cfg.asset_root        = t["asset_root"].get_or<std::string>("assets");
     cfg.command_root       = t["command_root"].get_or<std::string>("commands");
     cfg.output_dir        = t["output_dir"].get_or<std::string>(cfg.output_dir);

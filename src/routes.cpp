@@ -12,6 +12,7 @@
 namespace coconut::routes {
 
 static std::set<std::string> g_view_names;
+static std::string g_fallback_file;
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -51,6 +52,19 @@ static std::string stripCoconutScheme(std::string_view path) {
   return std::string(path);
 }
 
+/// Try to serve a file from disk and fill result fields.
+/// Returns true if the file was found and read.
+static bool serveFile(const std::filesystem::path& filePath, RouteResult& result) {
+  auto readResult = fs::readBytes(filePath.string());
+  if (!readResult) return false;
+
+  result.type = RouteResult::SERVE_FILE;
+  result.file_path = filePath.string();
+  result.mime_type = std::string(mimeForExtension(filePath.string()));
+  result.data = std::move(*readResult);
+  return true;
+}
+
 // ── Public API ──────────────────────────────────────────────────────
 
 void setViewNames(const std::set<std::string>& names) {
@@ -61,6 +75,13 @@ void setViewNames(const std::set<std::string>& names) {
     joined += n;
   }
   debug::info(std::format("routes: {} view(s) registered [{}]", names.size(), joined));
+}
+
+void setFallbackFile(std::string_view path) {
+  g_fallback_file = path;
+  if (!path.empty()) {
+    debug::info(std::format("routes: fallback file set to '{}'", path));
+  }
 }
 
 RouteResult handle(std::string_view path, std::string_view root_dir) {
@@ -88,19 +109,27 @@ RouteResult handle(std::string_view path, std::string_view root_dir) {
   auto filePath = std::filesystem::path(root_dir) / normalised;
   filePath = filePath.lexically_normal();
 
-  auto readResult = fs::readBytes(filePath.string());
-  if (!readResult) {
-    debug::warn(std::format("routes::handle('{}') -> NOT_FOUND ({})", normalised, filePath.string()));
-    return result;  // type stays NOT_FOUND
+  if (serveFile(filePath, result)) {
+    debug::info(std::format("routes::handle('{}') -> SERVE_FILE '{}' ({} bytes)",
+                normalised, filePath.string(), result.data.size()));
+    return result;
   }
 
-  debug::info(std::format("routes::handle('{}') -> SERVE_FILE '{}' ({} bytes)",
-              normalised, filePath.string(), readResult->size()));
+  // 4. Not a view, not a file — try fallback file (SPA routing)
+  if (!g_fallback_file.empty()) {
+    auto fallbackPath = std::filesystem::path(root_dir) / g_fallback_file;
+    fallbackPath = fallbackPath.lexically_normal();
+    if (serveFile(fallbackPath, result)) {
+      debug::info(std::format("routes::handle('{}') -> FALLBACK '{}' ({} bytes)",
+                  normalised, fallbackPath.string(), result.data.size()));
+      return result;
+    }
+    debug::warn(std::format("routes::handle('{}') -> fallback '{}' not found",
+                normalised, fallbackPath.string()));
+  }
 
-  result.type = RouteResult::SERVE_FILE;
-  result.file_path = filePath.string();
-  result.mime_type = std::string(mimeForExtension(filePath.string()));
-  result.data = std::move(*readResult);
+  debug::warn(std::format("routes::handle('{}') -> NOT_FOUND", normalised));
+  return result;
   return result;
 }
 
