@@ -124,5 +124,11 @@ install: build
 	chmod +x "$$BIN" && \
 	ln -sf "$$BIN" "{{INSTALL_DIR}}/coconut"
 	ln -sf "{{PROJECT_ROOT}}/scripts/create-coconut-app" "{{INSTALL_DIR}}/create-coconut-app"
-	@echo "installed to {{INSTALL_DIR}}:"
+	@echo "installed ({{MODE}}) to {{INSTALL_DIR}}:"
 	@ls -la "{{INSTALL_DIR}}/coconut" "{{INSTALL_DIR}}/create-coconut-app"
+
+install-release:
+	@just --set MODE release install
+
+install-debug:
+	@just --set MODE debug install
