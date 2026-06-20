@@ -120,7 +120,9 @@ format:
 
 install: build
 	mkdir -p {{INSTALL_DIR}}
-	ln -sf "$$(cd {{PROJECT_ROOT}} && just --justfile {{PROJECT_ROOT}}/Justfile _targetfile {{DEFAULT_TARGET}})" "{{INSTALL_DIR}}/coconut"
+	BIN="$$(cd {{PROJECT_ROOT}} && just --justfile {{PROJECT_ROOT}}/Justfile _targetfile {{DEFAULT_TARGET}})" && \
+	chmod +x "$$BIN" && \
+	ln -sf "$$BIN" "{{INSTALL_DIR}}/coconut"
 	ln -sf "{{PROJECT_ROOT}}/scripts/create-coconut-app" "{{INSTALL_DIR}}/create-coconut-app"
 	@echo "installed to {{INSTALL_DIR}}:"
 	@ls -la "{{INSTALL_DIR}}/coconut" "{{INSTALL_DIR}}/create-coconut-app"
