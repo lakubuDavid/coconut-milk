@@ -474,6 +474,16 @@ loadConfigLua(std::string_view config_path) {
       }
     }
 
+    // hmr (hot module replacement)
+    {
+      sol::object hmrObj = t["hmr"];
+      if (hmrObj.is<sol::table>()) {
+        sol::table ht = hmrObj.as<sol::table>();
+        cfg.hmr.enabled = ht["enabled"].get_or(false);
+        cfg.hmr.auto_regenerate = ht["auto_regenerate"].get_or(false);
+      }
+    }
+
     // generators.output_dir (backward compat)
     {
       sol::object gen = t["generators"];

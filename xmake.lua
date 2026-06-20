@@ -17,7 +17,7 @@ add_defines("COCONUT_VERSION=\"0.1.0\"")
 -- Task: build TS->JS embed
 -- =================================================================
 
-task("coconut_bridge_embeds")
+task("bridge_embeds")
     set_menu {
         usage = "xmake coconut_bridge_embeds",
         description = "Build coconut bridge TS->JS + .d.ts and generate embed .h header"
@@ -99,7 +99,7 @@ target("coconut")
 -- Tests
 -- =================================================================
 
-target("coconut-milk-tests")
+target("tests")
     set_kind("binary")
     add_includedirs("src", "tests", "thirdparty/webview/core/include")
     add_includedirs("thirdparty")

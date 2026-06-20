@@ -1,0 +1,32 @@
+{
+  "currentScope": "base",
+  "blockMode": "soft",
+  "scopes": [
+    {
+      "name": "base",
+      "goal": "creeate a set of extensions for pi",
+      "features": [],
+      "allowedPaths": [],
+      "allowedTopics": []
+    },
+    {
+      "name": "v0.2.0",
+      "goal": "Add authentication and cloud sync",
+      "features": [
+        "User registration/login",
+        "Cloud sync",
+        "Multi-device support"
+      ],
+      "allowedPaths": [
+        "src/auth/",
+        "src/sync/"
+      ],
+      "allowedTopics": [
+        "authentication",
+        "cloud sync"
+      ]
+    }
+  ],
+  "parkingLot": [],
+  "enabled": false
+}

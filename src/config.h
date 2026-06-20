@@ -109,6 +109,14 @@ struct DebugConfig {
   std::string logLevel   = "info"; ///< Minimum log level: debug|info|warn|error
 };
 
+// ── HMR (Hot Module Replacement) config ────────────────────────────────────
+
+/// HMR settings — off by default, auto-enabled in --debug mode.
+struct HmrConfig {
+  bool enabled          = false;  ///< Master switch
+  bool auto_regenerate  = false;  ///< Run `coconut generate` on file changes
+};
+
 // ── View entry ─────────────────────────────────────────────────────────────
 
 /// Describes a view as declared in the startup config file.
@@ -139,6 +147,7 @@ struct Config {
   bool frameless = false;
   bool transparent = false;
   DebugConfig debug;
+  HmrConfig hmr;
   std::string title = "Coconut";
   std::string initial_view = "home";
   std::string view_root = "views";

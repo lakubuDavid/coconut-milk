@@ -90,6 +90,10 @@ namespace coconut {
     /// Registers a single command handler (one command name => one handler).
     void bind(const std::string& name, sol::protected_function fn);
 
+    /// Re-registers a command handler, overwriting any existing one.
+    /// Unlike bind(), this does not throw on duplicates.
+    void rebind(const std::string& name, sol::protected_function fn);
+
     /// Dispatches an event through the three-tier chain and forwards to JS.
     /// Accepts a single event table with a 'name' field.
     void emit(sol::table event);

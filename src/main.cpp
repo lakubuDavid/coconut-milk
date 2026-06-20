@@ -7,6 +7,7 @@
 #include "debug.h"
 #include "dispatch.h"
 #include "generators/generate.h"
+#include "hotreload.h"
 #include "lifecycle.h"
 #include "permissions.h"
 #include "routes.h"
@@ -514,6 +515,9 @@ int main(int argc, char* argv[]) {
   // automatically on every iteration of the main loop.
   debug::info("main: starting dispatch system...");
   coconut::dispatch::init(app);
+
+  // Manual HMR (coconut.hotreload()) is always available via Lua.
+  // Background-thread auto-watch is deferred to v0.2.0.
 
   debug::info("main: calling app::run()...");
   coconut::app::run(app);

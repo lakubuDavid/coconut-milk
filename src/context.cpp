@@ -166,6 +166,12 @@ namespace coconut {
     }
   }
 
+  void CoconutContext::rebind(const std::string& name, sol::protected_function fn) {
+    if (commands != nullptr) {
+      commands->handlers[name] = fn;
+    }
+  }
+
   void CoconutContext::emit(sol::table event) {
     if (!app || !lua_state || !lua_state->lua_state) return;
 

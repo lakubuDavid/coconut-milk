@@ -5,6 +5,7 @@
 #include "debug.h"
 #include "dialog.h"
 #include "fs.h"
+#include "hotreload.h"
 #include "packages/env.h"
 #include "packages/open_url.h"
 #include "packages/clipboard.h"
@@ -207,6 +208,14 @@ void _bindCoconutLuaApi(Runtime *runtime) {
   coconut.set_function("info",  [](const std::string& msg) { debug::info(msg); });
   coconut.set_function("warn",  [](const std::string& msg) { debug::warn(msg); });
   coconut.set_function("error", [](const std::string& msg) { debug::error(msg); });
+
+  // Hot Module Replacement — triggers a manual reload scan.
+  // Available even if the background watcher is not running.
+  coconut.set_function("hotreload", [runtime]() -> bool {
+    if (!runtime || !runtime->app || !runtime->app->configs) return false;
+    coconut::hotreload::trigger(runtime->app, runtime->app->configs);
+    return true;
+  });
 
   // Built-in stubs — overridden by user's main.lua when loaded.
   coconut.set_function("config",
@@ -892,6 +901,7 @@ void _bindUserType(Runtime *runtime) {
       "reload", &CoconutContext::reload,
       "close",  &CoconutContext::close,
       "bind",   &CoconutContext::bind,
+      "rebind", &CoconutContext::rebind,
       "emit",    &CoconutContext::emit,
       "emit_sync", &CoconutContext::emit_sync);
 
