@@ -197,6 +197,12 @@ int main(int argc, char* argv[]) {
   if (args.override_transparent)        cfg.transparent   = true;
   if (args.override_title_given)        cfg.title         = args.override_title;
 
+  // --debug flag overrides config file value.
+  if (args.debug) {
+    cfg.debug.enabled = true;
+    cfg.debug.showTransportDump = true;
+  }
+
   // Apply darwin.* config to NSBundle at runtime (notification permissions,
   // bundle identifier, etc.) so the OS sees the right values.
 #if defined(__APPLE__)

@@ -21,7 +21,7 @@ namespace coconut {
     inline void platformOpenDevTools(webview_t wv) {
       if (!wv) return;
       debug::info("🐚 Debug mode — press F12 or right-click → Inspect to open Edge DevTools.");
-      webview_eval(wv, R"JS(
+      webview_init(wv, R"JS(
         if (!window.__coconutDevtoolsHint) {
           window.__coconutDevtoolsHint = true;
           var d = document.createElement('div');

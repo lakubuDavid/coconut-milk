@@ -302,13 +302,14 @@ void platformInstallNavDelegate(webview_t wv) {
 
 /// On macOS there is no public API to programmatically open Safari Web Inspector.
 /// The webview library already calls WKWebView.setInspectable(true) when debug=1.
-/// We inject a visible hint in the page so the user knows how to access it.
+/// We inject a visible hint via webview_init (WKUserScript at document start)
+/// so it appears reliably regardless of page load timing.
 void platformOpenDevTools(webview_t wv) {
   if (!wv) return;
   debug::info("🐚 Debug mode enabled — open Safari → Develop → [Machine Name] → [WebView]");
   debug::info("   or right-click → Inspect Element in the webview.");
-  // Inject a brief hint overlay
-  webview_eval(wv, R"JS(
+  // Inject a hint bar via init script (fires at document start)
+  webview_init(wv, R"JS(
     if (!window.__coconutDevtoolsHint) {
       window.__coconutDevtoolsHint = true;
       var d = document.createElement('div');
