@@ -39,6 +39,7 @@ static void setBytecode(Args& a, const std::string&) { a.bytecode_config = true;
 static void setWatch(Args& a, const std::string&) { a.watch = true; }
 static void setFrameless(Args& a, const std::string&) { a.override_frameless = true; }
 static void setTransparent(Args& a, const std::string&) { a.override_transparent = true; }
+static void setYes(Args& a, const std::string&) { a.yes = true; }
 
 static void setRoot(Args& a, const std::string& v) { a.root = v; }
 static void setOutDir(Args& a, const std::string& v) { a.out_dir = v; }
@@ -76,6 +77,8 @@ static const Option OPTIONS[] = {
   {"--frameless",     false, "Enable frameless window",                    setFrameless},
   {"--transparent",   false, "Enable transparent window",                  setTransparent},
   {"--bytecode",      false, "Compile config to Lua bytecode (B2 opt-in)", setBytecode},
+  {"-y",        false, "Skip prompts (for 'new' subcommand)",              setYes},
+  {"--yes",     false, "Skip prompts (for 'new' subcommand)",              setYes},
   {"--watch",         false, "Watch for file changes and auto-regenerate", setWatch},
 };
 
@@ -253,7 +256,7 @@ void printBundleHelp(const char* prog) {
 }
 
 void printNewHelp(const char* prog) {
-  std::println("Usage: {} new <name> [options]", progname(prog));
+  std::println("Usage: {} new [name] [options]", progname(prog));
   std::println("");
   std::println("Scaffold a new Coconut Milk project.");
   std::println("");
@@ -268,7 +271,8 @@ void printNewHelp(const char* prog) {
   std::println("");
   std::println("Options:");
   std::println("  -h, --help           Show this help and exit");
-  std::println("  --template NAME      Template: default (default), minimal");
+  std::println("  -y, --yes             Skip prompts, use defaults");
+  std::println("  -t, --template NAME   Template: bare (default), bare-ts, vite");
 }
 
 void printRunHelp(const char* prog) {

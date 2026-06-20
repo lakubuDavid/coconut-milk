@@ -86,6 +86,7 @@ namespace coconut {
 
 bool scaffoldProject(const std::string& name,
                      const std::string& template_name,
+                     bool yes,
                      std::string& error_out)
 {
   // Find the script
@@ -95,9 +96,18 @@ bool scaffoldProject(const std::string& name,
     return false;
   }
 
-  // Build the command
-  std::string cmd = std::format("{} {} --template {} --yes",
-                                script, name, template_name);
+  // Build the command — no --yes flag, interactive by default.
+  // Name and template are optional; the script prompts for missing values.
+  std::string cmd = script;
+  if (!name.empty()) {
+    cmd += " " + name;
+  }
+  if (!template_name.empty() && template_name != "default") {
+    cmd += " --template " + template_name;
+  }
+  if (yes) {
+    cmd += " --yes";
+  }
 
   int rc = std::system(cmd.c_str());
   if (rc != 0) {

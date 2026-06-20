@@ -79,18 +79,16 @@ int main(int argc, char* argv[]) {
     return generator::runGenerate(cmdRoot, outDir);
   }
 
-  // Subcommand: new — scaffold a new project
+  // Subcommand: new — scaffold a new project (interactive by default)
   if (args.new_cmd) {
-    if (args.new_name.empty()) {
-      std::cerr << "error: project name is required. Usage: coconut new <name>" << std::endl;
-      return 1;
-    }
     std::string error;
-    if (!coconut::scaffoldProject(args.new_name, args.template_name, error)) {
+    if (!coconut::scaffoldProject(args.new_name, args.template_name, args.yes, error)) {
       std::cerr << "error: " << error << std::endl;
       return 1;
     }
-    std::println("Project '{}' created. cd {} && coconut", args.new_name, args.new_name);
+    if (!args.new_name.empty()) {
+      std::println("Project '{}' created. cd {} && coconut", args.new_name, args.new_name);
+    }
     return 0;
   }
 

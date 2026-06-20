@@ -28,6 +28,7 @@ struct Args {
   std::string    root = ".";  ///< project root directory (default: CWD)
   std::string    new_name;     ///< project name for "new" subcommand
   std::string    template_name = "default";  ///< template for "new" subcommand
+  bool           yes          = false;  ///< --yes flag (skip prompts)
   std::string    out_dir = "generated";  ///< output dir for subcommands
 
   // Config override flags (for "run" and default mode)
