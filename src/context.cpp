@@ -9,6 +9,8 @@
 #include "lua_runtime.h"
 #include "window.h"
 
+#include <format>
+
 // Platform dispatch for native window handle operations
 #if defined(__APPLE__)
   #include "platform/darwin/window_handle.h"

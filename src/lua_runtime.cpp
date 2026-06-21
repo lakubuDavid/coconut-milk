@@ -16,6 +16,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <format>
 #include <iostream>
 
 // Some system headers (ObjC runtime transitives) define `nil` as a macro

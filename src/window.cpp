@@ -6,6 +6,7 @@
 #include <expected>
 #include <filesystem>
 #include <fstream>
+#include <format>
 #include <iostream>
 #include <sstream>
 #include <string>

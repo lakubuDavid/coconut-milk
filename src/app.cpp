@@ -3,6 +3,7 @@
 #include "lifecycle.h"
 #include "window.h"
 
+#include <format>
 #include <iostream>
 
 namespace coconut::app {
