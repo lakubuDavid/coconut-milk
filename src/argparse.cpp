@@ -159,7 +159,7 @@ Args parse(int argc, char* argv[]) {
     // Flag parsing
     const Option* opt = findOption(a);
     if (!opt) {
-      coconut::println(stderr, "error: unknown option '{}'", a);
+      coconut::println(std::cerr, "error: unknown option '{}'", a);
       // Print relevant help
       for (const auto& sc : SUBCOMMANDS) {
         if (sc.apply == setGenerate && args.generate) { sc.printHelp(argv[0]); break; }
@@ -173,7 +173,7 @@ Args parse(int argc, char* argv[]) {
 
     if (opt->takes_value) {
       if (i + 1 >= argc) {
-        coconut::println(stderr, "error: '{}' requires a value", a);
+        coconut::println(std::cerr, "error: '{}' requires a value", a);
         std::exit(1);
       }
       opt->apply(args, argv[++i]);
