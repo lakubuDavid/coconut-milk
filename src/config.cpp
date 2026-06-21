@@ -3,7 +3,13 @@
 
 #include <nlohmann/json.hpp>
 
-#include <unistd.h>  // getcwd(3)
+// getcwd(3)
+#if defined(_WIN32)
+#  include <direct.h>   // _getcwd
+#  define getcwd _getcwd
+#else
+#  include <unistd.h>
+#endif
 
 #include <sol/state.hpp>
 #include <sol/table.hpp>

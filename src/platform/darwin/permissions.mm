@@ -4,10 +4,6 @@
 #import <Contacts/Contacts.h>
 #import <Photos/Photos.h>
 #import <Security/Authorization.h>
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wenum-constexpr-conversion"
-#import <ApplicationServices/ApplicationServices.h>
-#pragma clang diagnostic pop
 #import <ScreenCaptureKit/ScreenCaptureKit.h>
 
 #include "permissions.h"

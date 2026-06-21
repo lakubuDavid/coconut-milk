@@ -5,7 +5,13 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
-#include <unistd.h>
+#if defined(_WIN32)
+#  include <io.h>
+#  define isatty _isatty
+#  define STDERR_FILENO 2
+#else
+#  include <unistd.h>
+#endif
 
 namespace coconut::debug {
 
