@@ -8,7 +8,11 @@ else
 end
 add_requires("nlohmann_json 3.12.0")
 add_requires("lunasvg")
-set_languages("c23", "c++26")
+if is_plat("macosx") then
+    set_languages("c23", "c++26")
+else
+    set_languages("c23", "c++23")
+end
 add_includedirs("thirdparty/webview/core/include")
 add_includedirs("thirdparty")
 add_defines("COCONUT_VERSION=\"0.1.0\"")

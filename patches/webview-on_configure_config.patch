@@ -1,0 +1,29 @@
+diff --git a/core/include/webview/detail/backends/cocoa_webkit.hh b/core/include/webview/detail/backends/cocoa_webkit.hh
+index 1a0a2c6..2631e05 100755
+--- a/core/include/webview/detail/backends/cocoa_webkit.hh
++++ b/core/include/webview/detail/backends/cocoa_webkit.hh
+@@ -95,6 +95,11 @@ public:
+     dispatch_size_default();
+   }
+ 
++  /// Optional callback invoked with the WKWebViewConfiguration before
++  /// the WKWebView is created. Used by consumers to register custom
++  /// URL scheme handlers (e.g. coconut://).
++  inline static std::function<void(void*)> on_configure_config;
++
+   cocoa_wkwebview_engine(const cocoa_wkwebview_engine &) = delete;
+   cocoa_wkwebview_engine &operator=(const cocoa_wkwebview_engine &) = delete;
+   cocoa_wkwebview_engine(cocoa_wkwebview_engine &&) = delete;
+@@ -481,6 +486,12 @@ private:
+ #error __has_builtin not supported by compiler
+ #endif
+ 
++    // Allow external code (e.g. custom URL scheme handlers) to configure
++    // the WKWebViewConfiguration before the webview is created.
++    if (on_configure_config) {
++      on_configure_config((void*)config);
++    }
++
+     auto ui_delegate = create_webkit_ui_delegate();
+     m_webview =
+         objc::retain(WKWebView_withFrame(CGRectMake(0, 0, 0, 0), config));

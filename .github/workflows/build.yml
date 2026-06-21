@@ -8,6 +8,10 @@ on:
       - "v*.*.*"
   workflow_dispatch:
 
+env:
+  # Path to the webview monkey-patch for custom URL scheme handler
+  WEBVIEW_PATCH: patches/webview-on_configure_config.patch
+
 jobs:
   build-macos:
     runs-on: macos-15
@@ -19,6 +23,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Apply webview patch (on_configure_config)
+        run: |
+          cd thirdparty/webview
+          if git apply --check "$GITHUB_WORKSPACE/$WEBVIEW_PATCH" 2>/dev/null; then
+            git apply "$GITHUB_WORKSPACE/$WEBVIEW_PATCH"
+            echo "  ✓ webview patch applied"
+          else
+            echo "  - webview patch already applied or not needed"
+          fi
 
       - name: Install xmake
         uses: xmake-io/github-action-setup-xmake@v1
@@ -59,6 +73,16 @@ jobs:
             libnotify-dev \
             xvfb
 
+      - name: Apply webview patch
+        run: |
+          cd thirdparty/webview
+          if git apply --check "$GITHUB_WORKSPACE/$WEBVIEW_PATCH" 2>/dev/null; then
+            git apply "$GITHUB_WORKSPACE/$WEBVIEW_PATCH"
+            echo "  ✓ webview patch applied"
+          else
+            echo "  - webview patch already applied or not needed"
+          fi
+
       - name: Install xmake
         uses: xmake-io/github-action-setup-xmake@v1
         with:
@@ -96,7 +120,8 @@ jobs:
           xmake-version: latest
 
       - name: Configure (download deps)
-        run: xmake f -m release -p windows -a x86_64 -y
+        # Use x64 (not x86_64) which matches MSVC's toolchain naming
+        run: xmake f -m release -p windows -a x64 -y
 
       - name: Build coconut binary
         run: xmake build -v coconut
@@ -112,7 +137,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coconut-windows-x86_64
-          path: build/windows/x86_64/release/coconut.exe
+          path: build/windows/x64/release/coconut.exe
 
   build-vite-package:
     runs-on: ubuntu-latest
