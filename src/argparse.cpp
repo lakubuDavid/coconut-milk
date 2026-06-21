@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <print>
+#include "print.h"
 #include <string>
 #include <string_view>
 #include <vector>
@@ -159,7 +159,7 @@ Args parse(int argc, char* argv[]) {
     // Flag parsing
     const Option* opt = findOption(a);
     if (!opt) {
-      std::println(stderr, "error: unknown option '{}'", a);
+      coconut::println(stderr, "error: unknown option '{}'", a);
       // Print relevant help
       for (const auto& sc : SUBCOMMANDS) {
         if (sc.apply == setGenerate && args.generate) { sc.printHelp(argv[0]); break; }
@@ -173,7 +173,7 @@ Args parse(int argc, char* argv[]) {
 
     if (opt->takes_value) {
       if (i + 1 >= argc) {
-        std::println(stderr, "error: '{}' requires a value", a);
+        coconut::println(stderr, "error: '{}' requires a value", a);
         std::exit(1);
       }
       opt->apply(args, argv[++i]);
@@ -190,104 +190,104 @@ Args parse(int argc, char* argv[]) {
 // ---------------------------------------------------------------------------
 
 static void printCommonOptions() {
-  std::println("Options:");
+  coconut::println("Options:");
   for (const auto& opt : OPTIONS) {
     // Only show each option once (prefer long names, skip short duplicates)
     if (opt.name[0] == '-' && opt.name[1] == '-') {
       if (opt.takes_value)
-        std::println("  {} <value>    {}", opt.name, opt.help);
+        coconut::println("  {} <value>    {}", opt.name, opt.help);
       else
-        std::println("  {}             {}", opt.name, opt.help);
+        coconut::println("  {}             {}", opt.name, opt.help);
     }
   }
 }
 
 void printHelp(const char* prog) {
-  std::println("Usage: {} [options] [ROOT]", progname(prog));
-  std::println("       {} <subcommand> [options]", progname(prog));
-  std::println("");
-  std::println("Run a Coconut Milk application or invoke a subcommand.");
-  std::println("");
-  std::println("Arguments:");
-  std::println("  ROOT   Project root directory (default: .)");
-  std::println("");
+  coconut::println("Usage: {} [options] [ROOT]", progname(prog));
+  coconut::println("       {} <subcommand> [options]", progname(prog));
+  coconut::println("");
+  coconut::println("Run a Coconut Milk application or invoke a subcommand.");
+  coconut::println("");
+  coconut::println("Arguments:");
+  coconut::println("  ROOT   Project root directory (default: .)");
+  coconut::println("");
   printCommonOptions();
-  std::println("");
-  std::println("Subcommands:");
+  coconut::println("");
+  coconut::println("Subcommands:");
   for (const auto& sc : SUBCOMMANDS) {
-    std::println("  {:<12} {}", sc.name, sc.help);
+    coconut::println("  {:<12} {}", sc.name, sc.help);
   }
-  std::println("");
-  std::println("The project root is searched for coconut.config.lua /");
-  std::println("coconut.config.json and is the base for coconut:// assets.");
+  coconut::println("");
+  coconut::println("The project root is searched for coconut.config.lua /");
+  coconut::println("coconut.config.json and is the base for coconut:// assets.");
 }
 
 void printGenerateHelp(const char* prog) {
-  std::println("Usage: {} generate [options]", progname(prog));
-  std::println("");
-  std::println("Parse all commands/*.lua for @command annotations and generate");
-  std::println("type-safe wrappers (.g.lua, .g.js, .d.ts) plus an aggregated");
-  std::println("commands.d.ts with a union type of all command names.");
-  std::println("");
-  std::println("Options:");
-  std::println("  -h, --help       Show this help and exit");
-  std::println("  -o, --out-dir    Output directory (default: generated/)");
-  std::println("  --watch          Watch for file changes and auto-regenerate");
-  std::println("");
-  std::println("Runs from the project root. Reads coconut.config.* for");
-  std::println("command_root and output_dir settings.");
+  coconut::println("Usage: {} generate [options]", progname(prog));
+  coconut::println("");
+  coconut::println("Parse all commands/*.lua for @command annotations and generate");
+  coconut::println("type-safe wrappers (.g.lua, .g.js, .d.ts) plus an aggregated");
+  coconut::println("commands.d.ts with a union type of all command names.");
+  coconut::println("");
+  coconut::println("Options:");
+  coconut::println("  -h, --help       Show this help and exit");
+  coconut::println("  -o, --out-dir    Output directory (default: generated/)");
+  coconut::println("  --watch          Watch for file changes and auto-regenerate");
+  coconut::println("");
+  coconut::println("Runs from the project root. Reads coconut.config.* for");
+  coconut::println("command_root and output_dir settings.");
 }
 
 void printBundleHelp(const char* prog) {
-  std::println("Usage: {} bundle [options] [ROOT]", progname(prog));
-  std::println("");
-  std::println("Package the application into a standalone distributable bundle.");
-  std::println("");
-  std::println("The bundle command:");
-  std::println("  1. Strips dev-only fields from coconut.config.* (debug, manifests)");
-  std::println("  2. Writes the shippable config to the output directory");
-  std::println("  3. Generates platform manifests (Info.plist, app.manifest, .desktop, metainfo.xml)");
-  std::println("  4. Assembles .app directory structure, copies binary + assets");
-  std::println("");
-  std::println("Options:");
-  std::println("  -h, --help       Show this help and exit");
-  std::println("  -o, --out-dir    Output directory (default: bundle/)");
-  std::println("  --bytecode       Compile stripped config to Lua bytecode (B2 opt-in)");
+  coconut::println("Usage: {} bundle [options] [ROOT]", progname(prog));
+  coconut::println("");
+  coconut::println("Package the application into a standalone distributable bundle.");
+  coconut::println("");
+  coconut::println("The bundle command:");
+  coconut::println("  1. Strips dev-only fields from coconut.config.* (debug, manifests)");
+  coconut::println("  2. Writes the shippable config to the output directory");
+  coconut::println("  3. Generates platform manifests (Info.plist, app.manifest, .desktop, metainfo.xml)");
+  coconut::println("  4. Assembles .app directory structure, copies binary + assets");
+  coconut::println("");
+  coconut::println("Options:");
+  coconut::println("  -h, --help       Show this help and exit");
+  coconut::println("  -o, --out-dir    Output directory (default: bundle/)");
+  coconut::println("  --bytecode       Compile stripped config to Lua bytecode (B2 opt-in)");
 }
 
 void printNewHelp(const char* prog) {
-  std::println("Usage: {} new [name] [options]", progname(prog));
-  std::println("");
-  std::println("Scaffold a new Coconut Milk project.");
-  std::println("");
-  std::println("Creates the project directory with:");
-  std::println("  coconut.config.lua   App configuration");
-  std::println("  main.lua             Entry point script");
-  std::println("  views/home.html      Default home view");
-  std::println("  assets/style.css     Stylesheet");
-  std::println("  assets/app.js        Frontend script");
-  std::println("  commands/            Command folder");
-  std::println("  generated/           Generated files");
-  std::println("");
-  std::println("Options:");
-  std::println("  -h, --help           Show this help and exit");
-  std::println("  -y, --yes             Skip prompts, use defaults");
-  std::println("  -t, --template NAME   Template: bare (default), bare-ts, vite");
+  coconut::println("Usage: {} new [name] [options]", progname(prog));
+  coconut::println("");
+  coconut::println("Scaffold a new Coconut Milk project.");
+  coconut::println("");
+  coconut::println("Creates the project directory with:");
+  coconut::println("  coconut.config.lua   App configuration");
+  coconut::println("  main.lua             Entry point script");
+  coconut::println("  views/home.html      Default home view");
+  coconut::println("  assets/style.css     Stylesheet");
+  coconut::println("  assets/app.js        Frontend script");
+  coconut::println("  commands/            Command folder");
+  coconut::println("  generated/           Generated files");
+  coconut::println("");
+  coconut::println("Options:");
+  coconut::println("  -h, --help           Show this help and exit");
+  coconut::println("  -y, --yes             Skip prompts, use defaults");
+  coconut::println("  -t, --template NAME   Template: bare (default), bare-ts, vite");
 }
 
 void printRunHelp(const char* prog) {
-  std::println("Usage: {} run [options] [ROOT]", progname(prog));
-  std::println("");
-  std::println("Run a Coconut Milk application.");
-  std::println("");
-  std::println("Auto-detects the project by looking for coconut.config.lua");
-  std::println("in the current directory or ROOT.");
-  std::println("");
+  coconut::println("Usage: {} run [options] [ROOT]", progname(prog));
+  coconut::println("");
+  coconut::println("Run a Coconut Milk application.");
+  coconut::println("");
+  coconut::println("Auto-detects the project by looking for coconut.config.lua");
+  coconut::println("in the current directory or ROOT.");
+  coconut::println("");
   printCommonOptions();
 }
 
 void printVersion(const char* prog) {
-  std::println("{} {}", progname(prog), VERSION);
+  coconut::println("{} {}", progname(prog), VERSION);
 }
 
 } // namespace coconut::argparse

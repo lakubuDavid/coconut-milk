@@ -22,11 +22,10 @@
 #include "platform/darwin/create_window.h"
 #endif
 
-#include <print>
+#include "print.h"
 #include <filesystem>
 #include <iostream>
 #include <memory>
-#include <print>
 #include <set>
 #include <vector>
 
@@ -88,7 +87,7 @@ int main(int argc, char* argv[]) {
       return 1;
     }
     if (!args.new_name.empty()) {
-      std::println("Project '{}' created. cd {} && coconut", args.new_name, args.new_name);
+      coconut::println("Project '{}' created. cd {} && coconut", args.new_name, args.new_name);
     }
     return 0;
   }
@@ -123,10 +122,10 @@ int main(int argc, char* argv[]) {
     // Run bundle pipeline
     auto result = coconut::bundle::bundle(cfg_result.value(), bundleDir, args.bytecode_config);
     if (!result) {
-      std::println(stderr, "{}", result.error().message);
+      coconut::println(stderr, "{}", result.error().message);
       return 1;
     }
-    std::println("{}", result.value());
+    coconut::println("{}", result.value());
     return 0;
   }
 

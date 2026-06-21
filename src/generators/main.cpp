@@ -6,7 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
-#include <print>
+#include "print.h"
 #include <sstream>
 #include <string>
 #include <thread>
@@ -331,7 +331,7 @@ int runGenerate(const std::string& cmdRoot, const std::string& outDir) {
   // Resolve the command root directory
   fs::path cmdDir = cmdRoot;
   if (!fs::is_directory(cmdDir)) {
-    std::println("generate: command root '{}' not found", cmdRoot);
+    coconut::println("generate: command root '{}' not found", cmdRoot);
     return 1;
   }
 
@@ -350,7 +350,7 @@ int runGenerate(const std::string& cmdRoot, const std::string& outDir) {
         filesGenerated++;
       }
     } else {
-      std::println("  error: failed to process '{}'", name);
+      coconut::println("  error: failed to process '{}'", name);
       filesError++;
     }
   }
@@ -367,9 +367,9 @@ int runGenerate(const std::string& cmdRoot, const std::string& outDir) {
 
   // Report results
   if (totalCommands == 0) {
-    std::println("generate: no @command annotations found in {}/*.lua", cmdRoot);
-    std::println("  (add ---@command above a Lua function to generate wrappers)");
-    std::println("  (builtin command types still written to commands.d.ts)");
+    coconut::println("generate: no @command annotations found in {}/*.lua", cmdRoot);
+    coconut::println("  (add ---@command above a Lua function to generate wrappers)");
+    coconut::println("  (builtin command types still written to commands.d.ts)");
     std::fflush(stdout);
     return 0;  // Not an error — project may not use commands yet
   }
@@ -387,9 +387,9 @@ int runGenerate(const std::string& cmdRoot, const std::string& outDir) {
     summary += std::to_string(filesError) + " error(s)";
   }
 
-  std::println("generate: {} command(s) in {} — {}",
+  coconut::println("generate: {} command(s) in {} — {}",
                totalCommands, cmdRoot, summary);
-  std::println("  output: {}/{{*.g.lua, *.d.ts, *.g.js, commands.d.ts}}", outDir);
+  coconut::println("  output: {}/{{*.g.lua, *.d.ts, *.g.js, commands.d.ts}}", outDir);
   std::fflush(stdout);
 
   return filesError > 0 ? 1 : 0;
@@ -398,17 +398,17 @@ int runGenerate(const std::string& cmdRoot, const std::string& outDir) {
 int runGenerateWatch(const std::string& cmdRoot, const std::string& outDir) {
   fs::path cmdDir = cmdRoot;
   if (!fs::is_directory(cmdDir)) {
-    std::println("generate: command root '{}' not found", cmdRoot);
+    coconut::println("generate: command root '{}' not found", cmdRoot);
     return 1;
   }
 
-  std::println("generate: watching '{}' for changes... (Ctrl+C to stop)", cmdRoot);
+  coconut::println("generate: watching '{}' for changes... (Ctrl+C to stop)", cmdRoot);
   std::fflush(stdout);
 
   // Run once immediately
   runGenerate(cmdRoot, outDir);
   std::fflush(stdout);
-  std::println("");
+  coconut::println("");
 
   // Poll for file changes every 1 second
   // Track last write time per file
@@ -456,11 +456,11 @@ int runGenerateWatch(const std::string& cmdRoot, const std::string& outDir) {
     }
 
     if (changed) {
-      std::println("");
+      coconut::println("");
       std::fflush(stdout);
       runGenerate(cmdRoot, outDir);
       std::fflush(stdout);
-      std::println("");
+      coconut::println("");
       std::fflush(stdout);
     }
   }
