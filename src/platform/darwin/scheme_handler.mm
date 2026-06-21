@@ -77,7 +77,8 @@ static id startURLSchemeTask(id self, SEL _cmd, id webView, id task) {
         debug::info(std::format("scheme_handler: serve '{}' ({} bytes, {})",
                     action.file_path, action.data.size(), action.mime_type));
         NSDictionary* headers = @{
-          @"Content-Type": [NSString stringWithUTF8String:action.mime_type.c_str()]
+          @"Content-Type": [NSString stringWithUTF8String:action.mime_type.c_str()],
+          @"Access-Control-Allow-Origin": @"*",
         };
         NSHTTPURLResponse* response = [[NSHTTPURLResponse alloc]
             initWithURL:urlObj statusCode:200
