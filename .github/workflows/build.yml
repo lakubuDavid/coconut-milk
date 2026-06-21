@@ -118,7 +118,7 @@ jobs:
         shell: pwsh
         run: |
           nuget install Microsoft.Web.WebView2 -OutputDirectory "$env:USERPROFILE\.nuget\packages" -ExcludeVersion
-          $webview2Path = Resolve-Path "$env:USERPROFILE\.nuget\packages\Microsoft.Web.WebView2\build\nativinclude"
+          $webview2Path = Resolve-Path "$env:USERPROFILE\.nuget\packages\microsoft.web.webview2\*\build\native\include"
           echo "WebView2 SDK at: $webview2Path"
           echo "WEBVIEW2_INCLUDE=$webview2Path" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
