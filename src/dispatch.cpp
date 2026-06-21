@@ -3,6 +3,8 @@
 #include "debug.h"
 #include "lua_runtime.h"
 
+#include <format>
+
 // ── Platform-specific run-loop integration ─────────────────────────────
 // On macOS, a CFRunLoopSource is registered to drain the outbox on every
 // iteration of the main run loop.  Linux would use a GMainLoop idle
