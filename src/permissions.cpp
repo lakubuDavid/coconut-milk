@@ -60,33 +60,32 @@ std::string toString(Status s) {
 // Tests that expect Granted will FAIL until platform code is added —
 // this is intentional: red tests prove the feature is not implemented.
 
-#if defined(_MSC_VER)
-__declspec(selectany) Result check(Permission p) {
-#else
-__attribute__((weak)) Result check(Permission p) {
+// MSVC has no weak symbol support; the functions are defined directly.
+// On GCC/Clang, weak allows platform-specific overrides.
+#if !defined(_MSC_VER)
+__attribute__((weak))
 #endif
+Result check(Permission p) {
   return Result{
     .status = Status::NotApplicable,
     .message = "no platform implementation for " + toString(p),
   };
 }
 
-#if defined(_MSC_VER)
-__declspec(selectany) Result request(Permission p) {
-#else
-__attribute__((weak)) Result request(Permission p) {
+#if !defined(_MSC_VER)
+__attribute__((weak))
 #endif
+Result request(Permission p) {
   return Result{
     .status = Status::NotApplicable,
     .message = "no platform implementation for " + toString(p),
   };
 }
 
-#if defined(_MSC_VER)
-__declspec(selectany) bool isAvailable(Permission) {
-#else
-__attribute__((weak)) bool isAvailable(Permission) {
+#if !defined(_MSC_VER)
+__attribute__((weak))
 #endif
+bool isAvailable(Permission) {
   return false;
 }
 
