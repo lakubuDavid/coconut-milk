@@ -21,11 +21,12 @@ jobs:
           submodules: recursive
 
       - name: Install xmake
-        uses: xmake-actions/setup-xmake@v2
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
 
-      - name: Install dependencies (luajit, sol2, nlohmann_json, lunasvg)
-        run: |
-          xmake f -m release -p macosx -a ${{ matrix.arch }} -y
+      - name: Configure (download deps)
+        run: xmake f -m release -p macosx -a ${{ matrix.arch }} -y
 
       - name: Build coconut binary
         run: xmake build -v coconut
@@ -39,28 +40,24 @@ jobs:
         run: |
           mkdir -p dist
           cp build/macosx/${{ matrix.arch }}/release/coconut dist/coconut-macos-${{ matrix.arch }}
-          cp -r packages dist/packages
-        working-directory: .
 
-      - name: Upload artifact
+      - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: coconut-macos-${{ matrix.arch }}
-          path: dist/
+          path: dist/coconut-macos-${{ matrix.arch }}
 
   build-vite-package:
     runs-on: ubuntu-latest
-    needs: [build-macos]
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Package coconut-vite
+      - name: Package coconut-vite as npm tarball
         run: |
           mkdir -p dist
           cd packages/coconut-vite
           npm pack --pack-destination ../../dist/
-        working-directory: .
 
       - name: Upload vite package artifact
         uses: actions/upload-artifact@v4
@@ -73,32 +70,34 @@ jobs:
     needs: [build-macos, build-vite-package]
     permissions:
       contents: write
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download all artifacts
+      - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts/
 
-      - name: Create release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: "Coconut Milk ${{ github.ref_name }}"
           body: |
-            ## Release ${{ github.ref_name }}
+            ## Coconut Milk ${{ github.ref_name }}
 
-            ### Included
-            - `coconut` binary (macOS ${{ github.ref_name }})
-            - `coconut-vite` npm package
-            
-            ### Installation
+            ### What's included
+            - `coconut` — macOS (x86_64) binary
+            - `coconut-vite` — Vite plugin package (`.tgz`)
+
+            ### Quick start
             ```bash
-            # Download the binary and make it executable
+            # Binary
             chmod +x coconut-macos-x86_64
-            
-            # Install the vite plugin
+            ./coconut --version
+
+            # Vite plugin (in your project)
             npm install coconut-vite-*.tgz
             ```
           files: |
