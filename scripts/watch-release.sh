@@ -4,27 +4,20 @@
 #
 # Cron-friendly script: checks the latest GitHub Actions workflow run for
 # the v0.1.0.alpha-1 tag every N minutes.  On completion it:
-#   1. Notifies the Pi agent via pi-notify
-#   2. Sends an email to the configured address
-#   3. Removes the cron job (self-unregister on success)
+#   1. Notifies this Pi agent via pi-notify
+#   2. Removes the cron job (self-unregister)
 #
 # Usage:
 #   ./scripts/watch-release.sh           # one-shot check (cron calls this)
 #   ./scripts/watch-release.sh install   # register the cron job
 #   ./scripts/watch-release.sh uninstall # remove the cron job
-#
-# Config (edit these):
 # =========================================================================
 TAG="v0.1.0.alpha-1"
 WORKFLOW="build.yml"
-POLL_MINUTES=5
+POLL_MINUTES=2
 
-# Pi agent to notify (find your address with: list_peers)
+# Pi agent to notify — this agent (the one you're talking to right now)
 PI_AGENT_ID="coconut-milk"
-
-# Email settings
-EMAIL_TO="davidlakubu@gmail.com"
-EMAIL_FROM="coconut@lakubudavid.me"
 # =========================================================================
 
 set -euo pipefail
@@ -34,12 +27,10 @@ CRON_EXPR="*/$POLL_MINUTES * * * *"
 CRON_JOB="$CRON_EXPR cd $REPO_ROOT && $SCRIPT_DIR/watch-release.sh >> /tmp/coconut-watch.log 2>&1"
 
 check_deps() {
-  for cmd in gh pop; do
-    if ! command -v "$cmd" &>/dev/null; then
-      echo "ERROR: $cmd not found"
-      exit 1
-    fi
-  done
+  if ! command -v gh &>/dev/null; then
+    echo "ERROR: gh not found"
+    exit 1
+  fi
 }
 
 get_run_id() {
@@ -59,28 +50,20 @@ send_pi_notify() {
     echo "  [skip] pi-notify: PI_AGENT_ID not set"
     return
   fi
+  echo "  pi-notify -> agent-id=$PI_AGENT_ID type=build_result title=\"$summary\""
   pi-notify \
     -agent-id "$PI_AGENT_ID" \
     -type "build_result" \
     -title "$summary" \
     -m "$detail" \
     -timeout 5000
-  echo "  pi-notify sent to $PI_AGENT_ID"
-}
-
-send_email() {
-  local subject="$1"
-  local body="$2"
-  if [ -z "$EMAIL_TO" ]; then
-    echo "  [skip] email: EMAIL_TO not set"
-    return
+  local rc=$?
+  if [ $rc -eq 0 ]; then
+    echo "  ✓ pi-notify delivered"
+  else
+    echo "  ✗ pi-notify failed (exit $rc)"
   fi
-  pop \
-    -t "$EMAIL_TO" \
-    -f "$EMAIL_FROM" \
-    -s "$subject" \
-    -b "$body"
-  echo "  email sent to $EMAIL_TO"
+  return $rc
 }
 
 remove_cron() {
@@ -93,7 +76,6 @@ remove_cron() {
 }
 
 install_cron() {
-  # Check if already installed
   if crontab -l 2>/dev/null | grep -q "watch-release.sh"; then
     echo "Cron job already installed."
     crontab -l | grep "watch-release.sh"
@@ -157,7 +139,6 @@ if [ "$STATUS" = "completed" ]; then
 
     echo "  ✅ Build succeeded!"
     send_pi_notify "success" "$SUMMARY" "$DETAIL"
-    send_email "$SUMMARY" "$DETAIL"
     remove_cron "build succeeded"
     exit 0
 
@@ -167,20 +148,15 @@ if [ "$STATUS" = "completed" ]; then
 
     echo "  ❌ Build failed!"
     send_pi_notify "failure" "$SUMMARY" "$DETAIL"
-    send_email "$SUMMARY" "$DETAIL"
-    # Keep cron alive for retries? For now, unregister on failure too.
     remove_cron "build failed"
     exit 1
 
   else
-    # Neutral / skipped / timed_out / startup_failure
     SUMMARY="⚠️ Build $CONCLUSION for $TAG"
     DETAIL="Build conclusion is '$CONCLUSION' for tag $TAG. Run: https://github.com/lakubuDavid/coconut-milk/actions/runs/$RUN_ID"
 
     echo "  ⚠️ Build $CONCLUSION"
     send_pi_notify "$CONCLUSION" "$SUMMARY" "$DETAIL"
-    send_email "$SUMMARY" "$DETAIL"
-    # Keep cron for ambiguous states? Remove to avoid noise.
     remove_cron "build $CONCLUSION"
     exit 0
   fi
