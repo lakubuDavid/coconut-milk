@@ -60,21 +60,33 @@ std::string toString(Status s) {
 // Tests that expect Granted will FAIL until platform code is added —
 // this is intentional: red tests prove the feature is not implemented.
 
+#if defined(_MSC_VER)
+__declspec(selectany) Result check(Permission p) {
+#else
 __attribute__((weak)) Result check(Permission p) {
+#endif
   return Result{
     .status = Status::NotApplicable,
     .message = "no platform implementation for " + toString(p),
   };
 }
 
+#if defined(_MSC_VER)
+__declspec(selectany) Result request(Permission p) {
+#else
 __attribute__((weak)) Result request(Permission p) {
+#endif
   return Result{
     .status = Status::NotApplicable,
     .message = "no platform implementation for " + toString(p),
   };
 }
 
+#if defined(_MSC_VER)
+__declspec(selectany) bool isAvailable(Permission) {
+#else
 __attribute__((weak)) bool isAvailable(Permission) {
+#endif
   return false;
 }
 

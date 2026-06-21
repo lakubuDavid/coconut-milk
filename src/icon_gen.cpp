@@ -11,6 +11,9 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#if defined(_MSC_VER)
+#  include <intrin.h>
+#endif
 #include <map>
 #include <numeric>
 #include <optional>
@@ -244,7 +247,11 @@ static std::expected<std::vector<uint8_t>, Error> extractLargestPngFromIcns(cons
     });
   }
   f.read(reinterpret_cast<char*>(&totalSize), 4);
-  totalSize = __builtin_bswap32(totalSize);  // big-endian → host
+#if defined(_MSC_VER)
+    totalSize = _byteswap_ulong(totalSize);
+#else
+    totalSize = __builtin_bswap32(totalSize);  // big-endian → host
+#endif
 
   // Priority order: larger OSType = larger image (ic10 > ic09 > ...)
   // We prefer ic10 (1024) > ic09 (512) > ic08 (256) > ic07 (128) > ...
@@ -259,7 +266,11 @@ static std::expected<std::vector<uint8_t>, Error> extractLargestPngFromIcns(cons
     uint32_t blockSize = 0;
     f.read(blockType, 4);
     f.read(reinterpret_cast<char*>(&blockSize), 4);
+#if defined(_MSC_VER)
+    blockSize = _byteswap_ulong(blockSize);
+#else
     blockSize = __builtin_bswap32(blockSize);
+#endif
     if (blockSize < 8) break;  // malformed
 
     uint32_t dataSize = blockSize - 8;

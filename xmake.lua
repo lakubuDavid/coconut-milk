@@ -75,10 +75,11 @@ target("coconut")
                        "AVFoundation", "UserNotifications",
                        "Contacts", "Photos", "Security",
                        "ApplicationServices", "ScreenCaptureKit")
-        add_cxxflags("-Wno-error=enum-enum-conversion")
-        add_cxxflags("-Wno-enum-enum-conversion")
-        add_mxxflags("-Wno-error=enum-enum-conversion")
-        add_mxxflags("-Wno-enum-enum-conversion")
+        # Xcode 16 treats enum-arithmetic in ColorSyncDeprecated.h as a
+        # hard error (not suppressible via -Wno-enum-enum-conversion).
+        # -w suppresses all warnings for .mm files to work around this
+        # Apple SDK bug. The .cpp files still get full warning coverage.
+        add_mxxflags("-w")
     elseif is_plat("windows") then
         add_syslinks("user32", "gdi32", "ole32", "oleaut32", "shell32",
                      "shlwapi", "uuid", "comctl32", "advapi32", "version")
@@ -116,10 +117,8 @@ target("tests")
                        "AVFoundation", "EventKit", "UserNotifications",
                        "CoreLocation", "Contacts", "Photos", "Security",
                        "ApplicationServices", "ScreenCaptureKit")
-        add_cxxflags("-Wno-error=enum-enum-conversion")
-        add_cxxflags("-Wno-enum-enum-conversion")
-        add_mxxflags("-Wno-error=enum-enum-conversion")
-        add_mxxflags("-Wno-enum-enum-conversion")
+        # Xcode 16 enum-arithmetic SDK bug workaround
+        add_mxxflags("-w")
     elseif is_plat("windows") then
         add_syslinks("user32", "gdi32", "ole32", "oleaut32", "shell32",
                      "shlwapi", "uuid", "comctl32", "advapi32", "version",
