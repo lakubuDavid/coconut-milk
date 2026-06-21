@@ -14,9 +14,11 @@
 /// Usage:
 ///   coconut::println("Hello, {}!", name);
 ///   coconut::println(std::cerr, "error: {}", msg);
+///   coconut::println(stderr, "error: {}", msg);   // FILE* also works
 ///   auto s = coconut::format("{} + {} = {}", a, b, a + b);
 
 #include <format>
+#include <cstdio>
 #include <iostream>
 #include <string>
 
@@ -32,13 +34,14 @@ namespace coconut {
 
 // ── println ───────────────────────────────────────────────────────────
 
-/// Print a formatted line to stdout.
+/// Print a formatted line to an arbitrary FILE* (stderr, stdout, …).
 template<typename... Args>
-void println(std::format_string<Args...> fmt, Args&&... args) {
+void println(std::FILE* stream, std::format_string<Args...> fmt, Args&&... args) {
 #if COCONUT_HAS_PRINTLN
-  std::println(fmt, std::forward<Args>(args)...);
+  std::println(stream, fmt, std::forward<Args>(args)...);
 #else
-  std::cout << std::format(fmt, std::forward<Args>(args)...) << std::endl;
+  std::string s = std::format(fmt, std::forward<Args>(args)...) + '\n';
+  std::fwrite(s.data(), 1, s.size(), stream);
 #endif
 }
 
@@ -49,6 +52,16 @@ void println(std::ostream& os, std::format_string<Args...> fmt, Args&&... args) 
   std::println(os, fmt, std::forward<Args>(args)...);
 #else
   os << std::format(fmt, std::forward<Args>(args)...) << std::endl;
+#endif
+}
+
+/// Print a formatted line to stdout.
+template<typename... Args>
+void println(std::format_string<Args...> fmt, Args&&... args) {
+#if COCONUT_HAS_PRINTLN
+  std::println(fmt, std::forward<Args>(args)...);
+#else
+  std::cout << std::format(fmt, std::forward<Args>(args)...) << std::endl;
 #endif
 }
 

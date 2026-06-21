@@ -10,8 +10,6 @@ add_requires("nlohmann_json 3.12.0")
 add_requires("lunasvg")
 if is_plat("macosx") then
     set_languages("c23", "c++26")
-    -- Suppress Apple SDK enum-arithmetic errors in ColorSyncDeprecated.h
-    add_cxflags("-Wno-enum-enum-conversion")
 else
     set_languages("c23", "c++23")
 end
@@ -77,6 +75,8 @@ target("coconut")
                        "AVFoundation", "UserNotifications",
                        "Contacts", "Photos", "Security",
                        "ApplicationServices", "ScreenCaptureKit")
+        add_cxxflags("-Wno-enum-enum-conversion")
+        add_mxxflags("-Wno-enum-enum-conversion")
     elseif is_plat("windows") then
         add_syslinks("user32", "gdi32", "ole32", "oleaut32", "shell32",
                      "shlwapi", "uuid", "comctl32", "advapi32", "version")
@@ -114,6 +114,8 @@ target("tests")
                        "AVFoundation", "EventKit", "UserNotifications",
                        "CoreLocation", "Contacts", "Photos", "Security",
                        "ApplicationServices", "ScreenCaptureKit")
+        add_cxxflags("-Wno-enum-enum-conversion")
+        add_mxxflags("-Wno-enum-enum-conversion")
     elseif is_plat("windows") then
         add_syslinks("user32", "gdi32", "ole32", "oleaut32", "shell32",
                      "shlwapi", "uuid", "comctl32", "advapi32", "version",

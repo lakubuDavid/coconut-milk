@@ -357,7 +357,7 @@ static nlohmann::json luaToJsonTable(const sol::table& t) {
     }
 
     std::size_t idx = static_cast<std::size_t>(k.as<long long>());
-    maxIndex = std::max(maxIndex, idx);
+    maxIndex = (std::max)(maxIndex, idx);
     ++count;
   }
 
