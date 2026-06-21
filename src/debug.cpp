@@ -54,7 +54,11 @@ namespace {
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                   now.time_since_epoch()) % 1000;
     std::tm tm;
+#if defined(_WIN32)
+    localtime_s(&tm, &tt);
+#else
     localtime_r(&tt, &tm);
+#endif
     std::ostringstream oss;
     oss << "[" << std::put_time(&tm, "%H:%M:%S") << "."
         << std::setfill('0') << std::setw(3) << ms.count() << "]";

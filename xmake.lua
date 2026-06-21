@@ -75,7 +75,9 @@ target("coconut")
                        "AVFoundation", "UserNotifications",
                        "Contacts", "Photos", "Security",
                        "ApplicationServices", "ScreenCaptureKit")
+        add_cxxflags("-Wno-error=enum-enum-conversion")
         add_cxxflags("-Wno-enum-enum-conversion")
+        add_mxxflags("-Wno-error=enum-enum-conversion")
         add_mxxflags("-Wno-enum-enum-conversion")
     elseif is_plat("windows") then
         add_syslinks("user32", "gdi32", "ole32", "oleaut32", "shell32",
@@ -114,7 +116,9 @@ target("tests")
                        "AVFoundation", "EventKit", "UserNotifications",
                        "CoreLocation", "Contacts", "Photos", "Security",
                        "ApplicationServices", "ScreenCaptureKit")
+        add_cxxflags("-Wno-error=enum-enum-conversion")
         add_cxxflags("-Wno-enum-enum-conversion")
+        add_mxxflags("-Wno-error=enum-enum-conversion")
         add_mxxflags("-Wno-enum-enum-conversion")
     elseif is_plat("windows") then
         add_syslinks("user32", "gdi32", "ole32", "oleaut32", "shell32",
