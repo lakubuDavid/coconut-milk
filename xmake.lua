@@ -10,6 +10,8 @@ add_requires("nlohmann_json 3.12.0")
 add_requires("lunasvg")
 if is_plat("macosx") then
     set_languages("c23", "c++26")
+    -- Suppress Apple SDK enum-arithmetic errors on newer Xcode
+    add_cxxflags("-Wno-enum-constexpr-conversion")
 else
     set_languages("c23", "c++23")
 end

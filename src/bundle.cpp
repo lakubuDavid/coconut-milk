@@ -700,7 +700,7 @@ std::expected<int, Error> compileLuaDirectory(const std::string& dir) {
         compiled++;
       } else {
         // Warn but continue compiling other files
-        std::println(std::cerr, "bundle: warning: {}", result.error().message);
+        std::cerr << "bundle: warning: " << result.error().message << std::endl;
       }
     }
   }
@@ -737,13 +737,14 @@ std::expected<std::string, Error> bundle(const Config& cfg,
     if (!hasExplicitPaths) {
       auto icons = icon_gen::generateIcons(cfg.icon.source, out_dir, app_id);
       if (!icons) {
-        std::println(std::cerr, "bundle: warning: icon generation failed: {}",
-                     icons.error().message);
+        std::cerr << "bundle: warning: icon generation failed: "
+                  << icons.error().message << std::endl;
       } else {
-        std::println(std::cout, "bundle: icons generated (icns={}, ico={}, png={})",
-                     icons->icns.empty() ? "none" : icons->icns,
-                     icons->ico.empty() ? "none" : icons->ico,
-                     icons->png.empty() ? "none" : icons->png);
+        std::cout << "bundle: icons generated (icns="
+                  << (icons->icns.empty() ? "none" : icons->icns) << ", ico="
+                  << (icons->ico.empty() ? "none" : icons->ico) << ", png="
+                  << (icons->png.empty() ? "none" : icons->png) << ")"
+                  << std::endl;
       }
     }
   }
@@ -773,11 +774,11 @@ std::expected<std::string, Error> bundle(const Config& cfg,
     std::string res_dir = out_dir + "/Contents/Resources";
     auto compileResult = compileLuaDirectory(res_dir);
     if (compileResult) {
-      std::println(std::cout, "bundle: compiled {} Lua file(s) to bytecode",
-                   compileResult.value());
+      std::cout << "bundle: compiled " << compileResult.value()
+                << " Lua file(s) to bytecode" << std::endl;
     } else {
-      std::println(std::cerr, "bundle: warning: bytecode compilation failed: {}",
-                   compileResult.error().message);
+      std::cerr << "bundle: warning: bytecode compilation failed: "
+                << compileResult.error().message << std::endl;
     }
   }
 

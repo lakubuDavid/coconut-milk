@@ -114,6 +114,14 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install WebView2 SDK headers
+        shell: pwsh
+        run: |
+          nuget install Microsoft.Web.WebView2 -OutputDirectory "$env:USERPROFILE\.nuget\packages" -ExcludeVersion
+          $webview2Path = Resolve-Path "$env:USERPROFILE\.nuget\packages\Microsoft.Web.WebView2\build\nativinclude"
+          echo "WebView2 SDK at: $webview2Path"
+          echo "WEBVIEW2_INCLUDE=$webview2Path" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Install xmake
         uses: xmake-io/github-action-setup-xmake@v1
         with:
@@ -121,7 +129,8 @@ jobs:
 
       - name: Configure (download deps)
         # Use x64 (not x86_64) which matches MSVC's toolchain naming
-        run: xmake f -m release -p windows -a x64 -y
+        # WEBVIEW2_INCLUDE points to the NuGet WebView2 SDK headers
+        run: xmake f -m release -p windows -a x64 --cxflags="-I$env:WEBVIEW2_INCLUDE" -y
 
       - name: Build coconut binary
         run: xmake build -v coconut
