@@ -180,6 +180,27 @@ jobs:
         with:
           path: artifacts/
 
+      - name: Package artifacts into platform zips
+        shell: bash
+        run: |
+          # Rename raw binaries so they don't collide (artifacts/**/* flattens dirs)
+          # then zip each platform for easy download.
+          mkdir -p dist
+          if [ -f artifacts/coconut-macos-x86_64/coconut ]; then
+            cp artifacts/coconut-macos-x86_64/coconut dist/coconut-macos-x86_64
+            (cd dist && zip coconut-macos-x86_64.zip coconut-macos-x86_64)
+          fi
+          if [ -f artifacts/coconut-linux-x86_64/coconut ]; then
+            cp artifacts/coconut-linux-x86_64/coconut dist/coconut-linux-x86_64
+            (cd dist && zip coconut-linux-x86_64.zip coconut-linux-x86_64)
+          fi
+          if [ -f artifacts/coconut-windows-x86_64/coconut.exe ]; then
+            cp artifacts/coconut-windows-x86_64/coconut.exe dist/coconut-windows-x86_64.exe
+            (cd dist && zip coconut-windows-x86_64.zip coconut-windows-x86_64.exe)
+          fi
+          cp artifacts/coconut-vite-package/coconut-vite-*.tgz dist/ 2>/dev/null || true
+          ls -lh dist/
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -191,24 +212,25 @@ jobs:
             ### Downloads
             | Platform | Binary |
             |---|---|
-            | macOS (x86_64) | `coconut-macos-x86_64` |
-            | Linux (x86_64) | `coconut-linux-x86_64` |
-            | Windows (x86_64) | `coconut-windows-x86_64.exe` |
+            | macOS (x86_64) | `coconut-macos-x86_64.zip` |
+            | Linux (x86_64) | `coconut-linux-x86_64.zip` |
+            | Windows (x86_64) | `coconut-windows-x86_64.zip` |
             | Vite plugin | `coconut-vite-*.tgz` |
 
             ### Usage
             ```bash
             # macOS / Linux
-            chmod +x coconut-*
-            ./coconut-* --version
+            unzip coconut-*-x86_64.zip
+            chmod +x coconut-*-x86_64
+            ./coconut-*-x86_64 --version
 
             # Windows
+            unzip coconut-windows-x86_64.zip
             coconut-windows-x86_64.exe --version
 
             # Vite plugin
             npm install coconut-vite-*.tgz
             ```
-          files: |
-            artifacts/**/*
+          files: dist/*
           draft: false
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
