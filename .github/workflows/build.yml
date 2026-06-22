@@ -17,7 +17,7 @@ jobs:
     runs-on: macos-15
     strategy:
       matrix:
-        arch: [x86_64]
+        arch: [x86_64, arm64]
 
     steps:
       - uses: actions/checkout@v4
@@ -184,21 +184,34 @@ jobs:
         shell: bash
         run: |
           # Rename raw binaries so they don't collide (artifacts/**/* flattens dirs)
-          # then zip each platform for easy download.
+          # then zip each platform+arch for easy download.
           mkdir -p dist
-          if [ -f artifacts/coconut-macos-x86_64/coconut ]; then
-            cp artifacts/coconut-macos-x86_64/coconut dist/coconut-macos-x86_64
-            (cd dist && zip coconut-macos-x86_64.zip coconut-macos-x86_64)
-          fi
-          if [ -f artifacts/coconut-linux-x86_64/coconut ]; then
-            cp artifacts/coconut-linux-x86_64/coconut dist/coconut-linux-x86_64
-            (cd dist && zip coconut-linux-x86_64.zip coconut-linux-x86_64)
-          fi
-          if [ -f artifacts/coconut-windows-x86_64/coconut.exe ]; then
-            cp artifacts/coconut-windows-x86_64/coconut.exe dist/coconut-windows-x86_64.exe
-            (cd dist && zip coconut-windows-x86_64.zip coconut-windows-x86_64.exe)
-          fi
-          cp artifacts/coconut-vite-package/coconut-vite-*.tgz dist/ 2>/dev/null || true
+          for dir in artifacts/*/; do
+            name="$(basename "$dir")"
+            case "$name" in
+              coconut-macos-*)
+                if [ -f "$dir/coconut" ]; then
+                  cp "$dir/coconut" "dist/$name"
+                  (cd dist && zip "$name.zip" "$name" && rm "$name")
+                fi
+                ;;
+              coconut-linux-*)
+                if [ -f "$dir/coconut" ]; then
+                  cp "$dir/coconut" "dist/$name"
+                  (cd dist && zip "$name.zip" "$name" && rm "$name")
+                fi
+                ;;
+              coconut-windows-*)
+                if [ -f "$dir/coconut.exe" ]; then
+                  cp "$dir/coconut.exe" "dist/$name.exe"
+                  (cd dist && zip "$name.zip" "$name.exe" && rm "$name.exe")
+                fi
+                ;;
+              coconut-vite*)
+                cp "$dir"/coconut-vite-*.tgz dist/ 2>/dev/null || true
+                ;;
+            esac
+          done
           ls -lh dist/
 
       - name: Create GitHub Release
@@ -210,19 +223,20 @@ jobs:
             ## Coconut Milk ${{ github.ref_name }}
 
             ### Downloads
-            | Platform | Binary |
-            |---|---|
-            | macOS (x86_64) | `coconut-macos-x86_64.zip` |
-            | Linux (x86_64) | `coconut-linux-x86_64.zip` |
-            | Windows (x86_64) | `coconut-windows-x86_64.zip` |
-            | Vite plugin | `coconut-vite-*.tgz` |
+            | Platform | Arch | Binary |
+            |---|---|---|
+            | macOS | Intel | `coconut-macos-x86_64.zip` |
+            | macOS | Apple Silicon | `coconut-macos-arm64.zip` |
+            | Linux | x86_64 | `coconut-linux-x86_64.zip` |
+            | Windows | x86_64 | `coconut-windows-x86_64.zip` |
+            | Vite plugin | — | `coconut-vite-*.tgz` |
 
             ### Usage
             ```bash
             # macOS / Linux
-            unzip coconut-*-x86_64.zip
-            chmod +x coconut-*-x86_64
-            ./coconut-*-x86_64 --version
+            unzip coconut-*-$ARCH.zip
+            chmod +x coconut-*-$ARCH
+            ./coconut-*-$ARCH --version
 
             # Windows
             unzip coconut-windows-x86_64.zip
