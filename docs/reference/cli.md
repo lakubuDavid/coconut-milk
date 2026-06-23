@@ -1,3 +1,11 @@
+---
+layout: default
+title: CLI Reference
+parent: Reference
+nav_order: 3
+description: coconut binary, generate subcommand, create-coconut-app scaffolding CLI.
+---
+
 # CLI Reference
 
 Coconut Milk provides two command-line tools:

@@ -1,3 +1,11 @@
+---
+layout: default
+title: Bundle Pipeline
+parent: Specifications
+nav_order: 2
+description: Package the app into a standalone distributable bundle.
+---
+
 # Bundle Pipeline — `coconut bundle`
 
 Packages the app into a standalone distributable bundle.

@@ -1,3 +1,11 @@
+---
+layout: default
+title: Use Keybinds
+parent: Guides
+nav_order: 4
+description: Implement keyboard shortcuts in your Coconut Milk app.
+---
+
 # How to: Use Keybinds
 
 This guide shows you how to implement keyboard shortcuts in your Coconut Milk app using the `coconut.keybind()` API.

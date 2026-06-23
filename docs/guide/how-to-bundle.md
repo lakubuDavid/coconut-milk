@@ -1,3 +1,11 @@
+---
+layout: default
+title: Bundle Your App
+parent: Guides
+nav_order: 1
+description: Package your Coconut Milk app into a standalone distributable bundle.
+---
+
 # How to: Bundle Your App for Distribution
 
 This guide shows how to package your Coconut Milk app into a standalone distributable bundle using the `coconut bundle` command.

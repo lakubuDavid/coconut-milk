@@ -1,111 +1,23 @@
 {
   "version": "1.0",
   "project": "coconut-milk",
-  "updatedAt": "2026-06-20T20:00:25.183Z",
+  "updatedAt": "2026-06-23T01:46:39.161Z",
   "tasks": [
     {
-      "id": "task-1781845177491-am21ihv",
-      "title": "Tier 1: Lock-free SPSC Outbox + App wiring",
-      "description": "Outbox class (21 tests), App integration (19 tests), enqueue helpers, drain processing with webview_eval and lua::dispatchViewLifecycleEvent. Done in commits f4a5af3, 60b7939, a9ad022.",
-      "status": "completed",
-      "createdAt": "2026-06-19T04:59:37.491Z",
-      "updatedAt": "2026-06-19T04:59:37.491Z"
-    },
-    {
-      "id": "task-1781845180521-7mppbom",
-      "title": "Tier 2: CFRunLoopSource auto-drain",
-      "description": "dispatch::init() registers CFRunLoopSource on main run loop. dispatch::shutdown() removes it. Wired in main.cpp. Done in b3b92ee.",
-      "status": "completed",
-      "createdAt": "2026-06-19T04:59:40.521Z",
-      "updatedAt": "2026-06-19T04:59:40.521Z"
-    },
-    {
-      "id": "task-1781845183701-puale29",
-      "title": "Tier 3: Off-thread producers (file watcher, IPC)",
-      "description": "Enable file watcher / IPC threads to push into Outbox. Needs App lifetime safety during teardown.",
+      "id": "task-1782179195494-pp8j7sy",
+      "title": "Use schemas/ as canonical source for type defs in scaffolding",
+      "description": "- Remove inline GENERATORS.coconut_dts() from create-coconut-app\n- Add resolve_schema() helper with remote-fetch + cache + bundled fallback\n- Add copy_schema() to all three scaffold functions (bare, bare-ts, vite)\n- Add --offline / --no-cache flags\n- Add COCONUT_OFFLINE env var support",
       "status": "pending",
-      "createdAt": "2026-06-19T04:59:43.701Z",
-      "updatedAt": "2026-06-19T04:59:43.701Z"
+      "createdAt": "2026-06-23T01:46:35.494Z",
+      "updatedAt": "2026-06-23T01:46:35.494Z"
     },
     {
-      "id": "task-1781845187301-naazive",
-      "title": "Tier 4: Lua coroutines → dispatch queue",
-      "description": "ctx:emit() should use dispatch::evalJS() instead of webview_eval() directly. Bridge refactor needed.",
-      "status": "pending",
-      "createdAt": "2026-06-19T04:59:47.301Z",
-      "updatedAt": "2026-06-19T04:59:47.301Z"
-    },
-    {
-      "id": "task-1781845190460-816099w",
-      "title": "Tier 5: Worker thread pool for heavy commands",
-      "description": "Offload CPU-intensive commands (bundling, linting) to a background thread pool. Each worker needs its own lua_State or serializes via JSON.",
-      "status": "pending",
-      "createdAt": "2026-06-19T04:59:50.460Z",
-      "updatedAt": "2026-06-19T04:59:50.460Z"
-    },
-    {
-      "id": "task-1781845194902-6j2ovsh",
-      "title": "Windows platform branch (remote agent #2)",
-      "description": "Remote agent coconut-milk#2 created branch 'platform-windows' with ADR-0002. Worktree at ../coconut-milk-win. Research complete, plan done. Awaiting implementation start.",
-      "status": "completed",
-      "createdAt": "2026-06-19T04:59:54.902Z",
-      "updatedAt": "2026-06-19T09:15:52.726Z"
-    },
-    {
-      "id": "task-1781845198161-kqlh2e9",
-      "title": "Linux platform branch (remote agent #3)",
-      "description": "Remote agent coconut-milk#3 researching Lima for Linux testing. User approved full steam ahead: branch 'platform-linux', ADR-0003, and implement all GTK3 stubs.",
-      "status": "completed",
-      "createdAt": "2026-06-19T04:59:58.161Z",
-      "updatedAt": "2026-06-19T05:04:01.921Z"
-    },
-    {
-      "id": "task-1781845202259-gxdbh6i",
-      "title": "Event model refactor (Lua event object)",
-      "description": "Plans/event-model-refactor.md: Stage 2-5. Replace old (name,payload,ctx) triple with event object. coconut.on(), view:on(), _dispatch chain. JS-side CoconutEvent class.",
-      "status": "pending",
-      "createdAt": "2026-06-19T05:00:02.259Z",
-      "updatedAt": "2026-06-19T05:00:02.259Z"
-    },
-    {
-      "id": "task-1781984945661-5d2fw6k",
-      "title": "v0.1.0 Scope Analysis & Confirmation",
-      "description": "Analyze specs, existing code, and todos to define v0.1.0 vs v0.2.0 boundary. Present plan for user confirmation.",
-      "status": "completed",
-      "createdAt": "2026-06-20T19:49:05.661Z",
-      "updatedAt": "2026-06-20T20:00:25.183Z"
-    },
-    {
-      "id": "task-1781985607682-h5i3t4y",
-      "title": "v0.1.0 Scope: Define and activate",
-      "description": "Scope v0.1.0 created with features: ctx:rebind, coconut.hotreload(), hmr.auto_regenerate, no threads. Single-window, cross-platform.",
-      "status": "completed",
-      "createdAt": "2026-06-20T20:00:07.682Z",
-      "updatedAt": "2026-06-20T20:00:07.682Z"
-    },
-    {
-      "id": "task-1781985611388-j1ljr4v",
-      "title": "ctx:rebind() for command overwriting",
-      "description": "Added rebind() to CoconutContext that overwrites existing handler instead of throwing on duplicate. Registered in Lua usertype as ctx:rebind().",
-      "status": "completed",
-      "createdAt": "2026-06-20T20:00:11.388Z",
-      "updatedAt": "2026-06-20T20:00:11.388Z"
-    },
-    {
-      "id": "task-1781985615109-24m4ptd",
-      "title": "coconut.hotreload() manual command reload",
-      "description": "Manual HMR trigger. Scans commands/ for file changes, clears package.loaded[module], re-runs .g.lua, rebinds commands. No background thread (v0.1.0). Config flag hmr.auto_regenerate for running generator before reload.",
-      "status": "completed",
-      "createdAt": "2026-06-20T20:00:15.109Z",
-      "updatedAt": "2026-06-20T20:00:15.109Z"
-    },
-    {
-      "id": "task-1781985619031-v6qsy13",
-      "title": "v0.2.0: Background file watcher for auto-HMR",
-      "description": "Background thread polls commands/ for changes, pushes through dispatch queue. Needs App lifetime safety. Deferred from v0.1.0.",
-      "status": "pending",
-      "createdAt": "2026-06-20T20:00:19.031Z",
-      "updatedAt": "2026-06-20T20:00:19.031Z"
+      "id": "task-1782179199161-njf2hjq",
+      "title": "Design schema-driven generator for .d.ts and .d.lua",
+      "description": "Design a script that reads schemas/coconut.config.schema.json and generates both coconut.d.ts and coconut.d.lua. Evaluate whether to extend JSON schema with metadata tags (js-only/lua-only/shared) or keep manual sync. Compare config.h, both .d.lua files, and .d.ts to determine which is most up-to-date.",
+      "status": "in_progress",
+      "createdAt": "2026-06-23T01:46:39.161Z",
+      "updatedAt": "2026-06-23T01:46:39.161Z"
     }
   ]
 }

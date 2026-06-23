@@ -1,3 +1,11 @@
+---
+layout: default
+title: ADR-0001 — Quit via Synchronous WebView Terminate
+parent: Architecture Decision Records
+nav_order: 1
+description: Decision to quit via synchronous WKWebView termination.
+---
+
 # ADR-0001: Quit via synchronous webview_terminate in Lua handler
 
 **Status:** Accepted

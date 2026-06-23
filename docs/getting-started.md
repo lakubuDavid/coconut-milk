@@ -1,3 +1,10 @@
+---
+layout: default
+title: Getting Started
+nav_order: 2
+description: Install Coconut Milk, build from source, scaffold your first project.
+---
+
 # Getting Started with Coconut Milk
 
 ## Introduction
@@ -30,7 +37,8 @@ Think of it as a lightweight alternative to Electron or Tauri, but with Lua inst
 
 ## Installation
 
-### Prerequisites
+{: .note }
+> **Prerequisites:** You'll need the following tools installed before building.
 
 | Tool | Why | Install |
 |---|---|---|

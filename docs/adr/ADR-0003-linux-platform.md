@@ -1,3 +1,11 @@
+---
+layout: default
+title: ADR-0003 — Linux Platform
+parent: Architecture Decision Records
+nav_order: 2
+description: Linux platform implementation decisions.
+---
+
 # ADR-0003: Linux Platform Support
 
 **Status:** Draft

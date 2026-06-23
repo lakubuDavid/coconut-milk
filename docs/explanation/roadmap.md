@@ -1,3 +1,11 @@
+---
+layout: default
+title: Roadmap
+parent: Explanation
+nav_order: 4
+description: Implementation plan and phases for the project.
+---
+
 # Coconut Milk Roadmap
 
 This document tracks the implementation plan for Coconut Milk.

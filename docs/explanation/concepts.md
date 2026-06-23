@@ -1,3 +1,11 @@
+---
+layout: default
+title: Concepts
+parent: Explanation
+nav_order: 1
+description: Architecture, view system, bridge protocol, event model, and platform support.
+---
+
 # Concepts
 
 ## Architecture
@@ -237,6 +245,11 @@ The handler maps file extensions to MIME types:
 | Other | `application/octet-stream` |
 
 ### Platform Support
+
+{: .warning }
+> **macOS is the primary target for v0.1.** Windows and Linux support is functional
+> for core features but missing platform-specific polish (frameless windows,
+> `coconut://` scheme, transparent backgrounds).
 
 | Platform | Status | Notes |
 |---|---|---|

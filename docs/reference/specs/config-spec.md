@@ -1,3 +1,11 @@
+---
+layout: default
+title: Config Schema v2
+parent: Specifications
+nav_order: 3
+description: Extended runtime configuration beyond the v0 flat schema.
+---
+
 # Config Schema v2
 
 Extended runtime configuration beyond the v0 flat schema. These fields are parsed

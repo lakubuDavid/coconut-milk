@@ -1,3 +1,11 @@
+---
+layout: default
+title: Debug Bridge Issues
+parent: Guides
+nav_order: 2
+description: Diagnose and fix common problems with Coconut Milk's bridge communication.
+---
+
 # How to: Debug Bridge Issues
 
 This guide helps you diagnose and fix common problems with Coconut Milk's bridge communication between Lua and JavaScript.

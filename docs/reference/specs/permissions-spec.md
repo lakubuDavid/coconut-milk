@@ -1,3 +1,11 @@
+---
+layout: default
+title: Permissions & Native Notifications
+parent: Specifications
+nav_order: 7
+description: macOS system permission prompts and native notification support.
+---
+
 # Permissions & Native Notifications
 
 macOS system permission prompts and native notification support.

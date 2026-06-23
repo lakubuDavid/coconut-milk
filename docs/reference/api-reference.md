@@ -1,3 +1,11 @@
+---
+layout: default
+title: API Reference
+parent: Reference
+nav_order: 4
+description: Complete reference for all Lua and JavaScript APIs exposed by Coconut Milk.
+---
+
 # API Reference
 
 Complete reference for all Lua and JavaScript APIs exposed by Coconut Milk.

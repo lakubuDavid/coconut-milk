@@ -1,0 +1,71 @@
+# Just the Docs configuration
+title: Coconut Milk
+description: >-
+  Lua-first, cross-platform desktop UI framework – documentation
+url: "https://lakubuDavid.github.io/coconut-milk"
+baseurl: "/coconut-milk"
+repository: lakubuDavid/coconut-milk
+
+# Theme settings
+remote_theme: just-the-docs/just-the-docs
+# logo: "/docs/diagrams/logo.png"       # Add when logo is available
+# favicon_ico: "/docs/diagrams/favicon.ico"
+color_scheme: light
+search_enabled: true
+heading_anchors: true
+aux_links:
+  "GitHub":
+    - "https://github.com/lakubuDavid/coconut-milk"
+aux_links_new_tab: false
+nav_sort: case_sensitive
+back_to_top: true
+back_to_top_text: "Back to top"
+footer_content: "Copyright &copy; <a href=\"https://github.com/lakubuDavid\">David Lakubu</a>. Distributed by an <a href=\"https://github.com/lakubuDavid/coconut-milk/blob/main/LICENSE\">MIT license.</a>"
+last_edit_timestamp: true
+last_edit_time_format: "%b %e %Y at %I:%M %p"
+gh_edit_link: true
+gh_edit_link_text: "Edit this page on GitHub"
+gh_edit_repository: "https://github.com/lakubuDavid/coconut-milk"
+gh_edit_branch: "main"
+gh_edit_source: docs
+gh_edit_view_mode: "tree"
+
+# Footer navigation
+nav_external_links:
+  - title: Roadmap
+    url: /docs/explanation/roadmap.md
+    hide_icon: false
+  - title: GitHub
+    url: https://github.com/lakubuDavid/coconut-milk
+    hide_icon: false
+
+# Collections
+collections:
+  docs:
+    permalink: "/:collection/:path/"
+    output: true
+  adr:
+    permalink: "/:collection/:path/"
+    output: true
+
+# Defaults for all pages
+defaults:
+  - scope:
+      path: ""
+      type: docs
+    values:
+      layout: default
+  - scope:
+      path: ""
+      type: adr
+    values:
+      layout: default
+
+# Exclude
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor
+  - spec
+  - README.md

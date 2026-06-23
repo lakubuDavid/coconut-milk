@@ -1,3 +1,10 @@
+---
+layout: default
+title: Examples
+nav_order: 6
+description: Real-world example projects included with Coconut Milk.
+---
+
 # Examples
 
 Real-world example projects included with Coconut Milk, plus patterns for common use cases.

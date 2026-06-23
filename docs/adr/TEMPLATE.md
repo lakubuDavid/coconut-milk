@@ -1,3 +1,11 @@
+---
+layout: default
+title: ADR Template
+parent: Architecture Decision Records
+nav_order: 99
+description: Template for new Architecture Decision Records.
+---
+
 # ADR-0000: Title
 
 **Status:** Accepted | Superseded by ADR-XXXX | Deprecated

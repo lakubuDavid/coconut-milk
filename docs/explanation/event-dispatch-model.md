@@ -1,3 +1,11 @@
+---
+layout: default
+title: Event Dispatch Model
+parent: Explanation
+nav_order: 2
+description: Deep dive into event routing, queues, and dispatch mechanics.
+---
+
 # Event Dispatch Model
 
 This document explains the architecture and internals of Coconut Milk's event system, including the three-tier dispatch chain, event object structure, and propagation control.

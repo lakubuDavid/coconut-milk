@@ -1,3 +1,11 @@
+---
+layout: default
+title: Command Generation
+parent: Specifications
+nav_order: 4
+description: Using @command annotations and the coconut generate CLI.
+---
+
 # Command Generation
 
 > **Recommended approach.** Use `---@command` annotations + `coconut generate` over

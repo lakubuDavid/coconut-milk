@@ -1,3 +1,11 @@
+---
+layout: default
+title: Bridge (Advanced)
+parent: Reference
+nav_order: 2
+description: RPC protocol, message flow, transport layer, readiness handshake, and TypeScript definitions.
+---
+
 # Bridge (Advanced)
 
 The Coconut Milk bridge is the communication layer between the **frontend (JavaScript)** and the **backend (Lua)**. Understanding how it works is essential for debugging, extending, and optimizing your app.
@@ -17,6 +25,10 @@ The diagram below shows how messages flow between Lua and JavaScript through the
 ## RPC Protocol
 
 All bridge traffic uses a canonical RPC envelope with five message types:
+
+{: .note }
+> The bridge speaks JSON over an internal transport. All messages are
+> serialized as UTF-8 JSON. Binary data is not supported — use file paths instead.
 
 ### Message Types
 

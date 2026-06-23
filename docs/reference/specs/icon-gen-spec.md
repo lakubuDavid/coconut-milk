@@ -1,3 +1,11 @@
+---
+layout: default
+title: Icon Generation
+parent: Specifications
+nav_order: 5
+description: Auto-generate platform-specific icon files from a single source image.
+---
+
 # Icon Generation — `icon_gen`
 
 Auto-generates platform-specific icon files from a single source image.

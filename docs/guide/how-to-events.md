@@ -1,3 +1,11 @@
+---
+layout: default
+title: Handle Events
+parent: Guides
+nav_order: 3
+description: Practical patterns for working with Coconut Milk's event system.
+---
+
 # How to: Handle Events
 
 This guide shows practical patterns for working with Coconut Milk's event system, including subscription, emission, lifecycle events, and common real-world scenarios.

@@ -1,6 +1,18 @@
+---
+layout: default
+title: Troubleshooting
+parent: Explanation
+nav_order: 3
+description: Common errors, solutions, and debugging tips.
+---
+
 # Troubleshooting
 
 Common errors, solutions, and debugging tips for Coconut Milk.
+
+{: .tip }
+> **Quick debug:** Run with `coconut --debug` to see detailed transport logs
+> from the bridge. You can also open WebKit Inspector in debug mode.
 
 ---
 

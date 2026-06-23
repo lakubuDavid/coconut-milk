@@ -1,3 +1,10 @@
+---
+layout: default
+title: Archived Plan — Entry Args, KV, Keybinds
+parent: Archive
+nav_order: 1
+---
+
 # Plan: Entry-point args, shared KV store, keybind management
 
 ## Final design decisions

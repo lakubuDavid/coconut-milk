@@ -1,3 +1,11 @@
+---
+layout: default
+title: Lua Backend Guide
+parent: Reference
+nav_order: 1
+description: Commands, events, views, Lua HTML DSL, and best practices for the Lua backend.
+---
+
 # Lua Backend Guide
 
 Coconut Milk uses **Lua** (via LuaJIT) as the application authoring language. All backend logic — commands, configuration, event handling — lives in Lua files.
@@ -65,6 +73,10 @@ return {
 ### @command Annotations
 
 The `---@command` annotation enables **code generation**:
+
+{: .note }
+> Commands without `---@command` annotations work at runtime but won't generate
+> TypeScript types or JS wrappers. Always annotate commands you want to call from the frontend.
 
 ```lua
 ---@command greet                  -- Required: command name

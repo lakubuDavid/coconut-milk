@@ -1,3 +1,11 @@
+---
+layout: default
+title: Test Suite
+parent: Reference
+nav_order: 6
+description: Test strategy and plan based on the roadmap.
+---
+
 # Coconut Milk Test Suite Plan
 
 This document defines the test strategy for Coconut Milk based on the roadmap in `docs/roadmap.md`.

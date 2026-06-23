@@ -1,9 +1,8 @@
 {
-  "name": "coconut-vite",
+  "name": "@lakbudavid/coconut-vite",
   "version": "0.1.0",
   "description": "Vite plugin for Coconut Milk — rewrites asset paths to coconut:// scheme for CORS-safe webview loading",
-  "type": "module",
-  "main": "index.js",
-  "keywords": ["coconut", "vite", "plugin", "webview", "cors", "desktop"],
-  "license": "MIT"
+  "exports": "./index.js",
+  "license": "MIT",
+  "type": "module"
 }

@@ -1,3 +1,11 @@
+---
+layout: default
+title: Keybind System
+parent: Specifications
+nav_order: 6
+description: Hybrid platform+JS keybind registration with per-platform combos.
+---
+
 # Keybind System
 
 Hybrid platform+JS keybind registration with per-platform combos, overrides,

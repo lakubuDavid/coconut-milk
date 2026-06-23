@@ -1,92 +1,264 @@
-# Coconut Milk Documentation
+---
+layout: home
+title: Home
+nav_order: 1
+description: >-
+  Coconut Milk documentation — build cross-platform desktop apps with Lua and web technologies.
+permalink: /
+---
+
+# 🥥 Coconut Milk Documentation
 
 A cross-platform desktop app framework powered by **Lua** for backend logic and **HTML/CSS/JS** for the UI. Build native desktop applications with a webview, not a browser runtime.
+
+{: .fs-5 .fw-300 }
+Think Electron/Tauri, but minimal — single-window, Lua scripting, native webview.
 
 ---
 
 ## Getting Started
 
-- **[Introduction](./getting-started.md#introduction)** — What is Coconut Milk and why use it?
-- **[Installation](./getting-started.md#installation)** — Prerequisites, build from source, install binary
-- **[create-coconut-app CLI](./getting-started.md#creating-your-first-project)** — Scaffold a new project
-- **[Templates](./getting-started.md#templates)** — Bare, bare-ts, and Vite (React/Vue/Solid)
-- **[Your First App](./getting-started.md#tutorial-your-first-app)** — Step-by-step tutorial
-- **[Vite Integration](./getting-started.md#vite-integration)** — Hot reload, build pipeline, limitations
-- **[Limitations](./getting-started.md#limitations)** — What Coconut Milk is *not* (yet)
+{: .d-flex .flex-row .flex-wrap .gap-4 }
 
-## Concepts
+<div class="card" markdown="1">
+{: .p-4 }
 
-- **[Architecture](./explanation/concepts.md#architecture)** — How the layers fit together (with diagrams)
-- **[View System](./explanation/concepts.md#view-system)** — Named views, lifecycle, routing
-- **[coconut:// Scheme](./explanation/concepts.md#the-coconut-scheme)** — Asset resolution, priority, how it works
-- **[Event Model](./explanation/concepts.md#event-model)** — Events, pub/sub, emit vs emit_sync
-- **[Bridge Protocol](./explanation/concepts.md#bridge-protocol)** — RPC envelopes, readiness handshake
-- **[Config System](./explanation/concepts.md#config-system)** — `coconut.config.lua`, JSON schema, runtime config
-- **[Platform Support](./explanation/concepts.md#platform-support)** — macOS, Windows, Linux status
+### 📖 [Introduction](getting-started#introduction)
+What is Coconut Milk and why use it?
 
-## Lua Backend Guide
+</div>
 
-- **[Commands](./reference/lua-guide.md#commands)** — `ctx:bind()`, command files, `@command` annotations
-- **[Config Callback](./reference/lua-guide.md#config-callback)** — `coconut.config(ctx)`, window settings
-- **[Views](./reference/lua-guide.md#views)** — `coconut.views()`, view factories, lifecycle callbacks
-- **[Events](./reference/lua-guide.md#events)** — `ctx:emit()`, `coconut.events()`, lifecycle hooks
-- **[Lua HTML DSL](./reference/lua-guide.md#lua-html-dsl)** — Pure Lua template engine with `html.div{}`
-- **[Patterns & Best Practices](./reference/lua-guide.md#patterns--best-practices)** — Organization, error handling, state
-- **[Limitations](./reference/lua-guide.md#limitations)** — Single window, no threading model, table-only payloads
+<div class="card" markdown="1">
+{: .p-4 }
 
-## Bridge (Advanced)
+### 🔧 [Installation](getting-started#installation)
+Prerequisites, build from source, install binary.
 
-- **[RPC Protocol](./reference/bridge.md#rpc-protocol)** — Message types, envelope shape, JSON format
-- **[Message Flow](./reference/bridge.md#message-flow)** — `coconut.call()` path, `ctx:emit()` path
-- **[Transport Layer](./reference/bridge.md#transport-layer)** — Webview binding, script injection
-- **[Readiness Handshake](./reference/bridge.md#readiness-handshake)** — How `coconut.ready()` works
-- **[Serialization](./reference/bridge.md#serialization)** — JSON encoding, UTF-8 handling, sanitization
-- **[Helpers](./reference/bridge.md#frontend-helpers)** — `coconut.call()`, `coconut.emit()`, `coconut.on()`, `coconut.views()`, `coconut.ping()`
-- **[Error Handling](./reference/bridge.md#error-handling)** — Error codes, error envelopes, pcall safety
-- **[TypeScript Definitions](./reference/bridge.md#typescript-definitions)** — `coconut.d.ts`, generated `commands.d.ts`
+</div>
 
-## API Reference
+<div class="card" markdown="1">
+{: .p-4 }
 
-- **[Lua API](./reference/api-reference.md#lua-api)** — All functions, signatures, examples
-  - `coconut.config(ctx)`, `coconut.views()`, `coconut.commands(ctx)`
-  - Context methods (`setWindowSize`, `bind`, `emit`, `show`, etc.)
-  - View factories (`View.load`, `View.html`, `View.url`)
-  - View lifecycle (`on_load`, `on_mount`, `on_unmount`)
-- **[JavaScript API](./reference/api-reference.md#javascript-api)** — All functions, signatures, examples
-  - `coconut.ready()`, `coconut.call()`, `coconut.emit()`, `coconut.on()`
-  - `coconut.window.minimize()`, `.toggleFullscreen()`, `.close()`
-  - `coconut.fs.readText()`
-  - `coconut.views()`, `coconut.ping()`
+### 🚀 [create-coconut-app CLI](getting-started#creating-your-first-project)
+Scaffold a new project in seconds.
 
-## CLI Reference
+</div>
 
-- **[coconut](./reference/cli.md#coconut-binary)** — Run apps, generate, flags (`--help`, `--version`, `--debug`, `--root`)
-- **[coconut generate](./reference/cli.md#coconut-generate)** — Command generation, `--out-dir`
-- **[coconut bundle](./guide/how-to-bundle.md)** — Package app for distribution
-- **[create-coconut-app](./reference/cli.md#create-coconut-app)** — Scaffolding CLI, templates, flags
+<div class="card" markdown="1">
+{: .p-4 }
+
+### 📦 [Templates](getting-started#templates)
+Bare, bare-ts, and Vite (React/Vue/Solid).
+
+</div>
+
+<div class="card" markdown="1">
+{: .p-4 }
+
+### 👋 [Your First App](getting-started#tutorial-your-first-app)
+Step-by-step tutorial.
+
+</div>
+
+<div class="card" markdown="1">
+{: .p-4 }
+
+### ⚡ [Vite Integration](getting-started#vite-integration)
+Hot reload, build pipeline, limitations.
+
+</div>
+
+---
+
+## Core Concepts
+
+{: .d-flex .flex-row .flex-wrap .gap-4 }
+
+<div class="card" markdown="1">
+{: .p-4 }
+
+### 🏗️ [Architecture](explanation/concepts#architecture)
+How the layers fit together (with diagrams).
+
+</div>
+
+<div class="card" markdown="1">
+{: .p-4 }
+
+### 🖼️ [View System](explanation/concepts#view-system)
+Named views, lifecycle, routing.
+
+</div>
+
+<div class="card" markdown="1">
+{: .p-4 }
+
+### 🔗 [coconut:// Scheme](explanation/concepts#the-coconut-scheme)
+Asset resolution, priority, how it works.
+
+</div>
+
+<div class="card" markdown="1">
+{: .p-4 }
+
+### 📡 [Event Model](explanation/concepts#event-model)
+Events, pub/sub, emit vs emit_sync.
+
+</div>
+
+<div class="card" markdown="1">
+{: .p-4 }
+
+### 🌉 [Bridge Protocol](explanation/concepts#bridge-protocol)
+RPC envelopes, readiness handshake.
+
+</div>
+
+<div class="card" markdown="1">
+{: .p-4 }
+
+### ⚙️ [Config System](explanation/concepts#config-system)
+`coconut.config.lua`, JSON schema, runtime config.
+
+</div>
+
+---
+
+## Reference
+
+{: .d-flex .flex-row .flex-wrap .gap-4 }
+
+<div class="card" markdown="1">
+{: .p-4 }
+
+### 📘 [Lua Backend Guide](reference/lua-guide)
+Commands, events, views, best practices.
+
+</div>
+
+<div class="card" markdown="1">
+{: .p-4 }
+
+### 🔧 [Bridge (Advanced)](reference/bridge)
+RPC protocol, message flow, transport layer.
+
+</div>
+
+<div class="card" markdown="1">
+{: .p-4 }
+
+### 📋 [API Reference](reference/api-reference)
+All Lua and JavaScript APIs with signatures.
+
+</div>
+
+<div class="card" markdown="1">
+{: .p-4 }
+
+### 💻 [CLI Reference](reference/cli)
+coconut, generate, create-coconut-app.
+
+</div>
+
+<div class="card" markdown="1">
+{: .p-4 }
+
+### 📐 [Specifications](reference/specs/specs)
+Full specification documents.
+
+</div>
+
+<div class="card" markdown="1">
+{: .p-4 }
+
+### 🧪 [Test Suite](reference/test-suite)
+Test plan and coverage.
+
+</div>
+
+---
+
+## Guides & Troubleshooting
+
+{: .d-flex .flex-row .flex-wrap .gap-4 }
+
+<div class="card" markdown="1">
+{: .p-4 }
+
+### 🎯 [How-to Guides](guide/)
+Practical guides for events, keybinds, debugging, bundling.
+
+</div>
+
+<div class="card" markdown="1">
+{: .p-4 }
+
+### 🐛 [Troubleshooting](explanation/troubleshooting)
+Common errors, debugging tips, platform issues.
+
+</div>
+
+<div class="card" markdown="1">
+{: .p-4 }
+
+### 📊 [Event Dispatch Model](explanation/event-dispatch-model)
+Deep dive into event routing and queues.
+
+</div>
+
+<div class="card" markdown="1">
+{: .p-4 }
+
+### 🗺️ [Roadmap](explanation/roadmap)
+Implementation plan and phases.
+
+</div>
+
+---
 
 ## Examples
 
-- **[Calculator (Vue)](./examples/examples.md#calculator-vue)** — Multi-page Vue app with settings
-- **[OCR Scanner](./examples/examples.md#ocr-app)** — Image processing with Tesseract.js, Alpine.js, UnoCSS
-- **[Code Editor](./examples/examples.md#code-editor)** — CodeMirror 6, file tree, native dialogs
-- **[Lua HTML App](./examples/examples.md#lua-html-app)** — Pure Lua HTML DSL, no build step (see caveats — community pattern, not core)
-- **[Edge Cases](./examples/examples.md#edge-cases)** — Frameless windows, transparent backgrounds, view switching
-- **[Tips & Tricks](./examples/examples.md#tips--tricks)** — Debug mode, logging, FOUC prevention
+<div class="card" markdown="1">
+{: .p-4 }
 
-## Troubleshooting
+### 🧮 [Calculator Vue](examples/examples#calculator-vue)
+Multi-page Vue app with settings persistence.
 
-- **[Common Errors](./explanation/troubleshooting.md#common-errors)** — `CommandNotFound`, `NotReady`, `MissingFile`
-- **[Dialog Crashes](./explanation/troubleshooting.md#dialog-crashes)** — Open/save dialog issues, crash safety
-- **[CORS / ESM Issues](./explanation/troubleshooting.md#cors--esm-module-issues)** — `coconut://` scripts, IIFE bundles
-- **[Debugging](./explanation/troubleshooting.md#debugging)** — `--debug` flag, transport logs, WebKit inspector
-- **[Platform Issues](./explanation/troubleshooting.md#platform-issues)** — macOS frameless, Windows/Linux stubs
+### 🔍 [OCR Scanner](examples/examples#ocr-app)
+Image processing with Tesseract.js, Alpine.js, UnoCSS.
+
+### ✏️ [Code Editor](examples/examples#code-editor)
+CodeMirror 6, file tree, native dialogs.
+
+### 🔬 [Lua HTML App](examples/examples#lua-html-app)
+Pure Lua HTML DSL, no build step.
+
+</div>
+
+---
+
+## Platform Support
+
+| Feature | macOS | Windows | Linux |
+|---|---|---|---|
+| Window creation | ✅ | ✅ | ✅ |
+| WebView render | ✅ WKWebView | ✅ WebView2 | ✅ WebKitGTK |
+| `coconut://` scheme | ✅ | 🔲 stub | 🔲 stub |
+| Frameless window | ✅ | 🔲 | 🔲 |
+| Transparent BG | ✅ | 🔲 | 🔲 |
+| Lua runtime | ✅ | ✅ | ✅ |
+| Command generation | ✅ | ✅ | ✅ |
+| Dialog (open/save) | ✅ | ✅ | ✅ |
+| WKNavigationDelegate | ✅ | N/A | N/A |
+
+<div class="label label-green">✅ = working</div> &nbsp;
+<div class="label label-yellow">🔲 = planned</div>
 
 ---
 
 ## Project Links
 
 - [GitHub Repository](https://github.com/lakubuDavid/coconut-milk)
-- [Roadmap](./explanation/roadmap.md)
-- [Specification](./reference/specs/specs.md)
-- [Test Suite](./reference/test-suite.md)
+- [Specification](reference/specs/specs)
+- [Roadmap](explanation/roadmap)
+- [Test Suite](reference/test-suite)
