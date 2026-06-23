@@ -1,23 +1,23 @@
 {
   "version": "1.0",
   "project": "coconut-milk",
-  "updatedAt": "2026-06-23T01:46:39.161Z",
+  "updatedAt": "2026-06-23T01:55:46.305Z",
   "tasks": [
     {
       "id": "task-1782179195494-pp8j7sy",
       "title": "Use schemas/ as canonical source for type defs in scaffolding",
-      "description": "- Remove inline GENERATORS.coconut_dts() from create-coconut-app\n- Add resolve_schema() helper with remote-fetch + cache + bundled fallback\n- Add copy_schema() to all three scaffold functions (bare, bare-ts, vite)\n- Add --offline / --no-cache flags\n- Add COCONUT_OFFLINE env var support",
-      "status": "pending",
+      "description": "- Removed inline GENERATORS.coconut_dts() from create-coconut-app\n- Added resolve_schema() with remote-fetch (curl + PowerShell fallback), cache (~/.cache/coconut/schemas/), and bundled fallback\n- Added copy_schema() helper\n- Added --offline flag + COCONUT_OFFLINE env var\n- Updated all three scaffold functions (bare, bare-ts, vite) to copy coconut.d.lua and scripts/coconut.d.ts\n- Updated README directory tree\n- Removed stale samples/coconut.d.lua\n- Updated coconut.config.schema.json to match config.h",
+      "status": "completed",
       "createdAt": "2026-06-23T01:46:35.494Z",
-      "updatedAt": "2026-06-23T01:46:35.494Z"
+      "updatedAt": "2026-06-23T01:55:46.305Z"
     },
     {
       "id": "task-1782179199161-njf2hjq",
-      "title": "Design schema-driven generator for .d.ts and .d.lua",
-      "description": "Design a script that reads schemas/coconut.config.schema.json and generates both coconut.d.ts and coconut.d.lua. Evaluate whether to extend JSON schema with metadata tags (js-only/lua-only/shared) or keep manual sync. Compare config.h, both .d.lua files, and .d.ts to determine which is most up-to-date.",
-      "status": "in_progress",
+      "title": "Decision: Option B — keep .d.ts/.d.lua hand-written, schemas/ as canonical",
+      "description": "Chose Option B over schema-driven generator. schemas/coconut.d.ts and schemas/coconut.d.lua remain hand-written canonical files. Scaffolder will copy them with remote-fetch + cache + fallback. No schema-to-types generator.",
+      "status": "completed",
       "createdAt": "2026-06-23T01:46:39.161Z",
-      "updatedAt": "2026-06-23T01:46:39.161Z"
+      "updatedAt": "2026-06-23T01:51:03.052Z"
     }
   ]
 }

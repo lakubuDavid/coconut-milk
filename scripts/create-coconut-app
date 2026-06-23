@@ -9,6 +9,7 @@
 ---   -f, --framework <vanilla|react|vue|solid>  Framework for vite template (default: vanilla)
 ---   -p, --pm <npm|bun>                   Package manager for vite template (default: npm)
 ---   -y, --yes                            Skip prompts, use defaults
+---       --offline                        Skip remote fetch, use cached/bundled schemas only
 ---   -h, --help                           Show this help
 ---
 --- Templates:
@@ -20,6 +21,10 @@
 local TEMPLATES = { bare = true, ["bare-ts"] = true, vite = true }
 local FRAMEWORKS = { vanilla = true, react = true, vue = true, solid = true }
 local PACKAGE_MANAGERS = { npm = true, bun = true }
+
+-- Global flag: set by --offline flag or COCONUT_OFFLINE env var.
+-- resolve_schema() reads this to skip remote fetch.
+local g_offline = os.getenv("COCONUT_OFFLINE") == "1"
 
 -- ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -85,6 +90,30 @@ local function path_join(...)
   return table.concat({ ... }, "/")
 end
 
+--- Portable mkdir -p (handles both Unix and Windows).
+local function mkdir_p(dir)
+  if package.config:sub(1,1) == "\\" then
+    -- Windows: mkdir creates intermediate dirs by default
+    os.execute("mkdir \"" .. dir .. "\" 2>NUL")
+  else
+    os.execute("mkdir -p \"" .. dir .. "\"")
+  end
+end
+
+--- Portable rm -f.
+local function rm_f(path)
+  if package.config:sub(1,1) == "\\" then
+    os.execute("del /f /q \"" .. path .. "\" 2>NUL")
+  else
+    os.execute("rm -f \"" .. path .. "\"")
+  end
+end
+
+--- Detect if running on Windows.
+local function is_windows()
+  return package.config:sub(1,1) == "\\"
+end
+
 --- Find the coconut binary in PATH.
 local function coconut_binary()
   -- Check Coconut binary location hint env var first
@@ -98,6 +127,143 @@ local function coconut_binary()
     if path and path ~= "" then return path end
   end
   return "coconut"
+end
+
+-- ── Schema helpers ────────────────────────────────────────────────────────
+
+--- Cache directory for downloaded schema files.
+local function schema_cache_dir()
+  local cache_home = os.getenv("COCONUT_CACHE_DIR")
+  if not cache_home or cache_home == "" then
+    local home
+    if is_windows() then
+      home = os.getenv("USERPROFILE") or os.getenv("HOME") or "~"
+      cache_home = home .. "\\.cache\\coconut\\schemas"
+    else
+      home = os.getenv("HOME") or "~"
+      cache_home = home .. "/.cache/coconut/schemas"
+    end
+  end
+  return cache_home
+end
+
+--- Resolve a schema file path.  Returns nil + error on failure.
+---
+--- Resolution order:
+---   1. If `offline` is true or COCONUT_OFFLINE is set, skip remote.
+---   2. Check local cache (~/.cache/coconut/schemas/<filename>).
+---   3. Download from GitHub raw (main branch), write to cache.
+---   4. Fall back to `schemas/<filename>` relative to the script location.
+local function resolve_schema(filename, offline)
+  if offline == nil then offline = g_offline end
+
+  -- Cache hit
+  if not offline then
+    local cached = path_join(schema_cache_dir(), filename)
+    local f = io.open(cached, "r")
+    if f then
+      local content = f:read("*a")
+      f:close()
+      if content and #content > 0 then
+        return cached
+      end
+    end
+  end
+
+  -- Remote fetch (unless offline)
+  if not offline then
+    local url = "https://raw.githubusercontent.com/lakubuDavid/coconut-milk/main/schemas/" .. filename
+    local tmp = os.tmpname()
+    local ok = false
+
+    -- Try curl (macOS / Linux / modern Windows)
+    ok = os.execute("curl -sSfLo \"" .. tmp .. "\" \"" .. url .. "\" 2>/dev/null")
+
+    -- Fall back to PowerShell (older Windows without curl.exe)
+    if not ok then
+      ok = os.execute(
+        "powershell -NoProfile -Command \"Invoke-WebRequest -Uri '" .. url ..
+        "' -OutFile '" .. tmp .. "' 2>$null\" 2>/dev/null"
+      )
+    end
+
+    if ok then
+      local content = io.open(tmp, "r")
+      if content then
+        local raw = content:read("*a")
+        content:close()
+        if raw and #raw > 0 then
+          -- Write to cache
+          local cached_dir = schema_cache_dir()
+          mkdir_p(cached_dir)
+          local out = io.open(path_join(cached_dir, filename), "w")
+          if out then
+            out:write(raw)
+            out:close()
+          end
+          rm_f(tmp)
+          return path_join(cached_dir, filename)
+        end
+      end
+      rm_f(tmp)
+    end
+  end
+
+  -- Bundled fallback
+  -- Try relative to the script first (when running from repo or extracted archive),
+  -- then relative to CWD (when invoked via PATH).
+  local search_dirs = {}
+  if arg and arg[0] then
+    local script_dir = arg[0]:match("^(.*[/\\])") or "."
+    -- Walk up from script dir through parent dirs
+    local dir = script_dir
+    for _ = 1, 4 do
+      table.insert(search_dirs, dir)
+      local parent = dir:match("^(.*[/\\])")
+      if not parent or parent == dir then break end
+      dir = parent
+    end
+  end
+  -- Also check CWD and common relative locations
+  table.insert(search_dirs, ".")
+  table.insert(search_dirs, "schemas")
+  table.insert(search_dirs, "../schemas")
+
+  for _, dir in ipairs(search_dirs) do
+    local candidate = dir .. "/" .. filename
+    local f = io.open(candidate, "r")
+    if f then
+      f:close()
+      return candidate
+    end
+  end
+
+  return nil, "could not resolve " .. filename .. " (tried " .. #search_dirs .. " locations)"
+end
+
+--- Copy a schema file into the project directory.
+local function copy_schema(project_dir, filename, subdir)
+  local src_path, err = resolve_schema(filename)
+  if not src_path then
+    log("Warning: " .. (err or "failed to resolve " .. filename))
+    return
+  end
+
+  local target = project_dir
+  if subdir then target = path_join(target, subdir) end
+  mkdir(target)
+  target = path_join(target, filename)
+
+  local src_f = io.open(src_path, "r")
+  if not src_f then
+    log("Warning: cannot read " .. src_path)
+    return
+  end
+  local content = src_f:read("*a")
+  src_f:close()
+
+  write_file(target, content)
+  log("Created " .. target)
 end
 
 -- ── File generators ──────────────────────────────────────────────────────
@@ -304,115 +470,7 @@ function GENERATORS.tsconfig()
 end
 
 --- Generate coconut.d.ts (type definitions for the bridge API)
-function GENERATORS.coconut_dts()
-  return [=[// coconut.d.ts — Type declarations for the Coconut Milk bridge API.
-// Run 'coconut generate' to create generated/commands.d.ts with full
-// CoconutCommandName / CoconutCommandParams / CoconutCommandReturns types.
-
-/// <reference path="../generated/commands.d.ts" />
-
-interface CoconutPayload {
-  [key: string]: unknown;
-}
-
-interface CoconutError {
-  code: string;
-  message: string;
-  details?: unknown;
-}
-
-interface CoconutViewDescriptor {
-  kind: "file" | "html" | "url";
-  src?: string;
-}
-
-interface CoconutWindowAPI {
-  /** Minimize the window. */
-  minimize(): Promise<void>;
-  /** Toggle fullscreen mode. */
-  toggleFullscreen(): Promise<void>;
-  /** Close the window. */
-  close(): Promise<void>;
-}
-
-interface CoconutFsAPI {
-  /** Read a text file from disk. */
-  readText(path: string): Promise<{ ok: boolean; data?: string; error?: string }>;
-  /** Check if a path exists. */
-  exists(path: string): Promise<{ ok: boolean; exists?: boolean; error?: string }>;
-  /** Write text to a file. */
-  writeText(path: string, content: string): Promise<{ ok: boolean; error?: string }>;
-  /** Resolve a relative path against a root. */
-  resolve(root: string, relpath: string): Promise<{ ok: boolean; data?: string; error?: string }>;
-  /** List directory contents. */
-  listDir(path: string): Promise<{ ok: boolean; data?: Array<{ name: string; path: string; is_dir: boolean }>; error?: string }>;
-}
-
-interface CoconutDialogAPI {
-  /** Show a native message box. */
-  message(title?: string, message?: string, kind?: "info" | "warn" | "error" | "question"): Promise<{ confirmed: boolean }>;
-  /** Show an open file dialog. */
-  open(title?: string, multi?: boolean, chooseDir?: boolean): Promise<{ confirmed: boolean; path: string; paths: string[] }>;
-  /** Show a save file dialog. */
-  save(title?: string, defaultName?: string): Promise<{ confirmed: boolean; path: string }>;
-}
-
-interface CoconutClipboardAPI {
-  /** Read plain text from system clipboard. */
-  read(): Promise<string>;
-  /** Write plain text to system clipboard. */
-  write(text: string): Promise<boolean>;
-}
-
-interface CoconutJsAPI {
-  /** Wait for the bridge to be ready. */
-  ready(): Promise<void>;
-
-  /** Call a Lua command via the bridge. Returns the raw response. */
-  call<T = unknown>(name: string, payload?: Record<string, unknown>): Promise<T>;
-
-  /** Emit an event to Lua. */
-  emit<TPayload extends CoconutPayload = CoconutPayload>(
-    name: string,
-    payload?: TPayload,
-  ): Promise<void>;
-
-  /** Listen for events from Lua. */
-  on<TPayload extends CoconutPayload = CoconutPayload>(
-    name: string,
-    fn: (payload: TPayload) => void,
-  ): () => void;
-
-  /** Get all registered view names. */
-  views(): Promise<string[]>;
-
-  /** Ping the Lua bridge for connectivity. */
-  ping(): Promise<string>;
-
-  /** Open a URL in the system-default browser. */
-  openUrl(url: string): Promise<boolean>;
-
-  /** Show a system notification. */
-  notify(title: string, body: string): Promise<boolean>;
-
-  /** Window control helpers. */
-  window: CoconutWindowAPI;
-
-  /** Filesystem helpers. */
-  fs: CoconutFsAPI;
-
-  /** Native dialog helpers. */
-  dialog: CoconutDialogAPI;
-
-  /** Clipboard read/write. */
-  clipboard: CoconutClipboardAPI;
-}
-
-interface Window {
-  coconut: CoconutJsAPI;
-}
-]=]
-end
+-- (coconut.d.ts and coconut.d.lua are copied from schemas/ at scaffold time)
 
 --- Generate commands/example.lua
 function GENERATORS.example_command()
@@ -514,9 +572,11 @@ function GENERATORS.readme(project_name, template, framework, pkg_manager)
   lines[#lines + 1] = '```'
   lines[#lines + 1] = project_name .. '/'
   lines[#lines + 1] = '├── coconut.config.lua'
+  lines[#lines + 1] = '├── coconut.d.lua'
   lines[#lines + 1] = '├── main.lua'
   lines[#lines + 1] = '├── tsconfig.json'
   lines[#lines + 1] = '├── scripts/'
+  lines[#lines + 1] = '│   └── coconut.d.ts'
   lines[#lines + 1] = '├── commands/'
   lines[#lines + 1] = '│   ├── example.lua'
   lines[#lines + 1] = '│   └── example.g.js'
@@ -565,8 +625,8 @@ local function scaffold_bare(project_dir, project_name)
     GENERATORS.icon_svg())
   write_file(path_join(project_dir, "tsconfig.json"),
     GENERATORS.tsconfig_js())
-  write_file(path_join(project_dir, "scripts/coconut.d.ts"),
-    GENERATORS.coconut_dts())
+  copy_schema(project_dir, "coconut.d.lua")
+  copy_schema(project_dir, "coconut.d.ts", "scripts")
   write_file(path_join(project_dir, "README.md"),
     GENERATORS.readme(project_name, "bare"))
 end
@@ -598,8 +658,8 @@ local function scaffold_bare_ts(project_dir, project_name)
     GENERATORS.example_command())
   write_file(path_join(project_dir, "commands/example.g.js"),
     GENERATORS.example_g_js())
-  write_file(path_join(project_dir, "scripts/coconut.d.ts"),
-    GENERATORS.coconut_dts())
+  copy_schema(project_dir, "coconut.d.lua")
+  copy_schema(project_dir, "coconut.d.ts", "scripts")
   write_file(path_join(project_dir, "README.md"),
     GENERATORS.readme(project_name, "bare-ts"))
 end
@@ -663,6 +723,10 @@ local function scaffold_vite(project_dir, project_name, framework, pkg_manager)
     GENERATORS.example_command())
   write_file(path_join(project_dir, "commands/example.g.js"),
     GENERATORS.example_g_js())
+
+  -- Copy schema type definitions
+  copy_schema(project_dir, "coconut.d.lua")
+  copy_schema(project_dir, "coconut.d.ts", "scripts")
 
   -- Copy default icon
   write_file(path_join(project_dir, "public/icon.svg"),
@@ -759,7 +823,7 @@ end
 -- ── Main ──────────────────────────────────────────────────────────────────
 
 local function parse_args()
-  local args = { name = nil, template = "bare", framework = "vanilla", pm = "npm", yes = false }
+  local args = { name = nil, template = "bare", framework = "vanilla", pm = "npm", yes = false, offline = false }
   local i = 1
   while i <= #arg do
     local a = arg[i]
@@ -786,6 +850,9 @@ local function parse_args()
       args.pm = arg[i] or "npm"
     elseif a == "-y" or a == "--yes" then
       args.yes = true
+    elseif a == "--offline" then
+      args.offline = true
+      g_offline = true
     elseif a:sub(1, 1) ~= "-" and not args.name then
       args.name = a
     end

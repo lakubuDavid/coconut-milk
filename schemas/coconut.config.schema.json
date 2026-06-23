@@ -22,6 +22,50 @@
       "minimum": 240,
       "default": 640
     },
+    "window_min_width": {
+      "description": "Minimum window width in pixels (0 = no limit)",
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    },
+    "window_min_height": {
+      "description": "Minimum window height in pixels (0 = no limit)",
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    },
+    "window_max_width": {
+      "description": "Maximum window width in pixels (0 = no limit)",
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    },
+    "window_max_height": {
+      "description": "Maximum window height in pixels (0 = no limit)",
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    },
+    "title": {
+      "description": "Window title displayed in the title bar",
+      "type": "string",
+      "default": "Coconut"
+    },
+    "resizable": {
+      "description": "Whether the window can be resized by the user",
+      "type": "boolean",
+      "default": true
+    },
+    "frameless": {
+      "description": "Whether the window has no chrome/title bar",
+      "type": "boolean",
+      "default": false
+    },
+    "transparent": {
+      "description": "Whether the window background is transparent",
+      "type": "boolean",
+      "default": false
+    },
     "initial_view": {
       "description": "Name of the view shown at startup",
       "type": "string",
@@ -32,8 +76,13 @@
       "type": "string",
       "default": "views"
     },
+    "fallback_file": {
+      "description": "SPA fallback: relative path to HTML file served on 404",
+      "type": "string",
+      "default": ""
+    },
     "asset_root": {
-      "description": "Directory for static assets",
+      "description": "Directory for static assets (CSS, JS, images)",
       "type": "string",
       "default": "assets"
     },
@@ -42,14 +91,137 @@
       "type": "string",
       "default": "commands"
     },
+    "output_dir": {
+      "description": "Output directory for generated files (.g.lua, .d.ts, .g.ts)",
+      "type": "string",
+      "default": "generated"
+    },
     "generators": {
-      "description": "Generator pipeline configuration",
+      "description": "Generator pipeline configuration (legacy, prefer top-level output_dir)",
       "type": "object",
       "properties": {
         "output_dir": {
-          "description": "Output directory for generated files (.g.lua, .d.ts, .g.ts)",
+          "description": "Output directory for generated files",
           "type": "string",
           "default": "generated"
+        }
+      },
+      "additionalProperties": false,
+      "default": {}
+    },
+    "debug": {
+      "description": "Debug settings",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Enable debug mode (equivalent to --debug flag)",
+          "type": "boolean",
+          "default": false
+        },
+        "showTransportDump": {
+          "description": "Log bridge message payloads to stdout",
+          "type": "boolean",
+          "default": false
+        },
+        "logLevel": {
+          "description": "Minimum log level to display",
+          "type": "string",
+          "enum": ["debug", "info", "warn", "error"],
+          "default": "info"
+        }
+      },
+      "additionalProperties": false,
+      "default": {}
+    },
+    "hmr": {
+      "description": "Hot Module Replacement settings",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Enable HMR (auto-enabled in --debug mode)",
+          "type": "boolean",
+          "default": false
+        },
+        "auto_regenerate": {
+          "description": "Run 'coconut generate' automatically on file changes",
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false,
+      "default": {}
+    },
+    "app": {
+      "description": "App identity metadata",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Display name (menus, window titles, etc.)",
+          "type": "string"
+        },
+        "id": {
+          "description": "Conceptual app identifier (CFBundleIdentifier, AppUserModelID, .desktop id)",
+          "type": "string"
+        },
+        "version": {
+          "description": "Semantic version string (e.g. '1.0.0')",
+          "type": "string"
+        },
+        "description": {
+          "description": "Short description for desktop entries",
+          "type": "string"
+        },
+        "category": {
+          "description": "High-level category mapped to per-platform taxonomy",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "default": {}
+    },
+    "icon": {
+      "description": "Icon references per platform",
+      "type": "object",
+      "properties": {
+        "source": {
+          "description": "Single source file for auto-generation (SVG, PNG, JPEG, ICNS, or ICO)",
+          "type": "string"
+        },
+        "icns_path": {
+          "description": "macOS: explicit path to .icns file",
+          "type": "string"
+        },
+        "ico_path": {
+          "description": "Windows: explicit path to .ico file",
+          "type": "string"
+        },
+        "png_path": {
+          "description": "Linux: explicit path to .png file or freedesktop icon name",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "default": {}
+    },
+    "manifests": {
+      "description": "Dev-time bundling hints (stripped from release builds)",
+      "type": "object",
+      "properties": {
+        "strip_dev_fields": {
+          "description": "Strip dev-only fields before shipping in bundle",
+          "type": "boolean",
+          "default": true
+        },
+        "bytecode_config": {
+          "description": "Compile stripped config to .luac bytecode",
+          "type": "boolean",
+          "default": false
+        },
+        "target_archs": {
+          "description": "Target architectures for multi-arch bundling (e.g. ['x86_64', 'arm64'])",
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
         }
       },
       "additionalProperties": false,
