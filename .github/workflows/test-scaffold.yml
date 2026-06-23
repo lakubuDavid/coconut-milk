@@ -98,11 +98,12 @@ jobs:
               done
               ;;
             vite)
-              # Vite template creates a full Vite project — just check key coconut files
+              # Vite template creates a full Vite project — check key coconut files
+              # plus that the Vite scaffold produced an index.html at root
               for f in \
                 "scripts/coconut.d.ts" \
-                "vite.config.js" \
-                "public/icon.svg"
+                "public/icon.svg" \
+                "index.html"
               do
                 if [ -f "test-app/$f" ]; then
                   echo "  ✓ $f"
