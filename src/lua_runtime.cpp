@@ -210,6 +210,28 @@ void _bindCoconutLuaApi(Runtime *runtime) {
   coconut.set_function("warn",  [](const std::string& msg) { debug::warn(msg); });
   coconut.set_function("error", [](const std::string& msg) { debug::error(msg); });
 
+  // JS error forwarding — called from window.onerror / unhandledrejection
+  // in the injected embed script.
+  coconut.set_function("_js_log", [](const sol::table& entry) {
+    std::string level = entry.get_or<std::string>("level", "error");
+    std::string message = entry.get_or<std::string>("message", "");
+    std::string stack = entry.get_or<std::string>("stack", "");
+
+    // Build a combined message with stack trace
+    std::string full = message;
+    if (!stack.empty()) {
+      full += "\n" + stack;
+    }
+
+    if (level == "info") {
+      debug::info(full);
+    } else if (level == "warn") {
+      debug::warn(full);
+    } else {
+      debug::error(full);
+    }
+  });
+
   // Hot Module Replacement — triggers a manual reload scan.
   // Available even if the background watcher is not running.
   coconut.set_function("hotreload", [runtime]() -> bool {

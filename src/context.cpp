@@ -159,10 +159,10 @@ namespace coconut {
 
   void CoconutContext::bind(const std::string& name, sol::protected_function fn) {
     if (commands != nullptr) {
-      // Reject duplicate command bindings.
+      // Log a warning but skip duplicate command bindings (don't abort).
       if (commands->handlers.find(name) != commands->handlers.end()) {
-        throw std::runtime_error(
-            std::format("duplicate command '{}': a handler is already registered", name));
+        debug::warn(std::format("duplicate command '{}': a handler is already registered, skipping", name));
+        return;
       }
       commands->handlers[name] = fn;
     }

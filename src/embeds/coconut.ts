@@ -587,6 +587,66 @@ const _overrides = new Map<string, string>()
 // Expose globally so injected <script> (non-module) can access `window.coconut`.
 ;(globalThis as any).coconut = coconut
 
+// ── JS error forwarding (global uncaught exceptions) ───────────────────────
+
+let _pendingErrors: Array<{ level: string; message: string; stack?: string }> = []
+
+function _flushPendingErrors() {
+  const pending = _pendingErrors
+  _pendingErrors = []
+  for (const err of pending) {
+    coconut.call('_js_log', err).catch(() => {})
+  }
+}
+
+/**
+ * Forward uncaught JS exceptions to the Lua bridge so they appear in
+ * the terminal logs (not only in DevTools).
+ *
+ * Errors that occur before the bridge is ready are queued and flushed
+ * once `coconut.ready()` resolves.
+ */
+window.onerror = (
+  _event: string | Event,
+  _source?: string,
+  _lineno?: number,
+  _colno?: number,
+  _error?: Error,
+): boolean => {
+  const msg = typeof _event === 'string' ? _event : _event?.toString() ?? 'Unknown script error'
+  const stack = _error?.stack || `${_source ?? '?'}:${_lineno ?? 0}:${_colno ?? 0}`
+  const entry = { level: 'error', message: `[JS] ${msg}`, stack }
+
+  if (!_ready) {
+    _pendingErrors.push(entry)
+    // Once bridge becomes ready, flush will happen via ready() below
+    return false
+  }
+
+  coconut.call('_js_log', entry).catch(() => {})
+  return false // let default handling (e.g. DevTools) also process it
+}
+
+/**
+ * Forward unhandled Promise rejections to the Lua bridge.
+ */
+window.addEventListener('unhandledrejection', (e: PromiseRejectionEvent) => {
+  const reason = e.reason
+  const msg = reason?.message ?? String(reason)
+  const stack = reason?.stack ?? ''
+  const entry = { level: 'error', message: `[JS] Unhandled Promise rejection: ${msg}`, stack }
+
+  if (!_ready) {
+    _pendingErrors.push(entry)
+    return
+  }
+
+  coconut.call('_js_log', entry).catch(() => {})
+})
+
+// Flush any errors that were queued before the bridge was ready.
+coconut.ready().then(() => _flushPendingErrors())
+
 // ── Default keybinds ──────────────────────────────────────────────────────
 // Close window: mod+q (macOS) / alt+f4 (Win/Linux)
 keybind({ mac: 'mod+q', win: 'alt+f4', linux: 'alt+f4' }, () => {
