@@ -1,0 +1,134 @@
+# Test the create-coconut-app scaffolding script on relevant changes.
+# Runs only when the scaffolder or its dependencies change.
+
+name: test-scaffold
+
+on:
+  pull_request:
+    paths:
+      - "scripts/create-coconut-app"
+      - "schemas/*"
+      - ".github/workflows/test-scaffold.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/create-coconut-app"
+      - "schemas/*"
+      - ".github/workflows/test-scaffold.yml"
+
+jobs:
+  scaffold:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        template: [bare, bare-ts, vite]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install LuaJIT
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq luajit
+
+      - name: Test scaffolding (${{ matrix.template }})
+        run: |
+          COCONUT_OFFLINE=1 \
+          luajit scripts/create-coconut-app \
+            --yes \
+            --template ${{ matrix.template }} \
+            test-app
+
+          echo ""
+          echo "=== Created files ==="
+          find test-app -type f | sort
+
+          echo ""
+          echo "=== Verifying structure ==="
+
+          # Every template must have these
+          for f in \
+            "coconut.config.lua" \
+            "main.lua" \
+            "coconut.d.lua" \
+            "commands/example.lua" \
+            "commands/example.g.js" \
+            "README.md"
+          do
+            if [ -f "test-app/$f" ]; then
+              echo "  ✓ $f"
+            else
+              echo "  ✗ MISSING: $f"
+              exit 1
+            fi
+          done
+
+          # Template-specific checks
+          case "${{ matrix.template }}" in
+            bare)
+              for f in \
+                "views/index.html" \
+                "views/style.css" \
+                "views/app.js" \
+                "scripts/coconut.d.ts" \
+                "tsconfig.json"
+              do
+                if [ -f "test-app/$f" ]; then
+                  echo "  ✓ $f"
+                else
+                  echo "  ✗ MISSING: $f"
+                  exit 1
+                fi
+              done
+              ;;
+            bare-ts)
+              for f in \
+                "views/index.html" \
+                "views/style.css" \
+                "src/app.ts" \
+                "scripts/coconut.d.ts" \
+                "tsconfig.json"
+              do
+                if [ -f "test-app/$f" ]; then
+                  echo "  ✓ $f"
+                else
+                  echo "  ✗ MISSING: $f"
+                  exit 1
+                fi
+              done
+              ;;
+            vite)
+              # Vite template creates a full Vite project — just check key coconut files
+              for f in \
+                "scripts/coconut.d.ts" \
+                "vite.config.js" \
+                "public/icon.svg"
+              do
+                if [ -f "test-app/$f" ]; then
+                  echo "  ✓ $f"
+                else
+                  echo "  ✗ MISSING: $f"
+                  exit 1
+                fi
+              done
+              ;;
+          esac
+
+          echo ""
+          echo "=== All checks passed for ${{ matrix.template }} ==="
+
+      - name: Validate schema files match
+        run: |
+          # Verify that the scaffolding copies match the schemas/ canonical versions
+          echo "=== coconut.d.lua ==="
+          diff schemas/coconut.d.lua test-app/coconut.d.lua && \
+            echo "  ✓ matches schemas/coconut.d.lua" || \
+            (echo "  ✗ MISMATCH with schemas/coconut.d.lua" && exit 1)
+
+          echo "=== coconut.d.ts ==="
+          diff schemas/coconut.d.ts test-app/scripts/coconut.d.ts && \
+            echo "  ✓ matches schemas/coconut.d.ts" || \
+            (echo "  ✗ MISMATCH with schemas/coconut.d.ts" && exit 1)
+
+      - name: Cleanup
+        run: rm -rf test-app

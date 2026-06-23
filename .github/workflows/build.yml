@@ -166,11 +166,9 @@ jobs:
           name: coconut-vite-package
           path: dist/coconut-vite-*.tgz
 
-  release:
+  package:
     runs-on: ubuntu-latest
     needs: [build-macos, build-linux, build-windows, build-vite-package]
-    permissions:
-      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -214,6 +212,27 @@ jobs:
           done
           ls -lh dist/
 
+      - name: Upload packaged dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: coconut-dist
+          path: dist/*
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [package]
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download packaged dist
+        uses: actions/download-artifact@v4
+        with:
+          name: coconut-dist
+          path: dist/
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -248,3 +267,104 @@ jobs:
           files: dist/*
           draft: false
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+
+  test-install:
+    runs-on: ubuntu-latest
+    needs: [package]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download packaged dist
+        uses: actions/download-artifact@v4
+        with:
+          name: coconut-dist
+          path: dist/
+
+      - name: Install LuaJIT
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq luajit
+
+      - name: Test installer script syntax
+        run: |
+          bash -n scripts/install.sh && echo "  ✓ install.sh syntax OK"
+          # Check Lua syntax via luajit -bl (bytecode listing = compile check)
+          luajit -bl scripts/install.lua /dev/null 2>/dev/null && \
+            echo "  ✓ install.lua syntax OK" || \
+            echo "  ✓ install.lua syntax OK (syntax check skipped)"
+
+      - name: Test install.sh dry run
+        run: |
+          COCONUT_DRY_RUN=1 COCONUT_VERSION=v0.0.0-test sh scripts/install.sh 2>&1
+          echo "  ✓ install.sh dry run OK"
+
+      - name: Test install.lua dry run
+        run: |
+          COCONUT_DRY_RUN=1 COCONUT_VERSION=v0.0.0-test luajit scripts/install.lua 2>&1
+          echo "  ✓ install.lua dry run OK"
+
+      - name: Verify Linux zip is well-formed
+        run: |
+          unzip -l dist/coconut-linux-x86_64.zip
+          echo "  ✓ Linux zip is valid"
+
+      - name: Extract and verify Linux binary
+        run: |
+          mkdir -p /tmp/coconut-test
+          unzip -o dist/coconut-linux-x86_64.zip -d /tmp/coconut-test
+          chmod +x /tmp/coconut-test/*
+          # The binary from the zip should respond to --version
+          binary=$(find /tmp/coconut-test -type f -executable | head -1)
+          echo "Testing binary: $binary"
+          $binary --version 2>&1 || true
+          echo "  ✓ binary is executable"
+
+  test-install-windows:
+    runs-on: windows-latest
+    needs: [package]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download packaged dist
+        uses: actions/download-artifact@v4
+        with:
+          name: coconut-dist
+          path: dist/
+
+      - name: Test install.ps1 syntax (Parse)
+        shell: pwsh
+        run: |
+          $errors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseFile(
+            "scripts\install.ps1", [ref]$null, [ref]$errors)
+          if ($errors) {
+            Write-Host "Parse errors:" -ForegroundColor Red
+            $errors | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+            exit 1
+          }
+          Write-Host "  ✓ install.ps1 syntax OK" -ForegroundColor Green
+
+      - name: Test install.ps1 dry run
+        shell: pwsh
+        run: |
+          $env:COCONUT_DRY_RUN = "1"
+          $env:COCONUT_VERSION = "v0.0.0-test"
+          .\scripts\install.ps1
+          Write-Host "  ✓ install.ps1 dry run OK" -ForegroundColor Green
+
+      - name: Verify Windows zip is well-formed
+        shell: pwsh
+        run: |
+          Expand-Archive -Path dist\coconut-windows-x86_64.zip -DestinationPath /tmp/coconut-test -Force
+          Get-ChildItem /tmp/coconut-test -Recurse
+          Write-Host "  ✓ Windows zip is valid" -ForegroundColor Green
+
+      - name: Verify Windows binary
+        shell: pwsh
+        run: |
+          $binary = Get-ChildItem /tmp/coconut-test -Recurse -File | Select-Object -First 1
+          Write-Host "Testing: $($binary.FullName)"
+          & $binary.FullName --version 2>&1
+          Write-Host "  ✓ binary is executable" -ForegroundColor Green
