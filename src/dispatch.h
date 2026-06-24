@@ -29,6 +29,9 @@ enum class MessageKind : uint8_t {
   LifecycleEvent,
   /// Calls a registered command handler.
   CommandCall,
+  /// Result from a background-thread command execution.
+  /// Payload: "callId|jsonResult"
+  CommandResult,
 };
 
 /// A single message in the dispatch queue.
@@ -38,7 +41,8 @@ struct Message {
   /// Serialized payload — kind-specific:
   ///   EvalJS:        the JS source string
   ///   LifecycleEvent: "viewName|eventName" (pipe-separated)
-  ///   CommandCall:   "commandName|jsonArgs" (pipe-separated)
+  ///   CommandCall:   "commandName|jsonArgs|callId" (pipe-separated)
+  ///   CommandResult: "callId|jsonResult" (pipe-separated)
   std::string payload;
 };
 

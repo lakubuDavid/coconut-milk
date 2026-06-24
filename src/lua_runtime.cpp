@@ -55,68 +55,72 @@ void _registerBuiltinCommands(Runtime *runtime) {
     local ctx = _G.ctx
     if not ctx then return end
 
-    ctx:bind("clipboard_read", function()
+    -- Builtin commands run on the MAIN thread because they interact with
+    -- platform APIs (clipboard, fs, dialogs, webview, store) that are
+    -- not thread-safe or require the main thread.
+
+    ctx:bind_mt("clipboard_read", function()
       return coconut.clipboard.readText()
     end)
-    ctx:bind("clipboard_write", function(params)
+    ctx:bind_mt("clipboard_write", function(params)
       return coconut.clipboard.writeText(params.text or "")
     end)
-    ctx:bind("openUrl", function(params)
+    ctx:bind_mt("openUrl", function(params)
       return coconut.openUrl(params.url or "")
     end)
-    ctx:bind("notify", function(params)
+    ctx:bind_mt("notify", function(params)
       return coconut.notify(params.title or "", params.body or "")
     end)
-    ctx:bind("dialog_message", function(params)
+    ctx:bind_mt("dialog_message", function(params)
       return coconut.dialog.message(params.message or "",
                                      params.title or "Message",
                                      params.kind or "info")
     end)
-    ctx:bind("dialog_open", function(params)
+    ctx:bind_mt("dialog_open", function(params)
       return coconut.dialog.open(params.title or "Open",
                                   params.multi,
                                   params.chooseDir)
     end)
-    ctx:bind("dialog_save", function(params)
+    ctx:bind_mt("dialog_save", function(params)
       return coconut.dialog.save(params.title or "Save",
                                   params.defaultName or "")
     end)
-    ctx:bind("fs_exists", function(params)
+    ctx:bind_mt("fs_exists", function(params)
       local ok, exists = pcall(coconut.fs.exists, params.path)
       if ok then return { ok = true, exists = exists } end
       return { ok = false, error = tostring(exists) }
     end)
-    ctx:bind("fs_write_text", function(params)
+    ctx:bind_mt("fs_write_text", function(params)
       local ok, err = pcall(coconut.fs.writeText, params.path, params.content)
       if ok then return { ok = err } end
       return { ok = false, error = tostring(err) }
     end)
-    ctx:bind("fs_resolve", function(params)
+    ctx:bind_mt("fs_resolve", function(params)
       local ok, resolved = pcall(coconut.fs.resolve, params.root, params.relpath)
       if ok then return { ok = true, data = resolved } end
       return { ok = false, error = tostring(resolved) }
     end)
-    ctx:bind("fs_list_dir", function(params)
+    ctx:bind_mt("fs_list_dir", function(params)
       local ok, entries = pcall(coconut.fs.listDir, params.path)
       if ok then return { ok = true, data = entries } end
       return { ok = false, error = tostring(entries) }
     end)
-    ctx:bind("ping", function()
+    ctx:bind_mt("ping", function()
       return "pong"
     end)
-    ctx:bind("getViews", function()
+    ctx:bind_mt("getViews", function()
       local names, i = {}, 1
       for name in pairs(coconut.views()) do
         names[i] = name; i = i + 1
       end
       return names
     end)
-    ctx:bind("fs_read_text", function(params)
+    ctx:bind_mt("fs_read_text", function(params)
       local ok, data = pcall(coconut.fs.readText, params.path)
       if ok then return { ok = true, data = data } end
       return { ok = false, error = tostring(data) }
     end)
-    ctx:bind("__coconutWindowCtl", function(params)
+    ctx:bind_mt("__coconutWindowCtl", function(params)
       local w = _coconut_window
       if not w then return { ok = false, error = "no window handle" } end
       local cmd = params.cmd
@@ -139,7 +143,7 @@ void _registerBuiltinCommands(Runtime *runtime) {
       end
       return { ok = true }
     end)
-    ctx:bind("__registerPlatformKeybind", function(params)
+    ctx:bind_mt("__registerPlatformKeybind", function(params)
       local combo = params.combo
       if combo and coconut.__registerPlatformKeybind then
         local ok = pcall(coconut.__registerPlatformKeybind, params)
@@ -147,32 +151,32 @@ void _registerBuiltinCommands(Runtime *runtime) {
       end
       return { ok = false, error = "missing combo or binding" }
     end)
-    ctx:bind("store_set", function(params)
+    ctx:bind_mt("store_set", function(params)
       local ok, err = pcall(coconut.store.set, params.key, params.value)
       if ok then return { ok = true } end
       return { ok = false, error = tostring(err) }
     end)
-    ctx:bind("store_get", function(params)
+    ctx:bind_mt("store_get", function(params)
       local ok, value = pcall(coconut.store.get, params.key)
       if ok then return { ok = true, value = value } end
       return { ok = false, error = tostring(value) }
     end)
-    ctx:bind("store_has", function(params)
+    ctx:bind_mt("store_has", function(params)
       local ok, has = pcall(coconut.store.has, params.key)
       if ok then return { ok = true, has = has } end
       return { ok = false, error = tostring(has) }
     end)
-    ctx:bind("store_delete", function(params)
+    ctx:bind_mt("store_delete", function(params)
       local ok, err = pcall(coconut.store.delete, params.key)
       if ok then return { ok = true } end
       return { ok = false, error = tostring(err) }
     end)
-    ctx:bind("store_clear", function()
+    ctx:bind_mt("store_clear", function()
       local ok, err = pcall(coconut.store.clear)
       if ok then return { ok = true } end
       return { ok = false, error = tostring(err) }
     end)
-    ctx:bind("store_keys", function()
+    ctx:bind_mt("store_keys", function()
       local ok, keys = pcall(coconut.store.keys)
       if ok then return { ok = true, keys = keys } end
       return { ok = false, error = tostring(keys) }
@@ -924,6 +928,7 @@ void _bindUserType(Runtime *runtime) {
       "reload", &CoconutContext::reload,
       "close",  &CoconutContext::close,
       "bind",   &CoconutContext::bind,
+      "bind_mt", &CoconutContext::bind_mt,
       "rebind", &CoconutContext::rebind,
       "emit",    &CoconutContext::emit,
       "emit_sync", &CoconutContext::emit_sync);
@@ -1232,18 +1237,21 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
     }
   }
 
-  // ── Auto-load generated commands ──────────────────────────────────
+  // ── Auto-load main-thread generated commands ──────────────────────
   // Scan the command root directory and the generated directory for
-  // .g.lua files.  Each .g.lua exports a register(ctx) function that
-  // calls ctx:bind() for each command defined in the corresponding .lua
-  // module.
+  // .g_mt.lua files.  Each .g_mt.lua exports a register(ctx) function
+  // that calls ctx:bind_mt() for each command defined in the
+  // corresponding .lua module with ---@thread main.
+  //
+  // Regular .g.lua files (without _mt) are loaded by the background
+  // thread's own Lua state.
   {
     std::string cmdRoot = cfg ? cfg->command_root : "commands";
     std::string genDir  = "generated";
-    debug::info(std::format("scanning {}/ and {}/ for .g.lua files...",
+    debug::info(std::format("scanning {}/ and {}/ for .g_mt.lua files...",
                             cmdRoot, genDir));
 
-    // Add directories to package.path so the .g.lua's require() works.
+    // Add directories to package.path so require() works.
     std::string pkgPath = ";"
         + cmdRoot + "/?.lua;"
         + cmdRoot + "/?/init.lua;"
@@ -1253,7 +1261,7 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
 
     sol::object ctx_obj = lua["ctx"];
     if (!ctx_obj.valid()) {
-      debug::warn("ctx not available, skipping command auto-load");
+      debug::warn("ctx not available, skipping main-thread command auto-load");
     } else {
       int loaded = 0;
       std::vector<std::string> dirsToScan = {cmdRoot, genDir};
@@ -1266,16 +1274,16 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
           if (path.extension() != ".lua") continue;
           auto stem = path.stem().string();
 
-          // Only load .g.lua files (generated command registration wrappers).
-          if (stem.size() < 2 ||
-              stem.substr(stem.size() - 2) != ".g")
+          // Only load .g_mt.lua files (main-thread command registration).
+          if (stem.size() < 5 ||
+              stem.substr(stem.size() - 5) != ".g_mt")
             continue;
 
           std::string cmdName =
-              stem.substr(0, stem.size() - 2);
-          debug::info(std::format("found {}.g.lua, loading...", cmdName));
+              stem.substr(0, stem.size() - 5);
+          debug::info(std::format("found {}.g_mt.lua, loading...", cmdName));
 
-          // Load the .g.lua file — it returns a register function.
+          // Load the .g_mt.lua file — it returns a register function.
           auto loadResult = lua.script_file(path.string(),
               sol::script_pass_on_error);
           if (!loadResult.valid()) {
@@ -1294,7 +1302,7 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
             continue;
           }
 
-          // Call register(ctx).
+          // Call register(ctx) — the .g_mt.lua uses ctx:bind_mt() internally.
           auto bindResult =
               ret.as<sol::function>()(ctx_obj);
           if (!bindResult.valid()) {
@@ -1302,7 +1310,7 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
             debug::warn(std::format("register({}) failed: {}", cmdName, e.what()));
           } else {
             ++loaded;
-            debug::info(std::format("registered {} commands", cmdName));
+            debug::info(std::format("registered {} main-thread commands", cmdName));
           }
         }
       }
@@ -1310,7 +1318,7 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
         debug::info(std::format("no {}/ or {}/ directory", cmdRoot, genDir));
       }
       if (loaded > 0) {
-        debug::info(std::format("loaded {} command module(s)", loaded));
+        debug::info(std::format("loaded {} main-thread command module(s)", loaded));
       }
     }
   }

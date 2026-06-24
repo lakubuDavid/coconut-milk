@@ -98,61 +98,93 @@ static void dispatchRpcEventToLua(coconut::App* app, const rpc::Message& msg) {
 
 /// Route an incoming kCall RPC message to the command registry.
 /// Sends a kReturn or kError response through the transport.
+///
+/// Main-thread commands (registered via ctx:bind_mt) run synchronously
+/// on the main thread.  Background commands (ctx:bind) are forwarded to
+/// the background thread via its lock-free inbox.
 static void dispatchRpcCallToLua(coconut::App* app, const rpc::Message& msg) {
   if (app == nullptr || app->commands == nullptr) {
     return;
   }
 
-  // Look up handler in the command registry.
-  auto it = app->commands->handlers.find(msg.name);
-  if (it == app->commands->handlers.end()) {
+  // ── Check main-thread command registry first ──────────────────
+  {
+    auto it = app->commands->mt_handlers.find(msg.name);
+    if (it != app->commands->mt_handlers.end()) {
+      // Run synchronously on the main thread (existing behaviour).
+      const sol::protected_function& fn = it->second;
+
+      sol::state_view lua(*app->lua_state->lua_state);
+      sol::table paramsTable = toTable(lua, msg.payload);
+
+      auto result = fn(paramsTable, app->lua_state->context);
+
+      rpc::Message reply;
+      reply.id = msg.id;
+
+      if (result.valid()) {
+        reply.type = rpc::Type::kReturn;
+        sol::object val = result;
+        if (val.is<sol::table>()) {
+          reply.payload = toJson(val.as<sol::table>());
+        } else if (val.is<std::string>()) {
+          reply.payload = val.as<std::string>();
+        } else if (val.is<long long>()) {
+          reply.payload = val.as<long long>();
+        } else if (val.is<double>()) {
+          reply.payload = val.as<double>();
+        } else if (val.is<bool>()) {
+          reply.payload = val.as<bool>();
+        }
+      } else {
+        reply.type = rpc::Type::kError;
+        sol::error err = result;
+        debug::warn(std::format("bridge: cmd '{}' failed: {}", msg.name, err.what()));
+        reply.payload = {{"code", "LuaError"}, {"message", err.what()}};
+      }
+
+      rpcSend(app, reply);
+      return;
+    }
+  }
+
+  // ── Forward to background thread ──────────────────────────────
+  if (app->bg != nullptr) {
+    // Serialize the command name, args, and call ID into the payload.
+    // Format: "commandName|jsonArgs|callId"
+    std::string jsonArgs;
+    try {
+      jsonArgs = msg.payload.dump();
+    } catch (...) {
+      jsonArgs = "{}";
+    }
+    std::string payload = msg.name + "|" + jsonArgs + "|" + msg.id;
+
+    bool pushed = app->bg->inbox.push({
+        dispatch::MessageKind::CommandCall, std::move(payload)});
+
+    if (!pushed) {
+      // Inbox full — send error back immediately.
+      rpc::Message err;
+      err.type = rpc::Type::kError;
+      err.id   = msg.id;
+      err.payload = {{"code", "QueueOverflow"},
+                     {"message", "Background command inbox is full"}};
+      rpcSend(app, err);
+    }
+    // If pushed successfully, the background thread will send the result.
+    return;
+  }
+
+  // ── No background thread and not a main-thread command ─────────
+  {
     rpc::Message err;
     err.type = rpc::Type::kError;
     err.id   = msg.id;
     err.payload = {{"code", "CommandNotFound"},
                    {"message", "No handler for '" + msg.name + "'"}};
     rpcSend(app, err);
-    return;
   }
-
-  // Invoke the registered Lua function.
-  const sol::protected_function& fn = it->second;
-
-  sol::state_view lua(*app->lua_state->lua_state);
-  sol::table paramsTable = toTable(lua, msg.payload);
-
-  auto result = fn(paramsTable, app->lua_state->context);
-
-  if (!result.valid()) {
-    sol::error err = result;
-    debug::warn(std::format("bridge: cmd '{}' failed: {}", msg.name, err.what()));
-  }
-
-  rpc::Message reply;
-  reply.id = msg.id;
-
-  if (result.valid()) {
-    reply.type = rpc::Type::kReturn;
-    sol::object val = result;
-    if (val.is<sol::table>()) {
-      reply.payload = toJson(val.as<sol::table>());
-    } else if (val.is<std::string>()) {
-      reply.payload = val.as<std::string>();
-    } else if (val.is<long long>()) {
-      reply.payload = val.as<long long>();
-    } else if (val.is<double>()) {
-      reply.payload = val.as<double>();
-    } else if (val.is<bool>()) {
-      reply.payload = val.as<bool>();
-    }
-  } else {
-    reply.type = rpc::Type::kError;
-    sol::error err = result;
-    debug::warn(std::format("bridge: cmd '{}' failed: {}", msg.name, err.what()));
-    reply.payload = {{"code", "LuaError"}, {"message", err.what()}};
-  }
-
-  rpcSend(app, reply);
 }
 
 // ---------------------------------------------------------------------------

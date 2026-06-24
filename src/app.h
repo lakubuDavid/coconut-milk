@@ -21,6 +21,8 @@
 
 namespace coconut {
 
+  namespace bg_thread { struct Context; }
+
   /// Top-level runtime owner.
   struct App {
     Config*             configs      = nullptr;
@@ -43,6 +45,10 @@ namespace coconut {
 
     /// Lock-free SPSC queue for async dispatch of events to JS and Lua.
     dispatch::Outbox outbox;
+
+    /// Background thread for offloaded command execution.
+    /// Created during init, destroyed during shutdown.
+    bg_thread::Context* bg = nullptr;
   };
 
   namespace app {
