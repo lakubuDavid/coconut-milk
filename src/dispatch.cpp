@@ -1,7 +1,5 @@
 #include "dispatch.h"
 #include "app.h"
-#include "bg_thread.h"
-#include "bridge.h"
 #include "debug.h"
 #include "lua_runtime.h"
 
@@ -130,7 +128,6 @@ void drain(App* app) {
     return;
   }
 
-  // Drain the main outbox (EvalJS, LifecycleEvent).
   while (auto msg = app->outbox.pop()) {
     switch (msg->kind) {
       case MessageKind::EvalJS:
@@ -161,63 +158,21 @@ void drain(App* app) {
       }
 
       case MessageKind::CommandCall: {
-        // CommandCall on the main outbox is deprecated — background
-        // commands go through the bg inbox.  Log a warning.
-        debug::warn("dispatch::drain: unexpected CommandCall on main outbox");
-        break;
-      }
-
-      case MessageKind::CommandResult:
-        // CommandResult on the main outbox is unexpected — bg results
-        // go through the bg outbox.
-        debug::warn("dispatch::drain: unexpected CommandResult on main outbox");
-        break;
-    }
-  }
-
-  // Drain the background thread's outbox (CommandResult messages).
-  if (app->bg != nullptr) {
-    while (auto msg = app->bg->outbox.pop()) {
-      switch (msg->kind) {
-        case MessageKind::CommandResult: {
-          // Payload: "callId|jsonResultOrError"
-          size_t pipe = msg->payload.find('|');
-          if (pipe == std::string::npos) {
-            debug::warn("dispatch::drain: malformed CommandResult payload");
-            break;
-          }
-          std::string callId(msg->payload.data(), pipe);
-          std::string_view jsonPayload(msg->payload.data() + pipe + 1,
-                                        msg->payload.size() - pipe - 1);
-
-          // Parse the JSON to determine if it's a success or error.
-          try {
-            auto json = nlohmann::json::parse(jsonPayload);
-            rpc::Message reply;
-            reply.id = callId;
-
-            if (json.contains("code") && json.contains("message")) {
-              // Error response.
-              reply.type = rpc::Type::kError;
-              reply.payload = json;
-            } else {
-              // Success response.
-              reply.type = rpc::Type::kReturn;
-              reply.payload = json;
-            }
-
-            rpcSend(app, reply);
-          } catch (const std::exception& e) {
-            debug::warn(std::format("dispatch::drain: failed to parse CommandResult: {}",
-                                    e.what()));
-          }
+        // Split "commandName|jsonArgs".
+        size_t pipe = msg->payload.find('|');
+        if (pipe == std::string::npos) {
+          debug::warn("dispatch::drain: malformed CommandCall payload");
           break;
         }
+        std::string_view cmd(msg->payload.data(), pipe);
+        std::string_view args(msg->payload.data() + pipe + 1,
+                              msg->payload.size() - pipe - 1);
 
-        default:
-          debug::warn(std::format("dispatch::drain: unexpected bg outbox message kind: {}",
-                                  static_cast<int>(msg->kind)));
-          break;
+        // TODO: Dispatch to command registry via bridge.
+        debug::info(std::format("dispatch::drain: CommandCall '{}' (not yet dispatched)",
+                                 cmd));
+        (void)args;
+        break;
       }
     }
   }

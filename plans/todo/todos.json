@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project": "coconut-milk",
-  "updatedAt": "2026-06-24T00:36:22.673Z",
+  "updatedAt": "2026-06-23T02:29:48.567Z",
   "tasks": [
     {
       "id": "task-1782179195494-pp8j7sy",
@@ -26,14 +26,6 @@
       "status": "completed",
       "createdAt": "2026-06-23T02:29:48.567Z",
       "updatedAt": "2026-06-23T02:29:48.567Z"
-    },
-    {
-      "id": "task-1782261382673-b6vlo9d",
-      "title": "Tier 2: Background thread infrastructure + bind_mt (vertical slice)",
-      "description": "Implement the minimal vertical slice: split command registries, add bind_mt(), create background thread with own Lua state that loads .g.lua files, wire dispatch routing so commands run on the correct thread.",
-      "status": "in_progress",
-      "createdAt": "2026-06-24T00:36:22.673Z",
-      "updatedAt": "2026-06-24T00:36:22.673Z"
     }
   ]
 }

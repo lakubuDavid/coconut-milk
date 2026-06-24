@@ -159,23 +159,12 @@ namespace coconut {
 
   void CoconutContext::bind(const std::string& name, sol::protected_function fn) {
     if (commands != nullptr) {
-      // Register on the background thread by default.
+      // Log a warning but skip duplicate command bindings (don't abort).
       if (commands->handlers.find(name) != commands->handlers.end()) {
-        debug::warn(std::format("duplicate background command '{}': a handler is already registered, skipping", name));
+        debug::warn(std::format("duplicate command '{}': a handler is already registered, skipping", name));
         return;
       }
       commands->handlers[name] = fn;
-    }
-  }
-
-  void CoconutContext::bind_mt(const std::string& name, sol::protected_function fn) {
-    if (commands != nullptr) {
-      // Register on the main thread.
-      if (commands->mt_handlers.find(name) != commands->mt_handlers.end()) {
-        debug::warn(std::format("duplicate main-thread command '{}': a handler is already registered, skipping", name));
-        return;
-      }
-      commands->mt_handlers[name] = fn;
     }
   }
 

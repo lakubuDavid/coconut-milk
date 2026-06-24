@@ -1,6 +1,5 @@
 #include "app.h"
 #include "argparse.h"
-#include "bg_thread.h"
 #include "bundle.h"
 #include "commands.h"
 #include "new_project.h"
@@ -511,22 +510,6 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  // ── Start the background thread ─────────────────────────────────
-  // Creates a separate Lua state, loads .g.lua files into it, and
-  // starts a worker thread that processes commands off the main thread.
-  debug::info("main: starting background thread...");
-  {
-    auto bg_result = coconut::bg_thread::create(app, &cfg);
-    if (!bg_result) {
-      debug::error(std::format("Failed to create background thread: {}",
-                                bg_result.error().message));
-    } else {
-      app->bg = bg_result.value();
-      coconut::bg_thread::start(app->bg);
-      debug::info("main: background thread started");
-    }
-  }
-
   // Start the dispatch run-loop source so queued events are drained
   // automatically on every iteration of the main loop.
   debug::info("main: starting dispatch system...");
@@ -540,15 +523,6 @@ int main(int argc, char* argv[]) {
 
   // Tear down the dispatch system (drains remaining messages).
   coconut::dispatch::shutdown(app);
-
-  // ── Stop the background thread ──────────────────────────────────
-  debug::info("main: stopping background thread...");
-  if (app->bg != nullptr) {
-    coconut::bg_thread::stop(app->bg);
-    coconut::bg_thread::destroy(app->bg);
-    app->bg = nullptr;
-    debug::info("main: background thread stopped");
-  }
 
   coconut::app::destroy(app);
   return 0;

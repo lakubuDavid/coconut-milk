@@ -87,13 +87,8 @@ namespace coconut {
     void reload();
     void close();
 
-    /// Registers a single command handler on the background thread (default).
+    /// Registers a single command handler (one command name => one handler).
     void bind(const std::string& name, sol::protected_function fn);
-
-    /// Registers a single command handler on the main thread.
-    /// Use for commands that interact with webview, dialogs, or other
-    /// platform APIs that must run on the main thread.
-    void bind_mt(const std::string& name, sol::protected_function fn);
 
     /// Re-registers a command handler, overwriting any existing one.
     /// Unlike bind(), this does not throw on duplicates.
