@@ -172,9 +172,53 @@ jobs:
           name: coconut-vite-package
           path: dist/coconut-vite-*.tgz
 
+  source-archive:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create source archive (zip + tar.gz)
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME#refs/tags/}"
+          mkdir -p dist
+
+          # Determine the commit the tag points to
+          COMMIT="${GITHUB_SHA}"
+          if [ -z "$COMMIT" ]; then
+            COMMIT="$(git rev-parse HEAD)"
+          fi
+
+          ARCHIVE_NAME="coconut-milk-${TAG}-source"
+
+          # git archive creates a tar from the tree at COMMIT (no .git/
+          # thirdparty/.git, CI artifacts, etc.)
+          git archive --format=tar --prefix="${ARCHIVE_NAME}/" "${COMMIT}" \
+            > "${ARCHIVE_NAME}.tar"
+
+          # tar.gz
+          gzip -c "${ARCHIVE_NAME}.tar" > "dist/${ARCHIVE_NAME}.tar.gz"
+
+          # zip — extract tar to tmpdir, zip from there, clean up
+          mkdir -p tmp_src_extract
+          (cd tmp_src_extract && tar xf "../${ARCHIVE_NAME}.tar")
+          (cd tmp_src_extract && zip -9 -q -r "../dist/${ARCHIVE_NAME}.zip" .)
+          rm -rf tmp_src_extract "${ARCHIVE_NAME}.tar"
+
+          ls -lh dist/
+
+      - name: Upload source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: coconut-source-archive
+          path: dist/*
+
   package:
     runs-on: ubuntu-latest
-    needs: [build-macos, build-linux, build-windows, build-vite-package]
+    needs: [build-macos, build-linux, build-windows, build-vite-package, source-archive]
 
     steps:
       - uses: actions/checkout@v4
@@ -213,6 +257,9 @@ jobs:
                 ;;
               coconut-vite*)
                 cp "$dir"/coconut-vite-*.tgz dist/ 2>/dev/null || true
+                ;;
+              coconut-source-archive*)
+                cp "$dir"/*.tar.gz "$dir"/*.zip dist/ 2>/dev/null || true
                 ;;
             esac
           done
@@ -254,6 +301,7 @@ jobs:
             | macOS | Apple Silicon | `coconut-macos-arm64.zip` |
             | Linux | x86_64 | `coconut-linux-x86_64.zip` |
             | Windows | x86_64 | `coconut-windows-x86_64.zip` |
+            | Source | — | `coconut-milk-*-source.zip` / `.tar.gz` |
             | Vite plugin | — | `coconut-vite-*.tgz` |
 
             ### Usage
