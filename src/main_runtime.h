@@ -1,5 +1,5 @@
-#ifndef LUA_RUNTIME_H
-#define LUA_RUNTIME_H
+#ifndef COCONUT_MAIN_RUNTIME_H
+#define COCONUT_MAIN_RUNTIME_H
 
 #include "config.h"
 #include "context.h"
@@ -75,4 +75,4 @@ namespace coconut {
   }  // namespace lua
 }  // namespace coconut
 
-#endif  // LUA_RUNTIME_H
+#endif  // COCONUT_MAIN_RUNTIME_H

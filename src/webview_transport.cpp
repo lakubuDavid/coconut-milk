@@ -3,7 +3,7 @@
 #include "bridge.h" // for escapeJsSingleQuotedString, toTable, toJson
 #include "commands.h"
 #include "debug.h"
-#include "lua_runtime.h"
+#include "main_runtime.h"
 
 #include <nlohmann/json.hpp>
 

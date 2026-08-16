@@ -1,11 +1,21 @@
-#include "lua_runtime.h"
+#include "main_runtime.h"
+#include "modules/thread_kind.h"
+#include "modules/log.h"
+#include "modules/json.h"
+#include "modules/fs.h"
+#include "modules/dialog.h"
+#include "modules/notify.h"
+#include "modules/clipboard.h"
+#include "modules/store.h"
+#include "modules/env.h"
+#include "modules/openurl.h"
+#include "modules/hotreload.h"
+#include "modules/bridge_emit.h"
+#include "modules/keybind.h"
+#include "modules/stubs.h"
 
 #include "app.h"
-#include "bridge.h"
 #include "debug.h"
-#include "dialog.h"
-#include "fs.h"
-#include "hotreload.h"
 #include "packages/env.h"
 #include "packages/open_url.h"
 #include "packages/clipboard.h"
@@ -55,68 +65,72 @@ void _registerBuiltinCommands(Runtime *runtime) {
     local ctx = _G.ctx
     if not ctx then return end
 
-    ctx:bind("clipboard_read", function()
+    -- Builtin commands run on the MAIN thread because they interact with
+    -- platform APIs (clipboard, fs, dialogs, webview, store) that are
+    -- not thread-safe or require the main thread.
+
+    ctx:bind_mt("clipboard_read", function()
       return coconut.clipboard.readText()
     end)
-    ctx:bind("clipboard_write", function(params)
+    ctx:bind_mt("clipboard_write", function(params)
       return coconut.clipboard.writeText(params.text or "")
     end)
-    ctx:bind("openUrl", function(params)
+    ctx:bind_mt("openUrl", function(params)
       return coconut.openUrl(params.url or "")
     end)
-    ctx:bind("notify", function(params)
+    ctx:bind_mt("notify", function(params)
       return coconut.notify(params.title or "", params.body or "")
     end)
-    ctx:bind("dialog_message", function(params)
+    ctx:bind_mt("dialog_message", function(params)
       return coconut.dialog.message(params.message or "",
                                      params.title or "Message",
                                      params.kind or "info")
     end)
-    ctx:bind("dialog_open", function(params)
+    ctx:bind_mt("dialog_open", function(params)
       return coconut.dialog.open(params.title or "Open",
                                   params.multi,
                                   params.chooseDir)
     end)
-    ctx:bind("dialog_save", function(params)
+    ctx:bind_mt("dialog_save", function(params)
       return coconut.dialog.save(params.title or "Save",
                                   params.defaultName or "")
     end)
-    ctx:bind("fs_exists", function(params)
+    ctx:bind_mt("fs_exists", function(params)
       local ok, exists = pcall(coconut.fs.exists, params.path)
       if ok then return { ok = true, exists = exists } end
       return { ok = false, error = tostring(exists) }
     end)
-    ctx:bind("fs_write_text", function(params)
+    ctx:bind_mt("fs_write_text", function(params)
       local ok, err = pcall(coconut.fs.writeText, params.path, params.content)
       if ok then return { ok = err } end
       return { ok = false, error = tostring(err) }
     end)
-    ctx:bind("fs_resolve", function(params)
+    ctx:bind_mt("fs_resolve", function(params)
       local ok, resolved = pcall(coconut.fs.resolve, params.root, params.relpath)
       if ok then return { ok = true, data = resolved } end
       return { ok = false, error = tostring(resolved) }
     end)
-    ctx:bind("fs_list_dir", function(params)
+    ctx:bind_mt("fs_list_dir", function(params)
       local ok, entries = pcall(coconut.fs.listDir, params.path)
       if ok then return { ok = true, data = entries } end
       return { ok = false, error = tostring(entries) }
     end)
-    ctx:bind("ping", function()
+    ctx:bind_mt("ping", function()
       return "pong"
     end)
-    ctx:bind("getViews", function()
+    ctx:bind_mt("getViews", function()
       local names, i = {}, 1
       for name in pairs(coconut.views()) do
         names[i] = name; i = i + 1
       end
       return names
     end)
-    ctx:bind("fs_read_text", function(params)
+    ctx:bind_mt("fs_read_text", function(params)
       local ok, data = pcall(coconut.fs.readText, params.path)
       if ok then return { ok = true, data = data } end
       return { ok = false, error = tostring(data) }
     end)
-    ctx:bind("__coconutWindowCtl", function(params)
+    ctx:bind_mt("__coconutWindowCtl", function(params)
       local w = _coconut_window
       if not w then return { ok = false, error = "no window handle" } end
       local cmd = params.cmd
@@ -139,7 +153,7 @@ void _registerBuiltinCommands(Runtime *runtime) {
       end
       return { ok = true }
     end)
-    ctx:bind("__registerPlatformKeybind", function(params)
+    ctx:bind_mt("__registerPlatformKeybind", function(params)
       local combo = params.combo
       if combo and coconut.__registerPlatformKeybind then
         local ok = pcall(coconut.__registerPlatformKeybind, params)
@@ -147,32 +161,32 @@ void _registerBuiltinCommands(Runtime *runtime) {
       end
       return { ok = false, error = "missing combo or binding" }
     end)
-    ctx:bind("store_set", function(params)
+    ctx:bind_mt("store_set", function(params)
       local ok, err = pcall(coconut.store.set, params.key, params.value)
       if ok then return { ok = true } end
       return { ok = false, error = tostring(err) }
     end)
-    ctx:bind("store_get", function(params)
+    ctx:bind_mt("store_get", function(params)
       local ok, value = pcall(coconut.store.get, params.key)
       if ok then return { ok = true, value = value } end
       return { ok = false, error = tostring(value) }
     end)
-    ctx:bind("store_has", function(params)
+    ctx:bind_mt("store_has", function(params)
       local ok, has = pcall(coconut.store.has, params.key)
       if ok then return { ok = true, has = has } end
       return { ok = false, error = tostring(has) }
     end)
-    ctx:bind("store_delete", function(params)
+    ctx:bind_mt("store_delete", function(params)
       local ok, err = pcall(coconut.store.delete, params.key)
       if ok then return { ok = true } end
       return { ok = false, error = tostring(err) }
     end)
-    ctx:bind("store_clear", function()
+    ctx:bind_mt("store_clear", function()
       local ok, err = pcall(coconut.store.clear)
       if ok then return { ok = true } end
       return { ok = false, error = tostring(err) }
     end)
-    ctx:bind("store_keys", function()
+    ctx:bind_mt("store_keys", function()
       local ok, keys = pcall(coconut.store.keys)
       if ok then return { ok = true, keys = keys } end
       return { ok = false, error = tostring(keys) }
@@ -189,470 +203,30 @@ void _registerBuiltinCommands(Runtime *runtime) {
 void _bindCoconutLuaApi(Runtime *runtime) {
   sol::table coconut =
       (*runtime->lua_state)["coconut"].get_or_create<sol::table>();
+  auto& lua = *runtime->lua_state;
 
-  // Low-level bridge helper: forwards to JS (called from Lua coconut.emit)
-  coconut.set_function(
-      "_bridge_emit", [runtime](const std::string &name,
-                                 const std::string &payloadJson) {
-        if (runtime == nullptr || runtime->app == nullptr) return;
-        try {
-          auto json = nlohmann::json::parse(payloadJson);
-          bridge::emitToJS(runtime->app, name, json);
-        } catch (const std::exception &e) {
-          debug::warn(std::format("_bridge_emit: failed to parse payload: {}",
-                                  e.what()));
-        }
-      });
-
-  // Debug logging functions exposed to Lua as coconut.log / .info / .warn / .error
-  coconut.set_function("log",   [](const std::string& msg) { debug::log(msg); });
-  coconut.set_function("info",  [](const std::string& msg) { debug::info(msg); });
-  coconut.set_function("warn",  [](const std::string& msg) { debug::warn(msg); });
-  coconut.set_function("error", [](const std::string& msg) { debug::error(msg); });
-
-  // JS error forwarding — called from window.onerror / unhandledrejection
-  // in the injected embed script.
-  coconut.set_function("_js_log", [](const sol::table& entry) {
-    std::string level = entry.get_or<std::string>("level", "error");
-    std::string message = entry.get_or<std::string>("message", "");
-    std::string stack = entry.get_or<std::string>("stack", "");
-
-    // Build a combined message with stack trace
-    std::string full = message;
-    if (!stack.empty()) {
-      full += "\n" + stack;
-    }
-
-    if (level == "info") {
-      debug::info(full);
-    } else if (level == "warn") {
-      debug::warn(full);
-    } else {
-      debug::error(full);
-    }
-  });
-
-  // Hot Module Replacement — triggers a manual reload scan.
-  // Available even if the background watcher is not running.
-  coconut.set_function("hotreload", [runtime]() -> bool {
-    if (!runtime || !runtime->app || !runtime->app->configs) return false;
-    coconut::hotreload::trigger(runtime->app, runtime->app->configs);
-    return true;
-  });
-
-  // Built-in stubs — overridden by user's main.lua when loaded.
-  coconut.set_function("config",
-      [](CoconutContext* ctx) -> CoconutContext* { return ctx; });
-  coconut.set_function("views",
-      [](sol::this_state s) -> sol::table {
-        return sol::state_view(s).create_table();
-      });
-  coconut.set_function("events",
-      [](sol::object) { });
-
-  // Register a combo with the platform-level keybind set (for NSEvent monitor)
-  coconut.set_function("__registerPlatformKeybind", [runtime](sol::table params) -> bool {
-    if (runtime && runtime->app) {
-      std::string combo = params["combo"].get_or<std::string>("");
-      if (combo.empty()) return false;
-      runtime->app->platform_keybinds.insert(combo);
-      debug::info(std::format("[keybind] registered platform keybind: {}", combo));
-      return true;
-    }
-    return false;
-  });
-
-  // ── Dialog bindings: coconut.dialog ─────────────────────────────
-  // Exposes native message box and file dialogs to Lua.
-  sol::table dialog = (*runtime->lua_state).create_table();
-
-  dialog.set_function("message", [](sol::variadic_args va) -> sol::table {
-    sol::state_view lua = va.lua_state();
-    std::string title = "Message";
-    std::string message;
-    std::string kind = "info";
-    if (va.size() >= 1 && va[0].is<std::string>()) message = va[0].as<std::string>();
-    if (va.size() >= 2 && va[1].is<std::string>()) title = va[1].as<std::string>();
-    if (va.size() >= 3 && va[2].is<std::string>()) kind = va[2].as<std::string>();
-    auto r = dialog::messageBox(title, message, kind);
-    sol::table t = lua.create_table();
-    t["confirmed"] = r.confirmed;
-    return t;
-  });
-
-  dialog.set_function("open", [](sol::variadic_args va) -> sol::table {
-    sol::state_view lua = va.lua_state();
-    std::string title = "Open File";
-    bool multi = false;
-    bool chooseDir = false;
-    std::vector<dialog::Filter> filters;
-    if (va.size() >= 1 && va[0].is<std::string>()) title = va[0].as<std::string>();
-    if (va.size() >= 2 && va[1].is<bool>()) multi = va[1].as<bool>();
-    if (va.size() >= 3 && va[2].is<bool>()) chooseDir = va[2].as<bool>();
-    auto r = dialog::openFile(title, filters, multi, chooseDir);
-    sol::table t = lua.create_table();
-    t["confirmed"] = r.confirmed;
-    t["path"] = r.path;
-    t["is_dir"] = r.is_dir;
-    sol::table paths = lua.create_table();
-    for (size_t i = 0; i < r.paths.size(); ++i) paths[i + 1] = r.paths[i];
-    t["paths"] = paths;
-    return t;
-  });
-
-  dialog.set_function("save", [](sol::variadic_args va) -> sol::table {
-    sol::state_view lua = va.lua_state();
-    std::string title = "Save File";
-    std::string defaultName;
-    if (va.size() >= 1 && va[0].is<std::string>()) title = va[0].as<std::string>();
-    if (va.size() >= 2 && va[1].is<std::string>()) defaultName = va[1].as<std::string>();
-    auto r = dialog::saveFile(title, defaultName);
-    sol::table t = lua.create_table();
-    t["confirmed"] = r.confirmed;
-    t["path"] = r.path;
-    return t;
-  });
-
-  coconut["dialog"] = dialog;
-
-  // ── JSON utilities: coconut.json ──────────────────────────────
-  // Provides jsonify (Lua table → JSON string) and parse (string → table).
-  // Uses nlohmann::json under the hood via the bridge's conversion helpers.
-  sol::table json_mod = (*runtime->lua_state).create_table();
-
-  json_mod.set_function("jsonify",
-      [](sol::object obj) -> std::string {
-        if (!obj.valid() || obj.get_type() == sol::type::lua_nil) return "null";
-        if (obj.get_type() != sol::type::table) return "{}";
-        auto json = bridge::toJson(obj.as<sol::table>());
-        return json.dump();
-      });
-
-  json_mod.set_function("parse",
-      [runtime](const std::string& str) -> sol::object {
-        sol::state_view lua(*runtime->lua_state);
-        try {
-          auto json = nlohmann::json::parse(str);
-          return bridge::toTable(lua, json);
-        } catch (const std::exception&) {
-          return sol::make_object(lua, sol::lua_nil);
-        }
-      });
-
-  coconut["json"] = json_mod;
-
-  // ── Filesystem: coconut.fs ─────────────────────────────────────
-  // Exposes readText, readBytes, writeText, writeBytes, exists, resolve.
-  sol::table fs_mod = (*runtime->lua_state).create_table();
-
-  fs_mod.set_function("readText",
-      [](const std::string& path) -> std::string {
-        auto result = fs::readText(path);
-        if (result) return std::move(*result);
-        debug::warn(std::format("fs.readText: {} ({})",
-                     result.error().message, path));
-        return {};
-      });
-
-  // Lua strings are byte-safe, so readBytes returns a Lua string too.
-  fs_mod.set_function("readBytes",
-      [](const std::string& path) -> std::string {
-        auto result = fs::readBytes(path);
-        if (result) {
-          auto& vec = *result;
-          return std::string(
-              reinterpret_cast<const char*>(vec.data()), vec.size());
-        }
-        debug::warn(std::format("fs.readBytes: {} ({})",
-                     result.error().message, path));
-        return {};
-      });
-
-  fs_mod.set_function("writeText",
-      [](const std::string& path,
-         const std::string& content) -> bool {
-        auto result = fs::writeText(path, content);
-        if (result) return true;
-        debug::warn(std::format("fs.writeText: {} ({})",
-                     result.error().message, path));
-        return false;
-      });
-
-  fs_mod.set_function("writeBytes",
-      [](const std::string& path,
-         const std::string& data) -> bool {
-        std::vector<uint8_t> vec(data.begin(), data.end());
-        auto result = fs::writeBytes(path, vec);
-        if (result) return true;
-        debug::warn(std::format("fs.writeBytes: {} ({})",
-                     result.error().message, path));
-        return false;
-      });
-
-  fs_mod.set_function("exists", [](const std::string& path) -> bool {
-    return fs::exists(path);
-  });
-
-  fs_mod.set_function("resolve", [](const std::string& root,
-                                      const std::string& relpath) -> std::string {
-    return fs::resolve(root, relpath);
-  });
-
-  // Convert a single DirEntry to a Lua table
-  auto dirEntry_to_table = [runtime](const fs::DirEntry& de) -> sol::table {
-    sol::table t = (*runtime->lua_state).create_table();
-    t["name"]   = de.name;
-    t["path"]   = de.path;
-    t["is_dir"] = de.is_dir;
-    return t;
-  };
-
-  // List directory contents
-  fs_mod.set_function("listDir",
-      [runtime, dirEntry_to_table](const std::string& path) -> sol::table {
-        auto result = fs::listDir(path);
-        sol::table entries = (*runtime->lua_state).create_table();
-        if (result) {
-          for (size_t i = 0; i < result->size(); ++i) {
-            entries[i + 1] = dirEntry_to_table((*result)[i]);
-          }
-        } else {
-          debug::warn(std::format("fs.listDir: {} ({})",
-                       result.error().message, path));
-        }
-        return entries;
-      });
-
-  coconut["fs"] = fs_mod;
-
-  // ── Store: coconut.store ─────────────────────────────────────
-  // Key-value store with event-driven sync to JS.
-  {
-    sol::table store_mod = (*runtime->lua_state).create_table();
-
-    store_mod.set_function("set",
-        [runtime](const std::string& key, const std::string& value) {
-          if (!runtime->app || !runtime->app->bridge_state ||
-              !runtime->app->bridge_state->store) {
-            debug::warn("store.set: store is null");
-            return;
-          }
-          store::set(runtime->app->bridge_state->store, key, value);
-
-          // Emit store:update event to JS (not back to Lua to avoid loops)
-          if (runtime->app->bridge_state->transport) {
-            nlohmann::json payload = {{"key", key}, {"value", value}};
-            bridge::emitToJS(runtime->app, "store:update", payload);
-          }
-        });
-
-    store_mod.set_function("get",
-        [runtime](const std::string& key) -> sol::object {
-          if (!runtime->app || !runtime->app->bridge_state ||
-              !runtime->app->bridge_state->store) {
-            debug::warn("store.get: store is null");
-            return sol::lua_nil;
-          }
-          auto result = store::get(runtime->app->bridge_state->store, key);
-          if (result) {
-            return sol::make_object(runtime->lua_state->lua_state(), *result);
-          } else {
-            debug::warn(std::format("store.get: {}", result.error().message));
-            return sol::lua_nil;
-          }
-        });
-
-    store_mod.set_function("has",
-        [runtime](const std::string& key) -> bool {
-          if (!runtime->app || !runtime->app->bridge_state ||
-              !runtime->app->bridge_state->store) {
-            debug::warn("store.has: store is null");
-            return false;
-          }
-          return store::has(runtime->app->bridge_state->store, key);
-        });
-
-    store_mod.set_function("delete",
-        [runtime](const std::string& key) {
-          if (!runtime->app || !runtime->app->bridge_state ||
-              !runtime->app->bridge_state->store) {
-            debug::warn("store.delete: store is null");
-            return;
-          }
-          store::remove(runtime->app->bridge_state->store, key);
-
-          // Emit store:update event to JS
-          if (runtime->app->bridge_state->transport) {
-            nlohmann::json payload = {{"key", key}, {"value", nullptr}};
-            bridge::emitToJS(runtime->app, "store:update", payload);
-          }
-        });
-
-    store_mod.set_function("clear", [runtime]() {
-      if (!runtime->app || !runtime->app->bridge_state ||
-          !runtime->app->bridge_state->store) {
-        debug::warn("store.clear: store is null");
-        return;
-      }
-      store::clear(runtime->app->bridge_state->store);
-
-      // Emit store:update event to JS
-      if (runtime->app->bridge_state->transport) {
-        nlohmann::json payload = {{"key", ""}, {"value", nullptr}};
-        bridge::emitToJS(runtime->app, "store:update", payload);
-      }
-    });
-
-    store_mod.set_function("keys", [runtime]() -> sol::table {
-      sol::table result = (*runtime->lua_state).create_table();
-      if (!runtime->app || !runtime->app->bridge_state ||
-          !runtime->app->bridge_state->store) {
-        debug::warn("store.keys: store is null");
-        return result;
-      }
-      auto keys_vec = store::keys(runtime->app->bridge_state->store);
-      for (size_t i = 0; i < keys_vec.size(); ++i) {
-        result[i + 1] = keys_vec[i];
-      }
-      return result;
-    });
-
-    coconut["store"] = store_mod;
+  // Store runtime reference for modules that need App* access.
+  // Modules look up lua["coconut"]["_app"] for store, hotreload, etc.
+  coconut["_runtime"] = runtime;
+  if (runtime->app) {
+    coconut["_app"] = runtime->app;
   }
 
-  // ── Environment table: coconut.env ──────────────────────────
-  // Uses __index metamethod so coconut.env.HOME lazily calls getenv().
-  {
-    sol::table env_tbl = (*runtime->lua_state).create_table();
-    sol::table mt = (*runtime->lua_state).create_table();
-
-    mt["__index"] = [runtime](sol::table, const std::string& key) -> sol::object {
-      if (key == "cwd") {
-        return sol::make_object(runtime->lua_state->lua_state(),
-                                env::cwd());
-      }
-      if (key == "homedir") {
-        return sol::make_object(runtime->lua_state->lua_state(),
-                                env::homedir());
-      }
-      if (key == "pathSeparator") {
-        return sol::make_object(runtime->lua_state->lua_state(),
-                                std::string(1, env::pathSeparator()));
-      }
-      std::string val = env::get(key);
-      if (val.empty()) {
-        return sol::lua_nil;
-      }
-      return sol::make_object(runtime->lua_state->lua_state(), val);
-    };
-
-    // Set the metatable so __index is active for lookups on env_tbl.
-    env_tbl[sol::metatable_key] = mt;
-
-    coconut["env"] = env_tbl;
-  }
-
-  // ── Open URL ──────────────────────────────────────────────────
-  coconut.set_function("openUrl", [](const std::string& url) -> bool {
-    return open_url::open(url);
-  });
-
-  // ── Clipboard ─────────────────────────────────────────────────
-  {
-    sol::table cb = (*runtime->lua_state).create_table();
-    cb.set_function("readText", []() -> std::string {
-      return clipboard::readText();
-    });
-    cb.set_function("writeText", [](const std::string& text) -> bool {
-      return clipboard::writeText(text);
-    });
-    coconut["clipboard"] = cb;
-  }
-
-  // ── Notifications ──────────────────────────────────────────────
-  coconut.set_function("notify",
-      [](const std::string& title, const std::string& body) -> bool {
-        return notify::notify(title, body);
-      });
-
-  // ── Keybind system (hybrid chain: top-down JS→Lua, bottom-up Platform→Lua) ─
-  coconut["_keybinds"] = runtime->lua_state->create_table();
-  coconut.set_function("keybind", [runtime](sol::this_state s,
-                                       const std::string& combo,
-                                       sol::protected_function handler,
-                                       sol::optional<sol::table> opts_tbl) -> sol::function {
-    sol::state_view lua(s);
-
-    // Build entry table
-    std::string id = opts_tbl ? opts_tbl.value()["id"].get_or(combo) : combo;
-    std::string scope = opts_tbl ? opts_tbl.value()["scope"].get_or(std::string("global")) : "global";
-    bool platform = opts_tbl ? opts_tbl.value()["platform"].get_or(false) : false;
-
-    // If platform-level, register with App's platform_keybinds set
-    if (platform && runtime->app) {
-      runtime->app->platform_keybinds.insert(combo);
-      debug::info(std::format("[keybind] registered platform keybind: {}", combo));
-    }
-
-    // Store in coconut._keybinds[combo] list
-    sol::table coconut = lua["coconut"];
-    sol::table keybinds = coconut["_keybinds"];
-    sol::table list = keybinds[combo];
-    if (!list.valid()) {
-      list = lua.create_table();
-      keybinds[combo] = list;
-    }
-    list[list.size() + 1] = handler;
-
-    // Also store metadata under a parallel table for lookup
-    sol::table meta = coconut["_keybind_meta"];
-    if (!meta.valid()) {
-      meta = lua.create_table();
-      coconut["_keybind_meta"] = meta;
-    }
-    sol::table meta_entry = lua.create_table();
-    meta_entry["id"] = id;
-    meta_entry["combo"] = combo;
-    meta_entry["scope"] = scope;
-    meta_entry["platform"] = platform;
-    meta[id] = meta_entry;
-
-    // Return unregister function (simple C++ callable)
-    sol::function unreg_fn = lua["__coconut_unregister_keybind"];
-    if (!unreg_fn.valid()) {
-      // Create one-time helper in Lua
-      lua.script(R"(
-        __coconut_unregister_keybind = function(combo, id)
-          local c = coconut
-          if c._keybinds and c._keybinds[combo] then
-            c._keybinds[combo] = nil
-          end
-          if c._keybind_meta and c._keybind_meta[id] then
-            c._keybind_meta[id] = nil
-          end
-        end
-      )");
-    }
-    return lua.script("return function() end");
-  });
-
-  // Register Lua-side cleanup helper
-  {
-    sol::state_view lv(*runtime->lua_state);
-    lv.script(R"(
-      if not __coconut_unregister_keybind then
-        __coconut_unregister_keybind = function(combo, id)
-          local c = coconut
-          if c._keybinds and c._keybinds[combo] then
-            c._keybinds[combo] = nil
-          end
-          if c._keybind_meta and c._keybind_meta[id] then
-            c._keybind_meta[id] = nil
-          end
-        end
-      end
-    )");
-  }
+  // ── Module registration (call each module with ThreadKind::Main) ───
+  using namespace coconut::modules;
+  init_log(lua, ThreadKind::Main);
+  init_json(lua, ThreadKind::Main);
+  init_fs(lua, ThreadKind::Main);
+  init_dialog(lua, ThreadKind::Main);
+  init_notify(lua, ThreadKind::Main);
+  init_clipboard(lua, ThreadKind::Main);
+  init_store(lua, ThreadKind::Main);
+  init_env(lua, ThreadKind::Main);
+  init_openurl(lua, ThreadKind::Main);
+  init_hotreload(lua, ThreadKind::Main);
+  init_bridge_emit(lua, ThreadKind::Main);
+  init_keybind(lua, ThreadKind::Main);
+  init_stubs(lua, ThreadKind::Main);
 
   // ── Event dispatch system ──────────────────────────────────────────
   // Injects the Lua-side event object model, subscribe API, and central
@@ -924,6 +498,7 @@ void _bindUserType(Runtime *runtime) {
       "reload", &CoconutContext::reload,
       "close",  &CoconutContext::close,
       "bind",   &CoconutContext::bind,
+      "bind_mt", &CoconutContext::bind_mt,
       "rebind", &CoconutContext::rebind,
       "emit",    &CoconutContext::emit,
       "emit_sync", &CoconutContext::emit_sync);
@@ -1232,18 +807,21 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
     }
   }
 
-  // ── Auto-load generated commands ──────────────────────────────────
+  // ── Auto-load main-thread generated commands ──────────────────────
   // Scan the command root directory and the generated directory for
-  // .g.lua files.  Each .g.lua exports a register(ctx) function that
-  // calls ctx:bind() for each command defined in the corresponding .lua
-  // module.
+  // .g_mt.lua files.  Each .g_mt.lua exports a register(ctx) function
+  // that calls ctx:bind_mt() for each command defined in the
+  // corresponding .lua module with ---@thread main.
+  //
+  // Regular .g.lua files (without _mt) are loaded by the background
+  // thread's own Lua state.
   {
     std::string cmdRoot = cfg ? cfg->command_root : "commands";
     std::string genDir  = "generated";
-    debug::info(std::format("scanning {}/ and {}/ for .g.lua files...",
+    debug::info(std::format("scanning {}/ and {}/ for .g_mt.lua files...",
                             cmdRoot, genDir));
 
-    // Add directories to package.path so the .g.lua's require() works.
+    // Add directories to package.path so require() works.
     std::string pkgPath = ";"
         + cmdRoot + "/?.lua;"
         + cmdRoot + "/?/init.lua;"
@@ -1253,7 +831,7 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
 
     sol::object ctx_obj = lua["ctx"];
     if (!ctx_obj.valid()) {
-      debug::warn("ctx not available, skipping command auto-load");
+      debug::warn("ctx not available, skipping main-thread command auto-load");
     } else {
       int loaded = 0;
       std::vector<std::string> dirsToScan = {cmdRoot, genDir};
@@ -1266,16 +844,16 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
           if (path.extension() != ".lua") continue;
           auto stem = path.stem().string();
 
-          // Only load .g.lua files (generated command registration wrappers).
-          if (stem.size() < 2 ||
-              stem.substr(stem.size() - 2) != ".g")
+          // Only load .g_mt.lua files (main-thread command registration).
+          if (stem.size() < 5 ||
+              stem.substr(stem.size() - 5) != ".g_mt")
             continue;
 
           std::string cmdName =
-              stem.substr(0, stem.size() - 2);
-          debug::info(std::format("found {}.g.lua, loading...", cmdName));
+              stem.substr(0, stem.size() - 5);
+          debug::info(std::format("found {}.g_mt.lua, loading...", cmdName));
 
-          // Load the .g.lua file — it returns a register function.
+          // Load the .g_mt.lua file — it returns a register function.
           auto loadResult = lua.script_file(path.string(),
               sol::script_pass_on_error);
           if (!loadResult.valid()) {
@@ -1294,7 +872,7 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
             continue;
           }
 
-          // Call register(ctx).
+          // Call register(ctx) — the .g_mt.lua uses ctx:bind_mt() internally.
           auto bindResult =
               ret.as<sol::function>()(ctx_obj);
           if (!bindResult.valid()) {
@@ -1302,7 +880,7 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
             debug::warn(std::format("register({}) failed: {}", cmdName, e.what()));
           } else {
             ++loaded;
-            debug::info(std::format("registered {} commands", cmdName));
+            debug::info(std::format("registered {} main-thread commands", cmdName));
           }
         }
       }
@@ -1310,7 +888,7 @@ std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
         debug::info(std::format("no {}/ or {}/ directory", cmdRoot, genDir));
       }
       if (loaded > 0) {
-        debug::info(std::format("loaded {} command module(s)", loaded));
+        debug::info(std::format("loaded {} main-thread command module(s)", loaded));
       }
     }
   }

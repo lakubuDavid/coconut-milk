@@ -6,7 +6,7 @@
 /// Uses g_signal_connect with GCallback handlers. The GtkWindow pointer is
 /// retrieved from the webview via webview_get_window().
 
-#include "lifecycle.h"
+#include "view_events.h"
 #include "../../app.h"
 #include "../../bridge.h"
 #include "../../debug.h"

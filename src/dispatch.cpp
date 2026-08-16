@@ -1,7 +1,11 @@
 #include "dispatch.h"
 #include "app.h"
+#include "bg_runtime.h"
+#include "bridge.h"
 #include "debug.h"
-#include "lua_runtime.h"
+#include "main_runtime.h"
+
+#include <nlohmann/json.hpp>
 
 #include <format>
 
@@ -176,6 +180,49 @@ void drain(App* app) {
       }
     }
   }
+
+  // Drain background thread outbox (results from bg commands).
+  if (app->bg != nullptr) {
+    while (auto msg = app->bg->outbox.pop()) {
+      switch (msg->kind) {
+        case MessageKind::CommandResult: {
+          // Payload: "callId|jsonResult"
+          size_t pipe = msg->payload.find('|');
+          if (pipe == std::string::npos) {
+            debug::warn("dispatch::drain: malformed bg CommandResult payload");
+            break;
+          }
+          std::string callId(msg->payload.data(), pipe);
+          std::string resultJson(msg->payload.data() + pipe + 1,
+                                 msg->payload.size() - pipe - 1);
+
+          rpc::Message rpcMsg;
+          rpcMsg.id   = callId;
+          rpcMsg.type = rpc::Type::kReturn;
+          try {
+            rpcMsg.payload = nlohmann::json::parse(resultJson);
+          } catch (...) {
+            rpcMsg.type    = rpc::Type::kError;
+            rpcMsg.payload = {{"code", "ParseError"}, {"message", "bg result parse error"}};
+          }
+          bridge::rpcSend(app, rpcMsg);
+          break;
+        }
+        default:
+          break;
+      }
+    }
+  }
+}
+
+void notify(App* app) {
+  if (app == nullptr) return;
+#if defined(__APPLE__)
+  if (g_runloop_source) {
+    CFRunLoopSourceSignal(g_runloop_source);
+    CFRunLoopWakeUp(CFRunLoopGetMain());
+  }
+#endif
 }
 
 // ── Enqueue helpers ───────────────────────────────────────────────────

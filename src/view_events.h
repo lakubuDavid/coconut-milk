@@ -1,5 +1,5 @@
-#ifndef COCONUT_LIFECYCLE_H
-#define COCONUT_LIFECYCLE_H
+#ifndef COCONUT_VIEW_EVENTS_H
+#define COCONUT_VIEW_EVENTS_H
 
 /// Register NSWindow lifecycle observers (resize, focus, blur).
 /// Emits bridge events so the frontend can listen with coconut.on().
@@ -12,4 +12,4 @@ namespace coconut {
   }
 }
 
-#endif // COCONUT_LIFECYCLE_H
+#endif // COCONUT_VIEW_EVENTS_H

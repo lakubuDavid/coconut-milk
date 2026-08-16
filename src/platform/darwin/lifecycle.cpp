@@ -7,7 +7,7 @@
 #include "bridge.h"
 #include "debug.h"
 #include "keyboard.h"
-#include "lifecycle.h"
+#include "view_events.h"
 
 #include <webview/webview.h>
 

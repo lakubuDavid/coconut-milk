@@ -8,10 +8,10 @@
 #include "dispatch.h"
 #include "generators/generate.h"
 #include "hotreload.h"
-#include "lifecycle.h"
+#include "view_events.h"
 #include "permissions.h"
 #include "routes.h"
-#include "lua_runtime.h"
+#include "main_runtime.h"
 #include "window.h"
 
 // Custom URL scheme handler for coconut:// assets.

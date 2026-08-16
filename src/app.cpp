@@ -1,6 +1,6 @@
 #include "app.h"
 #include "debug.h"
-#include "lifecycle.h"
+#include "view_events.h"
 #include "window.h"
 
 #include <format>

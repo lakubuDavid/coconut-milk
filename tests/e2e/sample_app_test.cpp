@@ -8,7 +8,7 @@
 #include "config.h"
 #include "context.h"
 #include "fs.h"
-#include "lua_runtime.h"
+#include "main_runtime.h"
 #include "test.h"
 #include "window.h"
 

@@ -21,7 +21,9 @@
 
 #include <webview/webview.h>
 
+#include <mutex>
 #include <string>
+#include <unordered_map>
 
 namespace coconut::bridge {
 
@@ -62,9 +64,17 @@ private:
   /// Handle an inbound kEvent: dispatch to Lua, respond via webview_return.
   void handleEvent(const char* id, const rpc::Message& msg);
 
+  /// Resolve a background command result using the stored webview callback ID.
+  /// Called by dispatch::drain() when a CommandResult arrives from the bg thread.
+  void resolveBgCommand(const std::string& callId, const nlohmann::json& payload, bool isError);
+
   webview_t m_webview;
   coconut::App* m_app = nullptr;
   transport::MessageCallback m_callback;
+
+  /// Pending background commands: maps callId -> webview callback id.
+  std::unordered_map<std::string, std::string> m_pendingBgCalls;
+  std::mutex m_pendingMutex;
 };
 
 } // namespace coconut::bridge

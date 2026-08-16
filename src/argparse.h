@@ -8,7 +8,7 @@
 namespace coconut::argparse {
 
 #ifndef COCONUT_VERSION
-#define COCONUT_VERSION "0.1.0"
+#define COCONUT_VERSION "0.1.1"
 #endif
 
 /// Coconut Milk version string.

@@ -20,7 +20,7 @@ namespace fs = std::filesystem;
 // so that coconut.call() is typed for builtins too.
 //
 // paramsType / returnType are TypeScript type strings (not Lua).
-// These stay in sync with src/lua_runtime.cpp.
+// These stay in sync with src/main_runtime.cpp.
 
 static constexpr struct {
   const char* name;
@@ -145,7 +145,7 @@ static bool needsRegeneration(const fs::path& srcPath,
     return outTime < srcTime;  // output is older than source
   };
 
-  return check(".g.lua") || check(".d.ts") || check(".g.js");
+  return check(".g.lua") || check(".g_mt.lua") || check(".d.ts") || check(".g.js");
 }
 
 /// Build a TS object type string from a CommandDefinition's parameters.
@@ -294,21 +294,46 @@ static bool processCommandFile(const fs::path& inputPath,
     }
   }
 
-  // .g.lua
-  {
-    auto luaWrap = coconut::generator::generateLuaWrapper(commands, modulePath);
-    std::ofstream out(fs::path(outDir) / (stem + ".g.lua"));
-    out << luaWrap;
+  // Split commands by thread requirement
+  std::vector<coconut::generator::CommandDefinition> bgCmds, mtCmds;
+  for (const auto& cmd : commands) {
+    if (cmd.thread == "main")
+      mtCmds.push_back(cmd);
+    else
+      bgCmds.push_back(cmd);
   }
 
-  // .d.ts
+  // .g.lua — background-thread commands (default)
+  if (!bgCmds.empty()) {
+    auto luaWrap = coconut::generator::generateLuaBgWrapper(bgCmds, modulePath);
+    std::ofstream out(fs::path(outDir) / (stem + ".g.lua"));
+    out << luaWrap;
+  } else {
+    // Remove stale .g.lua if all commands are now main-thread
+    std::error_code ec;
+    std::filesystem::remove(fs::path(outDir) / (stem + ".g.lua"), ec);
+  }
+
+  // .g_mt.lua — main-thread commands
+  if (!mtCmds.empty()) {
+    auto luaWrap = coconut::generator::generateLuaMtWrapper(mtCmds, modulePath);
+    std::ofstream out(fs::path(outDir) / (stem + ".g_mt.lua"));
+    out << luaWrap;
+  } else {
+    // Remove stale .g_mt.lua if no main-thread commands remain
+    std::error_code ec;
+    std::filesystem::remove(fs::path(outDir) / (stem + ".g_mt.lua"), ec);
+  }
+
+  // .d.ts — always generated from full command set (shared by both threads)
   {
     auto dts = coconut::generator::generateTSDefinition(commands);
     std::ofstream out(fs::path(outDir) / (stem + ".d.ts"));
     out << dts;
   }
 
-  // .g.js
+  // .g.js — always generated from full command set (JS wrappers are
+  // thread-agnostic; the correct .g.lua/.g_mt.lua is loaded at runtime)
   {
     auto wrappers = coconut::generator::generateJSWrapper(commands);
     std::ofstream out(fs::path(outDir) / (stem + ".g.js"));
@@ -339,8 +364,9 @@ int runGenerate(const std::string& cmdRoot, const std::string& outDir) {
   for (const auto& entry : fs::directory_iterator(cmdDir)) {
     if (entry.path().extension() != ".lua") continue;
     std::string name = entry.path().filename().string();
-    // Skip generated files (.g.lua)
+    // Skip generated files (.g.lua, .g_mt.lua)
     if (name.size() > 6 && name.substr(name.size() - 6) == ".g.lua") continue;
+    if (name.size() > 10 && name.substr(name.size() - 10) == ".g_mt.lua") continue;
 
     bool skipped = false;
     if (processCommandFile(entry.path(), outDir, allNames, allDefs, skipped)) {
@@ -389,7 +415,7 @@ int runGenerate(const std::string& cmdRoot, const std::string& outDir) {
 
   coconut::println("generate: {} command(s) in {} — {}",
                totalCommands, cmdRoot, summary);
-  coconut::println("  output: {}/{{*.g.lua, *.d.ts, *.g.js, commands.d.ts}}", outDir);
+  coconut::println("  output: {}/{{*.g.lua, *.g_mt.lua, *.d.ts, *.g.js, commands.d.ts}}", outDir);
   std::fflush(stdout);
 
   return filesError > 0 ? 1 : 0;
@@ -419,6 +445,7 @@ int runGenerateWatch(const std::string& cmdRoot, const std::string& outDir) {
     if (entry.path().extension() != ".lua") continue;
     std::string name = entry.path().filename().string();
     if (name.size() > 6 && name.substr(name.size() - 6) == ".g.lua") continue;
+    if (name.size() > 10 && name.substr(name.size() - 10) == ".g_mt.lua") continue;
     std::error_code ec;
     lastTimes[name] = fs::last_write_time(entry.path(), ec);
   }
@@ -448,6 +475,7 @@ int runGenerateWatch(const std::string& cmdRoot, const std::string& outDir) {
       if (entry.path().extension() != ".lua") continue;
       std::string name = entry.path().filename().string();
       if (name.size() > 6 && name.substr(name.size() - 6) == ".g.lua") continue;
+      if (name.size() > 10 && name.substr(name.size() - 10) == ".g_mt.lua") continue;
       if (lastTimes.find(name) == lastTimes.end()) {
         std::error_code ec2;
         lastTimes[name] = fs::last_write_time(entry.path(), ec2);

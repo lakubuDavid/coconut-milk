@@ -1,7 +1,7 @@
 /// Platform dispatcher — includes the right lifecycle implementation
 /// at compile time based on OS macros.
 
-#include "lifecycle.h"
+#include "view_events.h"
 #include "debug.h"
 
 // Select platform implementation

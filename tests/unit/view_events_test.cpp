@@ -1,4 +1,4 @@
-#include "lifecycle.h"
+#include "view_events.h"
 #include "test.h"
 
 // ── Lifecycle API contract tests ──────────────────────────────────────

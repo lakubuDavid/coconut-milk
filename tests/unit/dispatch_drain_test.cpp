@@ -5,7 +5,7 @@
 
 #include "app.h"
 #include "dispatch.h"
-#include "lua_runtime.h"
+#include "main_runtime.h"
 #include "test.h"
 
 // Zeroed App — all subsystem pointers are null.

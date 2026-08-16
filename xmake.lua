@@ -1,5 +1,11 @@
 add_rules("plugin.compile_commands.autoupdate", {outputdir = ".", lsp = "clangd"})
 add_rules("mode.debug", "mode.release")
+
+-- Sanitizer modes:  xmake f -m asan   /   xmake f -m tsan   /   xmake f -m ubsan
+-- These are defined as rules that only activate when is_mode() matches.
+-- They must be declared BEFORE targets that consume them.
+add_rules("mode.asan", "mode.tsan", "mode.ubsan")
+
 if is_mode("release") then
     add_requires("luajit 2.*", {configs = {shared = false, gc64 = true}})
     add_requires("sol2 ~3.3.*")
@@ -15,7 +21,7 @@ else
 end
 add_includedirs("thirdparty/webview/core/include")
 add_includedirs("thirdparty")
-add_defines("COCONUT_VERSION=\"0.1.0\"")
+add_defines("COCONUT_VERSION=\"0.1.1\"")
 
 -- =================================================================
 -- Task: build TS->JS embed
@@ -64,7 +70,7 @@ target("webview")
 
 target("coconut")
     set_kind("binary")
-    add_includedirs("src", "thirdparty/webview/core/include")
+    add_includedirs("src","src/core", "thirdparty/webview/core/include")
     before_build(function ()
         if not os.isfile("src/embeds/coconut_embed.h") then
             os.run("xmake coconut_bridge_embeds")
@@ -86,6 +92,7 @@ target("coconut")
         add_ldflags("$(shell pkg-config --libs gtk+-3.0 webkit2gtk-4.1 libnotify)")
     end
     add_files("src/*.cpp")
+    add_files("src/core/*.cpp")
     add_files("src/packages/*.cpp")
     add_files("src/generators/*.cpp")
     add_files("src/platform/scheme_handler.cpp")
@@ -99,6 +106,7 @@ target("coconut")
         add_files("src/platform/linux/*.cpp")
     end
     add_files("src/permissions.cpp")
+    add_files("src/modules/*.cpp")
     add_packages("sol2", "luajit", "nlohmann_json", "lunasvg")
     add_deps("webview")
 
@@ -139,6 +147,35 @@ target("tests")
     end
     remove_files("src/main.cpp")
     add_files("src/permissions.cpp")
+    add_files("src/modules/*.cpp")
     add_files("tests/*.cpp", "tests/**/*.cpp")
     add_packages("sol2", "luajit", "nlohmann_json", "lunasvg")
     add_deps("webview")
+
+-- ── Sanitizer rules (defined at bottom, after add_requires) ──────
+--   xmake f -m asan   → AddressSanitizer
+--   xmake f -m tsan   → ThreadSanitizer
+--   xmake f -m ubsan  → UndefinedBehaviorSanitizer
+--
+-- Each rule checks is_mode() so only the active mode's policy fires.
+rule("mode.asan")
+    after_load(function (target)
+        if is_mode("asan") then
+            target:set("policy", "build.sanitizer.address", true)
+            target:set("symbols", "debug")
+        end
+    end)
+rule("mode.tsan")
+    after_load(function (target)
+        if is_mode("tsan") then
+            target:set("policy", "build.sanitizer.thread", true)
+            target:set("symbols", "debug")
+        end
+    end)
+rule("mode.ubsan")
+    after_load(function (target)
+        if is_mode("ubsan") then
+            target:set("policy", "build.sanitizer.undefined", true)
+            target:set("symbols", "debug")
+        end
+    end)

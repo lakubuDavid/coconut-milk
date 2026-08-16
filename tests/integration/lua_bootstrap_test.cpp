@@ -5,7 +5,7 @@
 
 #include "config.h"
 #include "context.h"
-#include "lua_runtime.h"
+#include "main_runtime.h"
 #include "test.h"
 
 #include <sol/sol.hpp>

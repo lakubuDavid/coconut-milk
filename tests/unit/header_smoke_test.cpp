@@ -4,7 +4,7 @@
 #include "context.h"
 #include "error.h"
 #include "fs.h"
-#include "lua_runtime.h"
+#include "main_runtime.h"
 #include "window.h"
 #include "test.h"
 

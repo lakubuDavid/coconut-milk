@@ -1,6 +1,6 @@
 /// Win32 lifecycle stubs — no window event hooks yet.
 
-#include "lifecycle.h"
+#include "view_events.h"
 #include "../../debug.h"
 
 #include <iostream>

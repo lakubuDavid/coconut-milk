@@ -29,6 +29,9 @@ enum class MessageKind : uint8_t {
   LifecycleEvent,
   /// Calls a registered command handler.
   CommandCall,
+  /// Result from a background-thread command execution.
+  /// Payload: "callId|jsonResult"
+  CommandResult,
 };
 
 /// A single message in the dispatch queue.
@@ -90,6 +93,10 @@ private:
 ///
 /// Must be called from the main thread after the webview is created.
 void init(App* app);
+
+/// Signal the run-loop source so pending messages are drained promptly.
+/// Thread-safe — can be called from the background thread.
+void notify(App* app);
 
 /// Tear down the dispatch system.
 /// Must be called from the main thread during app shutdown.

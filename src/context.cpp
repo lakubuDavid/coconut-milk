@@ -6,7 +6,7 @@
 #include "debug.h"
 #include "dialog.h"
 #include "dispatch.h"
-#include "lua_runtime.h"
+#include "main_runtime.h"
 #include "window.h"
 
 #include <format>
@@ -165,6 +165,16 @@ namespace coconut {
         return;
       }
       commands->handlers[name] = fn;
+    }
+  }
+
+  void CoconutContext::bind_mt(const std::string& name, sol::protected_function fn) {
+    if (commands != nullptr) {
+      if (commands->mt_handlers.find(name) != commands->mt_handlers.end()) {
+        debug::warn(std::format("duplicate command '{}': a main-thread handler is already registered, skipping", name));
+        return;
+      }
+      commands->mt_handlers[name] = fn;
     }
   }
 

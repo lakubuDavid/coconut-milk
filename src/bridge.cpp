@@ -1,7 +1,7 @@
 #include "bridge.h"
 #include "app.h"
 #include "debug.h"
-#include "lua_runtime.h"
+#include "main_runtime.h"
 #include "webview_transport.h"
 #include "embeds/coconut_embed.h"
 

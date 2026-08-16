@@ -8,7 +8,7 @@
 #include "dispatch.h"
 #include "error.h"
 #include "fs.h"
-#include "lua_runtime.h"
+#include "main_runtime.h"
 #include "window.h"
 
 #include <webview/webview.h>
@@ -20,6 +20,8 @@
 #include <unordered_set>
 
 namespace coconut {
+
+  namespace bg_thread { struct Context; }
 
   /// Top-level runtime owner.
   struct App {
@@ -43,6 +45,10 @@ namespace coconut {
 
     /// Lock-free SPSC queue for async dispatch of events to JS and Lua.
     dispatch::Outbox outbox;
+
+    /// Background thread for offloaded command execution.
+    /// Created during init, destroyed during shutdown.
+    bg_thread::Context* bg = nullptr;
   };
 
   namespace app {

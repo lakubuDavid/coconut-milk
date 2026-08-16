@@ -1,6 +1,6 @@
 #include "config.h"
 #include "context.h"
-#include "lua_runtime.h"
+#include "main_runtime.h"
 #include "test.h"
 
 COCONUT_TEST(unit, lua_runtime_create_and_destroy) {

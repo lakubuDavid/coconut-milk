@@ -5,6 +5,7 @@
 
 #include "bridge.h"
 #include "config.h"
+#include "modules/json.h"
 #include "test.h"
 
 #include <nlohmann/json.hpp>
@@ -19,7 +20,7 @@ COCONUT_TEST(integration, bridge_toTable_json_object_to_lua) {
 
   nlohmann::json j = {{"name", "Alice"}, {"age", 30}, {"active", true}};
 
-  auto t = coconut::bridge::toTable(lua, j);
+  auto t = coconut::modules::toTable(lua, j);
   COCONUT_REQUIRE(t.valid());
 
   std::string name = t["name"];
@@ -37,7 +38,7 @@ COCONUT_TEST(integration, bridge_toTable_json_array_to_lua) {
 
   nlohmann::json j = nlohmann::json::array({"a", "b", "c"});
 
-  auto t = coconut::bridge::toTable(lua, j);
+  auto t = coconut::modules::toTable(lua, j);
   COCONUT_REQUIRE(t.valid());
 
   // Lua arrays are 1-indexed.
@@ -57,7 +58,7 @@ COCONUT_TEST(integration, bridge_toTable_json_nested) {
   nlohmann::json j = {{"items", nlohmann::json::array({1, 2, 3})},
                        {"meta", {{"total", 3}}}};
 
-  auto t = coconut::bridge::toTable(lua, j);
+  auto t = coconut::modules::toTable(lua, j);
   COCONUT_REQUIRE(t.valid());
 
   sol::table items = t["items"];
@@ -74,7 +75,7 @@ COCONUT_TEST(integration, bridge_toTable_string_parsing) {
 
   // JSON string input.
   std::string json_str = R"({"ok":true,"data":"hello"})";
-  auto t = coconut::bridge::toTable(lua, json_str);
+  auto t = coconut::modules::toTable(lua, json_str);
   COCONUT_REQUIRE(t.valid());
   bool ok_val = t["ok"];
   COCONUT_REQUIRE(ok_val);
@@ -90,7 +91,7 @@ COCONUT_TEST(integration, bridge_toJson_lua_table_to_json) {
   t["name"] = "Bob";
   t["score"] = 42;
 
-  nlohmann::json j = coconut::bridge::toJson(t);
+  nlohmann::json j = coconut::modules::toJson(t);
   COCONUT_REQUIRE_EQ(j["name"], "Bob");
   COCONUT_REQUIRE_EQ(j["score"], 42);
 }
@@ -104,7 +105,7 @@ COCONUT_TEST(integration, bridge_toJson_lua_array_to_json) {
   t[2] = "y";
   t[3] = "z";
 
-  nlohmann::json j = coconut::bridge::toJson(t);
+  nlohmann::json j = coconut::modules::toJson(t);
   COCONUT_REQUIRE(j.is_array());
   COCONUT_REQUIRE_EQ(j.size(), size_t(3));
   COCONUT_REQUIRE_EQ(j[0], "x");
@@ -117,8 +118,8 @@ COCONUT_TEST(integration, bridge_roundtrip_json_lua_json) {
 
   nlohmann::json original = {{"msg", "hello"}, {"count", 7}, {"tags", {"a", "b"}}};
 
-  sol::table t = coconut::bridge::toTable(lua, original);
-  nlohmann::json result = coconut::bridge::toJson(t);
+  sol::table t = coconut::modules::toTable(lua, original);
+  nlohmann::json result = coconut::modules::toJson(t);
 
   COCONUT_REQUIRE_EQ(result["msg"].get<std::string>(), original["msg"].get<std::string>());
   COCONUT_REQUIRE_EQ(result["count"].get<int>(), original["count"].get<int>());
