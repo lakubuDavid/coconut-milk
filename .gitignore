@@ -3,11 +3,23 @@
 .cache/
 build/
 tmp/
+
+# Build artifacts
+objects/
+
 # MacOS Cache
 .DS_Store
 
-
+# Stale binary output (xmake now outputs into build/)
 bin
-# generated
+
+# Generated (build pipeline output; see AGENTS.md)
 test-ts
 compile_commands.json
+
+# Dependencies (installed, never committed)
+examples/*/node_modules/
+packages/*/node_modules/
+
+# mise
+.mise/
