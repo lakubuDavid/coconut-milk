@@ -1,0 +1,37 @@
+sequenceDiagram
+  title: Shutdown — Ordered Teardown (app::destroy)
+
+  participant MAIN as main / CLI
+  participant WEBVIEW as webview_run
+  participant DISPATCH as dispatch.shutdown
+  participant APP as app.destroy — App
+  participant LIFECYCLE as lifecycle.unregisterEvents
+  participant WINDOW as window.destroyWindow
+  participant CMD as commands.destroy
+  participant LUA as lua.destroy — Runtime
+  participant BRIDGE as bridge.destroy
+  participant CTX as context.destroy
+
+  WEBVIEW -->> MAIN : webview_run returns — native window closed
+  MAIN ->> DISPATCH : dispatch::shutdown(app)
+  DISPATCH ->> DISPATCH : drain remaining messages — final flush
+  DISPATCH ->> DISPATCH : remove CFRunLoopSource
+
+  MAIN ->> APP : app::destroy(app)
+
+  APP ->> LIFECYCLE : lifecycle::unregisterEvents — stop resize/focus observers
+  APP ->> WINDOW : destroyWindow — free views (View* per registered name)
+  APP ->> CMD : commands::destroy — BEFORE Lua (handlers hold sol functions)
+  APP ->> LUA : lua::destroy → delete sol::state
+  APP ->> BRIDGE : bridge::destroy → delete transport + store
+  APP ->> CTX : context::destroy
+
+  APP ->> APP : webview_destroy last — platform teardown after transport/window gone
+  APP -->> MAIN : delete app
+  MAIN -->> MAIN : return 0
+
+  @start_note right of LUA
+    Order matters: commands hold sol::function
+    references into the Lua state — destroying Lua
+    first would leave dangling function bindings.
+  @end_note

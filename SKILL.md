@@ -1,6 +1,11 @@
 ---
 name: coconut-milk
-description: Coconut Milk desktop app framework. Lua backend + HTML/CSS/JS frontend + native webview. Use when working on a coconut-milk project, writing Lua commands, authoring HTML views, configuring the bridge or keybinds, or generating TypeScript/JS wrappers from @command annotations.
+description: >-
+  Coconut Milk desktop app framework. Lua backend + HTML/CSS/JS frontend +
+  native webview. Use when working on a coconut-milk project, writing Lua
+  commands, authoring HTML views, configuring the bridge or keybinds, or
+  generating TypeScript/JS wrappers from @command annotations.
+disable-model-invocation: true
 ---
 
 # Coconut Milk Framework

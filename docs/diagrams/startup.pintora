@@ -1,0 +1,61 @@
+sequenceDiagram
+  title: App Bootstrap — Runtime Startup Flow (main.cpp)
+
+  participant CLI as main / CLI
+  participant ARGS as argparse.parse
+  participant CONFIG as config.loadConfig
+  participant APP as app.create — App
+  participant CMD as commands.Registry
+  participant BRIDGE as bridge.State
+  participant WINDOW as window.Window
+  participant LUA as lua.Runtime
+  participant ROUTER as WebviewTransport
+  participant DISPATCH as dispatch.Outbox
+  participant WEBVIEW as webview_run
+
+  CLI ->> ARGS : argparse::parse(argc, argv)
+  ARGS -->> CLI : ParsedArgs — help/version short-circuit
+
+  alt subcommand
+    CLI ->> CLI : generate / new / bundle pipelines
+  else app run
+    CLI ->> CONFIG : loadConfig()
+    CONFIG ->> CONFIG : defaults → coconut.config.lua → coconut.config.json
+    CONFIG -->> CLI : Config — shared by pointer
+    CLI ->> CLI : apply CLI overrides + darwin bundle config
+    CLI ->> CLI : platform::installSchemeHandlerHook(app_root)
+
+    CLI ->> APP : app::create(&cfg, nativeWindow)
+    APP ->> APP : context::create + webview_create
+    APP -->> CLI : App* — owns webview
+    CLI ->> CMD : commands::create(&cfg)
+    CLI ->> BRIDGE : bridge::create(&cfg)
+    CLI ->> WINDOW : window::createWindow(&cfg, app->webview)
+
+    CLI ->> LUA : lua::create(&cfg, ctx)
+    LUA ->> LUA : open libs + bind coconut API / view class / usertype / builtins
+    LUA -->> CLI : Runtime*
+    CLI ->> CLI : wire runtime.app then wireWindowHandle()
+
+    CLI ->> ROUTER : bridge::createTransport(app)
+    ROUTER ->> ROUTER : webview_init(coconut_js) + webview_bind("__coconut_rpc")
+    CLI ->> CLI : finalizeSchemeHandler + lifecycle::registerEvents + inject coconut.args
+
+    CLI ->> LUA : loadEntryPoint(runtime, cfg)
+    LUA ->> LUA : probe main.lua → safe_script_file
+    LUA ->> LUA : coconut.config(ctx) — ctx setters mutate Config in place
+    LUA ->> LUA : merge returned table — window fields, initial_view, views
+
+    CLI ->> WINDOW : createView per cfg.views → addView
+    CLI ->> DISPATCH : push LifecycleEvent "load"
+    CLI ->> DISPATCH : dispatch::drain() → lua::dispatchViewLifecycleEvent
+
+    CLI ->> WINDOW : routes.setViewNames + installNavDelegate + openDevTools + applyWindowStyle
+    CLI ->> WINDOW : showView(initial_view) → showWindow → webview_navigate
+    CLI ->> DISPATCH : push LifecycleEvent "mount" → drain
+    CLI ->> CLI : fire "ready" via coconut._dispatch
+
+    CLI ->> DISPATCH : dispatch::init(app) — register CFRunLoopSource
+    CLI ->> WEBVIEW : app::run(app)
+    WEBVIEW ->> WEBVIEW : block until native window closes
+  end

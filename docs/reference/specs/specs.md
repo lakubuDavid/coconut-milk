@@ -1083,3 +1083,373 @@ jpg, gif, svg, ico, woff, woff2, ttf). Unknown extensions default to
   assets (CSS, JS bundles).
 - **Virtual filesystem**: Support for embedded assets (e.g. from a
   compiled-in ZIP or a resource section).
+
+---
+
+## 14. Async cross-thread forwarding
+
+Coconut runs Lua on two threads:
+
+| Thread | Role | APIs available |
+|--------|------|----------------|
+| **Main thread** | Owns the webview, platform APIs, bridge dispatch. Runs `main.lua`, `coconut.config()`, builtin commands. | Everything: dialog, notify, clipboard, fs, json, window control, store, events, views |
+| **Background thread** | Runs user commands registered via `ctx:bind()` (the default). Owns a separate `lua_State`. | Thread-safe subset only: `coconut.fs.*`, `coconut.json.*`, `coconut.log/info/warn/error`. Everything else returns a **Future** that forwards to the main thread. |
+
+Commands registered via `ctx:bind_mt()` run on the **main thread** and have full API access. Commands registered via `ctx:bind()` (the default) run on the **background thread** and use the forwarding system to access main-thread APIs.
+
+### 14.1 Core rule: main thread never blocks
+
+The main thread owns the webview, the UI, and all platform interactions. **It must never block waiting for a Lua command or a background-thread result.** All cross-thread calls from the main thread must be asynchronous.
+
+The background thread, by contrast, **can** suspend its Lua coroutine via `await()`, because it has no UI to service. The C++ thread is **not blocked** — control returns to the run loop which processes other messages.
+
+**Cooperative multitasking only.** Commands that never call `await()` (e.g. pure CPU loops) occupy the C++ thread until they return. Preemption is not provided in v1. CPU-bound commands should yield periodically:
+
+```lua
+for i = 1, limit do
+  compute(i)
+  if i % 1000 == 0 then coroutine.yield() end  -- let other commands run
+end
+```
+
+**Thread identity.** Every `CoconutContext` carries a `bool is_main_thread` flag (default `true`). The background thread sets it to `false` at creation. This flag is checked by `ctx:emit()` and other methods that must route differently depending on thread context.
+
+### 14.2 The Future object
+
+A **Future** is a Lua userdata that represents a pending asynchronous operation. It is returned by any API that requires crossing a thread boundary.
+
+```lua
+---@class CoconutFuture
+---@field await fun(self): any        -- suspends coroutine until resolved; ERROR on main thread
+---@field then fun(self, onResolved: fun(any), onRejected?: fun(CoconutError)): CoconutFuture
+---@field catch fun(self, onRejected: fun(CoconutError)): CoconutFuture
+```
+
+#### States
+
+| State | Meaning |
+|-------|---------|
+| `Pending` | The operation has been forwarded; no result yet |
+| `Resolved` | A value has been returned |
+| `Rejected` | An error has been returned |
+
+#### `future:await()`
+
+- **On the background thread (valid):** Calls `lua_yield()` to suspend the **current Lua coroutine**. The C++ thread is **not blocked**; it returns to the run loop and processes other commands. When the result arrives via a `ForwardResult` message, the run loop calls `lua_resume(co, L, 1)` with the deserialized value on the stack. `await()` returns that value. If the future was rejected, `await()` throws a Lua error (catchable with `pcall`).
+- **On the main thread (invalid):** By default, throws a Lua error immediately (`"await() is not allowed on the main thread — use then() instead"`). When `Config::debug.futureAwaitOnMainIsError = false`, the error is downgraded to a warning and `nil` is returned.
+
+```lua
+-- Valid: background thread commands
+---@command list_dir
+local function list_dir(payload, ctx)
+  local result = coconut.dialog.open("Pick a folder"):await()
+  -- coroutine suspended here while main thread opens dialog
+  return coconut.fs.listDir(result.path or ".")
+end
+
+-- Invalid: main thread commands
+---@command bad
+---@thread main
+local function bad(payload, ctx)
+  local result = coconut.fs.listDir("."):await()  -- throws!
+end
+```
+
+#### `future:then(onResolved, onRejected?)`
+
+Returns the same Future (for chaining). Registers callbacks that fire when the future resolves or rejects. Callbacks are invoked **inline** during the drain/dispatch cycle that delivers the result — no deferred callback queue. Re-entrancy is bounded by queue capacity (64).
+
+The callbacks run on the thread that resolves the future:
+
+- Background-thread futures: callbacks run on the background thread's run loop
+- Main-thread futures: callbacks run on the main thread's run loop (via `dispatch::drain`)
+
+```lua
+---@command main
+---@thread main
+local function main_cmd(payload, ctx)
+  coconut.dialog.open("Open"):then(function(result)
+    -- runs on main thread (via drain)
+    coconut.info("Selected: " .. (result.path or ""))
+  end):catch(function(err)
+    coconut.warn("Dialog cancelled: " .. err.message)
+  end)
+  return { queued = true }
+end
+```
+
+#### `future:catch(onRejected)`
+
+Shorthand for `future:then(nil, onRejected)`.
+
+### 14.3 Explicit forwarding: `ctx:call_on_main()` / `ctx:call_on_bg()`
+
+These methods expose the forwarding machinery directly. Each is only available on the thread it targets (throws on the other).
+
+#### `ctx:call_on_main(commandName, args)`
+
+Available on the **background thread** only (`is_main_thread == false`). Generates a `callId` from an atomic counter, pushes a `ForwardRequest` to `bg->outbox`, signals the main thread via `dispatch::notify(app)`, creates a `Future`, and returns it. The main thread's `dispatch::drain` pops the request, looks up the handler in `mt_handlers`, executes it, and pushes `ForwardResult` back to `bg->inbox`.
+
+```lua
+---@command my_bg_cmd
+local function my_bg_cmd(payload, ctx)
+  local result = ctx:call_on_main("dialog.open", {
+    title = "Open", chooseDir = true
+  }):await()
+  return result.path
+end
+```
+
+#### `ctx:call_on_bg(commandName, args)`
+
+Available on the **main thread** only (`is_main_thread == true`). Generates a `callId`, pushes a `BgCommandCall` to `bg->inbox`, creates a `Future` stored in `app->pending_main_futures`, and returns it. The main thread **must never call `await()`** — use `then()`. The result arrives as a `ForwardResult` in `bg->outbox` and is routed to the pending future by `dispatch::drain`.
+
+```lua
+---@command heavy_work
+---@thread main
+local function heavy_work(payload, ctx)
+  ctx:call_on_bg("compute_primes", { limit = 100000 }):then(function(result)
+    coconut.info("Computed: " .. #result .. " primes")
+  end)
+  return { started = true }  -- returns immediately, UI stays responsive
+end
+```
+
+### 14.4 Implicit forwarding (metatable proxy)
+
+Instead of manually registering stubs for each main-thread-only API on the background thread, the `coconut` global table uses a Lua **metatable with `__index`** to auto-intercept accesses to main-thread-only API families.
+
+**Option B (explicit allowlist):** Only known main-thread API families are proxied. Unknown keys return `nil` (normal Lua error).
+
+```lua
+-- On the bg Lua state:
+local MAIN_THREAD_APIS = {
+  dialog = true, notify = true, clipboard = true,
+  store = true, openUrl = true, hotreload = true,
+}
+
+setmetatable(coconut, {
+  __index = function(_, key)
+    if not MAIN_THREAD_APIS[key] then return nil end
+    return setmetatable({}, {
+      __index = function(_, method)
+        return function(...)
+          return ctx:call_on_main(key .. "." .. method, ...)
+        end
+      end
+    })
+  end
+})
+```
+
+**Rules:**
+- Only applies to keys in `MAIN_THREAD_APIS` — typos produce normal `nil` errors
+- Thread-safe APIs (`fs`, `json`, `log`) are registered normally and shadow the proxy entirely
+- Logged at debug level for tracing forwarded calls
+- The same set of APIs that are registered via `ctx:bind_mt()` in `lua_runtime.cpp`
+
+### 14.5 Message kinds
+
+The dispatch system gains five new `MessageKind` values:
+
+```cpp
+enum class MessageKind : uint8_t {
+  // ... existing: EvalJS, LifecycleEvent, CommandCall, CommandResult
+
+  /// Bg→Main: execute a main-thread command.
+  /// Payload: "callId|commandName|jsonArgs"
+  ForwardRequest,
+
+  /// Main→Bg: result of a forwarded command (success).
+  /// Payload: "callId|jsonResult"  (same format as CommandResult)
+  ForwardResult,
+
+  /// Main→Bg: error from a forwarded command.
+  /// Payload: "callId|jsonError"  (same format as CommandResult)
+  ForwardError,
+
+  /// Main→Bg: offload a command to the bg thread (for ctx:call_on_bg).
+  /// Payload: "callId|commandName|jsonArgs"  (same format as CommandCall)
+  BgCommandCall,
+
+  /// Bg→Main: forward a ctx:emit() call to the main thread.
+  /// Payload: "eventName|jsonPayload"
+  EmitEvent,
+};
+```
+
+All payloads use pipe-separated fields. The message kind discriminates the routing table and direction.
+
+**CallId generation:** Each `Context` (bg thread) and `App` (main thread) owns a `std::atomic<uint64_t>` counter. CallIds are monotonically incrementing integers (`"1"`, `"2"`, `"3"`), human-readable in debug logs. No collision because a callId only has meaning within its originating thread's pending map.
+
+#### Flow: Background → Main
+
+```
+Bg thread                           Main thread
+─────────                           ──────────
+coconut.dialog.open()
+  │
+  ├─ generate callId "f-7"
+  ├─ create Future(callId)
+  ├─ push ForwardRequest to bg->outbox ──► dispatch::drain pops it
+  ├─ dispatch::notify(app)                ├─ look up mt_handlers["dialog.open"]
+  └─ return Future to Lua                ├─ execute handler (main thread)
+      │                                   ├─ push ForwardResult to bg->inbox
+      │                                   └─ signal bg run loop
+      ▼
+Bg run loop
+  ├─ pop ForwardResult from bg->inbox
+  ├─ find Future by callId
+  ├─ future:resolve(json)
+  │   ├─ m_state = Resolved
+  │   ├─ resume waiting coroutine (lua_resume)
+  │   └─ invoke then() callbacks
+  └─ continue
+```
+
+#### Flow: Main → Background
+
+```
+Main thread                         Bg thread
+───────────                         ──────────
+ctx:call_on_bg("compute", args)
+  │
+  ├─ generate callId "b-3"
+  ├─ create Future(callId), store in app->pending_main_futures
+  ├─ push BgCommandCall to bg->inbox ──► runLoop pops it
+  └─ return Future to Lua                  ├─ execute handler (bg thread)
+      (then() only, no await!)             ├─ push ForwardResult to bg->outbox
+      │                                     └─ dispatch::notify(app)
+      ▼
+dispatch::drain
+  ├─ pop ForwardResult from bg->outbox
+  ├─ find Future in app->pending_main_futures by callId
+  ├─ invoke then() callbacks inline (on main thread)
+  └─ continue
+```
+
+### 14.6 Coroutine-based command execution
+
+Every background-thread command runs inside a **dedicated Lua coroutine** created via `lua_newthread`. This enables the command to `yield` when calling `await()` without blocking the C++ thread.
+
+**The Future never stores a coroutine reference.** The run loop owns the coroutine lifecycle entirely:
+
+1. Run loop pops `CommandCall`, creates coroutine via `lua_newthread`, calls `lua_resume`
+2. If the command calls `await()`, the coroutine yields — `lua_resume` returns `LUA_YIELD`
+3. Run loop stores `pending_yields[callId] = {co_ref, timestamp}`
+4. `ForwardResult` arrives → run loop looks up `callId`, calls `lua_resume(co, L, 1)`
+5. Command continues as if `await()` returned normally
+
+The Future object is purely a handle that stores `callId` and checks the pending map for resolution status.
+
+```cpp
+// Pseudocode for bg run loop command dispatch
+lua_State* L = bg->lua_state->lua_state();
+lua_State* co = lua_newthread(L);
+int co_ref = luaL_ref(L, LUA_REGISTRYINDEX);  // protect from GC
+
+// Push handler + args onto coroutine's stack
+lua_rawgeti(co, LUA_REGISTRYINDEX, handler_ref);
+bridge::pushTable(co, params);
+bridge::pushContext(co, bg->ctx);
+
+// Resume — starts execution
+int status = lua_resume(co, L, 2);
+
+if (status == LUA_YIELD) {
+  // Command called await() — store coroutine ref for later resume
+  bg->pending_yields[callId] = {co_ref, /*timestamp*/};
+  // Run loop continues to next message — C++ thread is NOT blocked
+}
+else if (status == LUA_OK) {
+  // Command completed — collect return values
+  nlohmann::json result = bridge::popValue(co);
+  bg->outbox.push({CommandResult, callId + "|" + result.dump()});
+  dispatch::notify(bg->app);
+  luaL_unref(L, LUA_REGISTRYINDEX, co_ref);
+}
+```
+
+When a `ForwardResult` arrives for a pending callId:
+
+```cpp
+auto& entry = bg->pending_yields[callId];
+lua_rawgeti(L, LUA_REGISTRYINDEX, entry.co_ref);
+lua_State* co = lua_tothread(L, -1);
+lua_pop(L, 1);
+bridge::pushJson(co, resultValue);  // push result onto coroutine stack
+int status = lua_resume(co, L, 1);  // resume — await() returns the value
+
+if (status == LUA_OK) {
+  // Command finished after resume — collect final return value
+  // ... push to appropriate outbox, luaL_unref
+}
+else if (status == LUA_YIELD) {
+  // Nested await — store updated coroutine ref, continue
+  bg->pending_yields[newCallId] = {entry.co_ref, /*timestamp*/};
+}
+```
+
+**Wake-up mechanism.** The bg thread replaces its polling `sleep_for(5ms)` with a `std::condition_variable`:
+
+```cpp
+// Bg thread run loop:
+std::unique_lock lock(bg->mtx);
+bg->cv.wait_for(lock, 5ms, [&] {
+  return !bg->inbox.empty() || !bg->running.load();
+});
+
+// Main thread signals after pushing to bg->inbox:
+bg->cv.notify_one();
+```
+
+This reduces latency for forwarding results without changing the lock-free queue semantics. The cv is a pure wake-up optimization; the queue is always checked under the predicate.
+
+**No timeout for stuck coroutines in v1.** If a `ForwardRequest` never receives a response (e.g. main thread crashes), the coroutine stays suspended indefinitely. The `pending_yields` map is bounded by the outbox capacity (64), so at most 64 coroutines can leak. This is acceptable for v1.
+
+### 14.7 Queue architecture and thread safety
+
+**Single shared outbox.** Both `CommandResult` (normal bg→main results) and `ForwardRequest` (bg→main forwarding) share the same `bg->outbox` (capacity 64). This is acceptable because both are relatively low-volume. If monitoring shows queue pressure under load, an ADR recommends splitting into two dedicated outboxes.
+
+| Resource | Safe? | Mechanism |
+|----------|-------|-----------|
+| `bg->inbox` (Main→Bg) | ✅ Lock-free SPSC | Atomic indices, condition variable wake-up |
+| `bg->outbox` (Bg→Main) | ✅ Lock-free SPSC | Atomic indices (shared by CommandResult + ForwardRequest) |
+| `bg->pending_yields` | ✅ Single-consumer (bg thread) | Only bg run loop reads/writes |
+| `bg->pending_futures` | ✅ bg thread | Only bg run loop reads; new entries created by bg stubs |
+| `app->pending_main_futures` | ✅ Main thread | Only main thread reads/writes |
+| `Future::m_state` (atomic) | ✅ Cross-thread reads | `std::atomic<State>` with acquire/release ordering |
+| `Future::m_value` / `m_error` | ✅ Set-once | Written once before state change; read after state confirms Resolved/Rejected |
+| `Future::m_cv` / `m_mutex` | ✅ Cross-thread | Condition variable for `await()`; only bg thread blocks on it |
+| `WebviewTransport::m_pendingBgCalls` | ✅ Main thread only | Mutex-guarded, contentions are rare |
+
+### 14.8 Error handling
+
+- **Forwarded command fails on main thread:** The main thread's `dispatch::drain` catches the error, serializes it as `{code, message}`, and pushes `ForwardError` to `bg->inbox`. The bg run loop finds the Future, calls `future:reject(error)`, which resumes the waiting coroutine with a Lua error (or invokes the `catch()` callback).
+- **Main thread calls `await()`:** By default, immediate Lua error: `"await() is not allowed on the main thread — use then() instead"`. With `Config::debug.futureAwaitOnMainIsError = false`, downgrades to warning + returns `nil`.
+- **Queue overflow:** If the target outbox is full, the push fails. The stub returns a rejected Future with `{code = "QueueOverflow"}`. The forwarding request is dropped.
+- **Command not found:** If the forwarded command name doesn't exist in the target registry, the result is an error with `{code = "CommandNotFound"}`.
+- **Rejected future + await():** `await()` re-throws the error via `lua_error` — catchable with `pcall`.
+- **Rejected future + then():** The `catch()` callback fires with the error table `{code, message}`.
+- **Stuck coroutines (no response):** No timeout in v1. Bounded by outbox capacity (64 at most). The run loop could check timestamps and force-resume with a timeout error in a future version.
+
+### 14.9 Implementation status
+
+| Component | Status |
+|-----------|--------|
+| `ForwardRequest`/`ForwardResult`/`ForwardError`/`BgCommandCall`/`EmitEvent` message kinds | ❌ Not implemented |
+| `Future` class (await/then/catch, single usertype, both threads) | ❌ Not implemented |
+| Coroutine-based command execution in bg run loop (`lua_newthread` + `lua_resume`) | ❌ Not implemented |
+| `dispatch::drain` handling for all forwarding message kinds | ❌ Not implemented |
+| `CoconutContext::is_main_thread` flag + `ctx:emit()` bg routing via `EmitEvent` | ❌ Not implemented |
+| `ctx:call_on_main()` (bg→main explicit forwarding) | ❌ Not implemented |
+| `ctx:call_on_bg()` (main→bg offloading, then-only) | ❌ Not implemented |
+| Implicit forwarding via metatable proxy (Option B — allowlist) | ❌ Not implemented |
+| Replace bg-side error stubs with forwarding stubs (dialog, notify, clipboard, store, openUrl) | ❌ Not implemented |
+| `std::condition_variable` wake-up for bg thread | ❌ Not implemented |
+| Unit tests (Future, yield/resume, message routing) | ❌ Not implemented |
+| Integration tests (full roundtrip, no webview, Level 2) | ❌ Not implemented |
+| ADR: split outboxes if queue pressure observed | 📝 Recorded |
+
+**No `---@async` annotation** — runtime effect is zero, code already expresses intent via `:await()`. `coconut check` lint tool deferred to future.
+| Unit tests for future/coroutine/forwarding | ❌ Not implemented |

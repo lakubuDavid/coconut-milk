@@ -1,0 +1,47 @@
+sequenceDiagram
+  title: Background Command Execution — bg_thread.Context + Outbox Round Trip
+
+  participant JS as JS — coconut.call
+  participant MAIN as Main Thread
+  participant BG_INBOX as bg inbox Outbox
+  participant BG as bg_thread run loop
+  participant BG_LUA as bg Lua state + ctx
+  participant BG_OUTBOX as bg outbox Outbox
+  participant DRAIN as dispatch.drain — CFRunLoopSource
+  participant XPORT as WebviewTransport
+  participant EVAL as webview_eval
+
+  @start_note right of MAIN
+    Background-thread machinery exists in v0.1.1;
+    full activation wiring (ctx:bind → bg) lands in v0.2.0.
+  @end_note
+
+  JS ->> MAIN : coconut.call("heavy", payload) → kCall
+  MAIN ->> BG_INBOX : push(CommandCall "name|jsonArgs|callId")
+  MAIN ->> BG : dispatch::notify(app) — signal + wake
+
+  BG ->> BG_INBOX : pop CommandCall
+  BG ->> BG : parse "name|jsonArgs|callId"
+
+  alt handler missing
+    BG ->> BG_OUTBOX : push CommandResult error {code:"CommandNotFound"}
+  else handler found
+    BG ->> BG_LUA : toTable(jsonArgs) → params
+    BG_LUA ->> BG_LUA : fn(params, bg->ctx) — separate Lua VM, off main thread
+    BG_LUA -->> BG : result value or sol::error
+    BG ->> BG : serialize result → json (tables/strings/numbers/bools)
+    BG ->> BG_OUTBOX : push CommandResult "callId|json"
+  end
+
+  BG ->> DRAIN : dispatch::notify(app) — wakes main run loop
+  DRAIN ->> BG_OUTBOX : pop CommandResult
+  DRAIN ->> DRAIN : split "callId|json" → rpc::Message kReturn (or kError)
+  DRAIN ->> XPORT : bridge::rpcSend(app, msg)
+  XPORT ->> EVAL : __coconut_rpc_receive('{type:"return",id,…}')
+  EVAL -->> JS : Promise resolves with result
+
+  @start_note right of BG
+    Two lock-free SPSC Outboxes only:
+    inbox (main → bg) and outbox (bg → main).
+    Each capacity: kQueueCapacity = 64.
+  @end_note

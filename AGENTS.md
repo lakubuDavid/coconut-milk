@@ -2,6 +2,36 @@
 
 Rules you must follow when writing code or making decisions.
 
+## Versioning scheme
+
+We follow strict **semantic versioning** (`MAJOR.MINOR.PATCH`):
+
+- **MAJOR** (v1.0.0, v2.0.0): Full API change / breaking changes. Backward
+  incompatible modifications to the public Lua API, C++ API, bridge protocol,
+  or config format.
+- **MINOR** (v0.2.0, v0.3.0): New features. Adding functionality without
+  breaking existing code. The public API remains backward compatible.
+- **PATCH** (v0.1.1, v0.2.1): Performance improvements and bug fixes.
+  No API changes of any kind — no new functions, no new parameters,
+  no new config fields.
+
+When deciding which version bucket a change belongs in, ask:
+"Would existing user code need to change?" If yes → MAJOR.
+"Does this add new capability without breaking anything?" If yes → MINOR.
+"Is this just making things faster / safer without new surface?" If yes → PATCH.
+
+Current version (defined in `src/argparse.h` as `COCONUT_VERSION`): **0.1.1**
+
+### Branching & tagging
+
+- **`main`** is the single development branch — all PRs target it.
+- Releases are marked with **annotated tags** (`git tag -a vX.Y.Z`).
+- Experiment branches use the naming convention:
+  `v{base-version}/exp/{short-description}`
+  (e.g. `v0.1.1/exp/unique-ptr-migration`).
+- When the base version advances, experiment branches are rebased or
+  deleted — the prefix always tells you what they were forked from.
+
 ## Core design decisions
 
 - Single-window first.

@@ -1,0 +1,51 @@
+sequenceDiagram
+  title: Hot Reload — coconut.hotreload() manual command-module reload
+
+  participant LUA as Lua — coconut.hotreload
+  participant MOD as modules.init_hotreload
+  participant APP as coconut.App
+  participant TRIGGER as hotreload.trigger
+  participant WATCH as g_last_times map
+  participant GEN as generator.runGenerate
+  participant LSTATE as main Lua state
+  participant REG as register function — bind and rebind
+
+  LUA ->> MOD : coconut.hotreload()
+  MOD ->> APP : resolve coconut._app → App*
+
+  alt app missing
+    MOD ->> LUA : return false
+  else app present
+    MOD ->> TRIGGER : hotreload::trigger(app, configs)
+
+    alt first call
+      TRIGGER ->> WATCH : seedTimes(command_root) — snapshot mtimes
+    end
+
+    TRIGGER ->> WATCH : collectChanges(command_root)
+    WATCH -->> TRIGGER : changed .lua file list — skips .g.lua
+
+    alt no changes
+      TRIGGER -->> LUA : no changes detected
+    else changed files
+      TRIGGER ->> TRIGGER : derive module_name — "commands/subdir/m.lua" → "subdir.m"
+
+      loop each changed path
+        alt auto_regenerate on
+          TRIGGER ->> GEN : runGenerate(command_root, output_dir)
+        end
+        TRIGGER ->> LSTATE : package.loaded[module_name] = nil — clear cache
+        TRIGGER ->> LSTATE : safe_script_file("<module>.g.lua")
+        LSTATE -->> TRIGGER : register(ctx) function
+        TRIGGER ->> REG : register(ctx) → ctx:bind / ctx:rebind per command
+        REG -->> TRIGGER : handler table replaced
+      end
+
+      TRIGGER -->> LUA : true
+    end
+  end
+
+  @start_note right of TRIGGER
+    Runs synchronously on the main thread (v0.1.x).
+    Background file-watcher deferred to v0.2.0.
+  @end_note

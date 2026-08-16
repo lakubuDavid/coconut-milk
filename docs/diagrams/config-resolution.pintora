@@ -1,0 +1,42 @@
+sequenceDiagram
+  title: Config Resolution — Layer Hierarchy (defaults → file → CLI → ctx)
+
+  participant CLI as main / CLI
+  participant DEFAULTS as Config defaults
+  participant CFG_LUA as coconut.config.lua
+  participant CFG_JSON as coconut.config.json
+  participant ARGS as argparse.parse
+  participant DARWIN as darwin bundle config
+  participant CTX as CoconutContext setters
+  participant TBL_MERGE as loadEntryPoint merge
+  participant APP as shared Config
+
+  alt config file exists
+    CLI ->> CFG_LUA : try coconut.config.lua
+    CFG_LUA -->> CLI : parsed Config
+  else no .lua
+    CLI ->> CFG_JSON : try coconut.config.json
+    CFG_JSON -->> CLI : parsed Config — defaults kept on failure
+  end
+
+  CLI ->> DEFAULTS : seed window size / title / initial_view / etc.
+  DEFAULTS -->> CLI : base layer
+
+  CLI ->> ARGS : --frameless --transparent --title --width --height
+  ARGS -->> CLI : CLI overrides beat config-file values
+
+  CLI ->> DARWIN : permissions::applyDarwinConfig(bundle_id, ns.*)
+  DARWIN -->> CLI : CFBundleIdentifier + usage descriptions applied
+
+  CLI ->> APP : app::create(&cfg) — Config shared by pointer
+  APP -->> CLI : App* with configs = &cfg
+
+  CLI ->> CTX : loadEntryPoint → coconut.config(ctx)
+  CTX ->> CTX : setWindowSize / setTitle / setInitialView / setFrameless
+  CTX -->> CLI : setters mutate Config in place — app-level overrides
+
+  CLI ->> TBL_MERGE : ret table from coconut.config()
+  TBL_MERGE -->> CLI : window_*, initial_view, title, views merged last
+
+  CLI ->> APP : final Config — highest precedence wins per field
+  APP -->> CLI : window / lua / bridge modules read the same Config*

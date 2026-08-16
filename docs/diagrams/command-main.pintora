@@ -1,0 +1,40 @@
+sequenceDiagram
+  title: Command Dispatch (Main Thread) — coconut.call() → WebviewTransport → Lua
+
+  participant JS as JS — coconut.call
+  participant SHIM as __coconut_call shim
+  participant BIND as __coconut_rpc bind
+  participant XPORT as WebviewTransport
+  participant REG as commands.Registry
+  participant LUA as Lua handler
+
+  JS ->> SHIM : coconut.call("greet", { name:"Ada" })
+  SHIM ->> SHIM : build kCall envelope {type,name,payload}
+  SHIM ->> BIND : window.__coconut_rpc(msgJson)
+  BIND ->> XPORT : static_on_rpc(id, req, arg)
+
+  XPORT ->> XPORT : rpc::Message::fromJson(req[0])
+  XPORT ->> XPORT : handleCall(id, msg)
+  XPORT ->> REG : handlers.find("greet")
+
+  alt handler registered
+    XPORT ->> LUA : fn(paramsTable, ctx) — sol::protected_function — ctx:bind handler
+    LUA -->> XPORT : result value or sol::error
+    alt result valid
+      XPORT ->> XPORT : envelope { ok:true, data:… } — JSON-serialized
+    else handler raised
+      XPORT ->> XPORT : envelope { ok:false, error:{ code:"LuaError", … } }
+    end
+  else not registered
+    XPORT ->> XPORT : envelope { ok:false, error:{ code:"CommandNotFound", … } }
+  end
+
+  XPORT ->> BIND : webview_return(id, 0, envelopeJson)
+  BIND -->> SHIM : promise resolves with parsed envelope
+  SHIM -->> JS : coconut.call() await returns result / throws
+
+  @start_note right of REG
+    ctx:bind()    → handlers    (invoked on main thread in v0.1.1)
+    ctx:bind_mt() → mt_handlers (main-thread commands)
+    Background-thread execution wiring lands in v0.2.0.
+  @end_note

@@ -1,0 +1,33 @@
+sequenceDiagram
+  title: Platform Adapter — Lua module → interface → platform impl (ThreadKind)
+
+  participant LUA as Lua code
+  participant MOD as modules.init_* — dialog/notify/clipboard/openurl/store
+  participant INTF as C++ interface — coconut.dialog / packages.*
+  participant PLAT as platform impl — darwin/win/linux
+  participant OS as NSAlert / MessageBoxW / GTK
+  participant BGC as background stubs
+
+  LUA ->> MOD : init_all(lua, kind)
+
+  alt kind == Main
+    MOD ->> MOD : register real closure on coconut.* table
+  else kind == Background
+    MOD ->> BGC : register warning stub — main-only APIs
+    BGC -->> LUA : returns false — "[bg] … requires the main thread"
+  end
+
+  LUA ->> MOD : coconut.dialog.message("Saved!", "App", "info")
+  MOD ->> INTF : dialog::messageBox(title, message, kind)
+  INTF ->> PLAT : per-OS dispatch — NSAlert / MessageBoxW / GTK
+  PLAT ->> OS : native modal dialog
+  OS -->> PLAT : button pressed — OK/Cancel
+  PLAT -->> INTF : dialog::Result { confirmed }
+  INTF -->> MOD : sol::table { confirmed, path, paths }
+  MOD -->> LUA : result table
+
+  @start_note right of PLAT
+    Platform events call back into bridge events:
+    lifecycle::registerEvents (resize/focus/blur) →
+    ctx:emit → __coconut_dispatch_event → coconut.on().
+  @end_note

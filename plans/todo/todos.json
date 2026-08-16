@@ -1,31 +1,62 @@
 {
   "version": "1.0",
   "project": "coconut-milk",
-  "updatedAt": "2026-06-23T02:29:48.567Z",
+  "updatedAt": "2026-06-28T01:42:25.608Z",
   "tasks": [
     {
-      "id": "task-1782179195494-pp8j7sy",
-      "title": "Use schemas/ as canonical source for type defs in scaffolding",
-      "description": "- Removed inline GENERATORS.coconut_dts() from create-coconut-app\n- Added resolve_schema() with remote-fetch (curl + PowerShell fallback), cache (~/.cache/coconut/schemas/), and bundled fallback\n- Added copy_schema() helper\n- Added --offline flag + COCONUT_OFFLINE env var\n- Updated all three scaffold functions (bare, bare-ts, vite) to copy coconut.d.lua and scripts/coconut.d.ts\n- Updated README directory tree\n- Removed stale samples/coconut.d.lua\n- Updated coconut.config.schema.json to match config.h",
-      "status": "completed",
-      "createdAt": "2026-06-23T01:46:35.494Z",
-      "updatedAt": "2026-06-23T01:55:46.305Z"
+      "id": "v011-module-refactor",
+      "title": "Module refactoring",
+      "description": "Modules extracted, files renamed, dialogResultToTable removed, toJson/toTable moved, store _app wired, bg thread routing working.",
+      "status": "completed"
     },
     {
-      "id": "task-1782179199161-njf2hjq",
-      "title": "Decision: Option B — keep .d.ts/.d.lua hand-written, schemas/ as canonical",
-      "description": "Chose Option B over schema-driven generator. schemas/coconut.d.ts and schemas/coconut.d.lua remain hand-written canonical files. Scaffolder will copy them with remote-fetch + cache + fallback. No schema-to-types generator.",
-      "status": "completed",
-      "createdAt": "2026-06-23T01:46:39.161Z",
-      "updatedAt": "2026-06-23T01:51:03.052Z"
+      "id": "v011-ci-sanitizers",
+      "title": "CI: ASAN + TSAN + GitHub Actions",
+      "description": "xmake sanitizer modes + .github/workflows/test.yml",
+      "status": "completed"
     },
     {
-      "id": "task-1782181788567-siconrz",
-      "title": "Add CI for scaffold test and install script test",
-      "description": "- test-scaffold.yml: run on push/PR when scripts/create-coconut-app or schemas/* change, test all 3 templates, verify file structure, diff against canonical schemas\n- build.yml: split release into package + release jobs; add test-install (Linux, shell+lua) and test-install-windows (PowerShell) jobs chained after package",
+      "id": "v011-test-coverage",
+      "title": "Test coverage: argparse, context, hotreload, webview_transport, window",
+      "description": "5 new test files, 45 new tests, 417 total",
+      "status": "completed"
+    },
+    {
+      "id": "v011-versioning",
+      "title": "Semantic versioning scheme documented",
+      "description": "AGENTS.md updated, v0.3.0→v0.2.1, .pi/scope.json fixed",
+      "status": "completed"
+    },
+    {
+      "id": "v011-error-swallowing",
+      "title": "Fix error swallowing in Lua-bound functions",
+      "description": "Audit clipboard, notify, dialog, fs modules for proper error propagation.",
+      "status": "pending"
+    },
+    {
+      "id": "v011-inline-registrations",
+      "title": "Move remaining inline Lua registrations into modules",
+      "description": "keybind, _bridge_emit, config, views, events, __registerPlatformKeybind still inline in main_runtime.cpp.",
       "status": "completed",
-      "createdAt": "2026-06-23T02:29:48.567Z",
-      "updatedAt": "2026-06-23T02:29:48.567Z"
+      "updatedAt": "2026-06-28T01:42:25.608Z"
+    },
+    {
+      "id": "v011-iwyu",
+      "title": "IWYU cleanup: remove iostream from headers, forward-declare",
+      "description": "Remove #include <iostream> from headers. Forward-declare App* where possible.",
+      "status": "pending"
+    },
+    {
+      "id": "v011-dialog-error",
+      "title": "Platform dialog error recovery",
+      "description": "darwin/dialog.mm, linux/dialog.cpp have no try/catch around native calls.",
+      "status": "pending"
+    },
+    {
+      "id": "v011-queue-capacity",
+      "title": "Configurable outbox queue capacity",
+      "description": "kQueueCapacity hardcoded at 64 in dispatch.h. Make configurable.",
+      "status": "pending"
     }
   ]
 }

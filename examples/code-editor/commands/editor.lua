@@ -98,6 +98,7 @@ end
 
 ---@description Show native file/folder open dialog
 ---@command editor_open_dialog
+---@thread main
 ---@param payload { title?: string }
 ---@return { path?: string, is_dir?: boolean, cancelled: boolean, error?: string }
 local function open_dialog(payload, ctx)
@@ -116,6 +117,7 @@ end
 
 ---@description Show native save-file dialog
 ---@command editor_save_dialog
+---@thread main
 ---@param payload { default_name?: string }
 ---@return { path?: string, cancelled: boolean, error?: string }
 local function save_dialog(payload, ctx)

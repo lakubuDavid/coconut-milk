@@ -1,0 +1,36 @@
+sequenceDiagram
+  title: View Switching — ctx.show / ctx.window.show with lifecycle events
+
+  participant LUA as Lua — ctx.show
+  participant HANDLE as CoconutWindowHandle
+  participant WINDOW as window.showView
+  participant WEBVIEW as webview_navigate
+  participant JS as Frontend
+  participant OUTBOX as dispatch.Outbox
+  participant DRAIN as dispatch.drain
+  participant LIFECYCLE as lua.dispatchViewLifecycleEvent
+  participant CHAIN as coconut._dispatch — 3-tier
+
+  LUA ->> HANDLE : ctx.window.show("settings")
+
+  alt same view already active
+    HANDLE ->> HANDLE : no-op — current_view == name
+  else different view
+    HANDLE ->> OUTBOX : push LifecycleEvent "settings|mount"
+    HANDLE ->> WINDOW : window::showView(app->window, name)
+    WINDOW ->> WINDOW : showWindow(webview)
+    WINDOW ->> WEBVIEW : webview_navigate(file://…settings.html)
+    WEBVIEW -->> JS : document loads — coconut JS injected via webview_init
+    HANDLE ->> HANDLE : lua.coconut._active_view = "settings"
+    HANDLE ->> OUTBOX : push LifecycleEvent "old|unmount" (if any)
+  end
+
+  loop main run loop iteration
+    DRAIN ->> OUTBOX : pop LifecycleEvent
+    DRAIN ->> LIFECYCLE : dispatchViewLifecycleEvent(runtime, view, event, {})
+  end
+
+  LIFECYCLE ->> LIFECYCLE : build payload { ctx, props } — "load" guarded once per view
+  LIFECYCLE ->> CHAIN : coconut._dispatch(eventName, payload, viewName)
+  CHAIN ->> CHAIN : Tier 1 view:on → Tier 2 coconut.on → Tier 3 coconut.events
+  CHAIN -->> LUA : event object returned

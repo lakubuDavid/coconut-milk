@@ -1,0 +1,45 @@
+sequenceDiagram
+  title: Window Control — CoconutWindowHandle → window interface → platform
+
+  participant LUA as Lua — ctx.window
+  participant HANDLE as CoconutWindowHandle
+  participant WINDOW as window interface
+  participant NATIVE as platform impl
+  participant OS as NSWindow / Win32 / GTK
+  participant WEBVIEW as webview_t
+  participant CHAIN as coconut._dispatch — close veto
+
+  LUA ->> HANDLE : ctx.window.setFullscreen(true)
+  HANDLE ->> WINDOW : window::platformSetFullscreen(webview, on)
+  WINDOW ->> NATIVE : dispatch to OS impl
+  NATIVE ->> OS : set collection behavior / ShowWindow(SW_MAXIMIZE)
+  OS -->> LUA : void
+
+  LUA ->> HANDLE : ctx.window.move({dx, dy})
+  HANDLE ->> WINDOW : window::platformMoveWindow(webview, dx, dy)
+  WINDOW ->> NATIVE : screen coords — bottom-left origin
+  NATIVE ->> OS : setFrameOrigin / SetWindowPos
+
+  LUA ->> HANDLE : ctx.window.resize(w, h)
+  HANDLE ->> WEBVIEW : webview_set_size(webview, w, h, WEBVIEW_HINT_NONE)
+
+  LUA ->> HANDLE : ctx.window.getPosition()
+  HANDLE ->> WINDOW : window::platformGetWindowPosition(webview, x, y)
+  WINDOW ->> NATIVE : read frame origin
+  NATIVE -->> LUA : CoconutPoint { x, y }
+
+  LUA ->> HANDLE : ctx.window.close()
+  HANDLE ->> CHAIN : coconut._dispatch("close", …)
+  CHAIN -->> HANDLE : event.defaultPrevented?
+
+  alt close vetoed
+    HANDLE ->> HANDLE : shouldClose = false — do nothing
+  else proceed
+    HANDLE ->> WEBVIEW : webview_terminate(webview) — synchronous quit
+  end
+
+  @start_note right of WINDOW
+    AGENTS.md adapter rule:
+    context/handle → window interface module → platform/OS code.
+    No module calls platform APIs directly.
+  @end_note
