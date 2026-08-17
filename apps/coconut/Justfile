@@ -1,7 +1,7 @@
 set shell := ["bash", "-uc"]
 
 DEFAULT_TARGET  := "coconut"
-TEST_TARGET     := "coconut-milk-tests"
+TEST_TARGET     := "tests"
 MODE            := "debug"
 PROJECT_ROOT    := justfile_directory()
 
@@ -22,7 +22,7 @@ _targetfile TARGET:
 # ── Build ───────────────────────────────────────────────────
 
 build:
-	xmake f -m {{MODE}} -c -y
+	xmake f -m {{MODE}} -y
 	xmake build {{DEFAULT_TARGET}}
 
 build-release:
@@ -45,7 +45,7 @@ run-debug:
 # ── Examples (cd into example dir, resolve binary via xmake) ─
 
 run-editor: build build-editor-bundle
-	cd examples/code-editor && exec "$(cd {{PROJECT_ROOT}} && just --justfile {{PROJECT_ROOT}}/Justfile _targetfile {{DEFAULT_TARGET}})"
+	cd ../examples/code-editor && exec "$(cd {{PROJECT_ROOT}} && just --justfile {{PROJECT_ROOT}}/Justfile _targetfile {{DEFAULT_TARGET}})"
 
 run-editor-release:
 	@just --set MODE release run-editor
@@ -54,31 +54,31 @@ run-editor-debug:
 	@just --set MODE debug run-editor
 
 run-ocr: build
-	cd examples/ocr-app && exec "$(cd {{PROJECT_ROOT}} && just --justfile {{PROJECT_ROOT}}/Justfile _targetfile {{DEFAULT_TARGET}})"
+	cd ../examples/ocr-app && exec "$(cd {{PROJECT_ROOT}} && just --justfile {{PROJECT_ROOT}}/Justfile _targetfile {{DEFAULT_TARGET}})"
 
 run-ocr-release:
 	@just --set MODE release run-ocr
 
 run-lua-html: build
-	cd examples/lua-html-app && exec "$(cd {{PROJECT_ROOT}} && just --justfile {{PROJECT_ROOT}}/Justfile _targetfile {{DEFAULT_TARGET}})"
+	cd ../examples/lua-html-app && exec "$(cd {{PROJECT_ROOT}} && just --justfile {{PROJECT_ROOT}}/Justfile _targetfile {{DEFAULT_TARGET}})"
 
 run-lua-html-release:
 	@just --set MODE release run-lua-html
 
 run-vue: build
-	cd examples/calculator-vue && exec "$(cd {{PROJECT_ROOT}} && just --justfile {{PROJECT_ROOT}}/Justfile _targetfile {{DEFAULT_TARGET}})"
+	cd ../examples/calculator-vue && exec "$(cd {{PROJECT_ROOT}} && just --justfile {{PROJECT_ROOT}}/Justfile _targetfile {{DEFAULT_TARGET}})"
 
 run-vue-release:
 	@just --set MODE release run-vue
 
 run-atlas: build
-	cd examples/atlas-tool && exec "$(cd {{PROJECT_ROOT}} && just --justfile {{PROJECT_ROOT}}/Justfile _targetfile {{DEFAULT_TARGET}})"
+	cd ../examples/atlas-tool && exec "$(cd {{PROJECT_ROOT}} && just --justfile {{PROJECT_ROOT}}/Justfile _targetfile {{DEFAULT_TARGET}})"
 
 run-atlas-release:
 	@just --set MODE release run-atlas
 
 run-playground: build
-	cd examples/playground && \
+	cd ../examples/playground && \
 	  BIN="$(cd {{PROJECT_ROOT}} && just --justfile {{PROJECT_ROOT}}/Justfile _targetfile {{DEFAULT_TARGET}})" && \
 	  "$BIN" generate && \
 	  exec "$BIN"
@@ -91,12 +91,12 @@ run-gen:
 
 # Build the CodeMirror 6 bundle for the code-editor example
 build-editor-bundle:
-	cd examples/code-editor && bun run build-bundle
+	cd ../examples/code-editor && bun run build-bundle
 
 # ── Tests ───────────────────────────────────────────────────
 
 test:
-	xmake f -m {{MODE}} -c -y
+	xmake f -m {{MODE}} -y
 	xmake build {{TEST_TARGET}}
 	xmake run {{TEST_TARGET}}
 
@@ -118,12 +118,15 @@ rebuild:
 format:
 	clang-format -i src/**/*.h src/**/*.cpp tests/**/*.cpp
 
+check:
+	clang-tidy src/**/*.h src/**/*.cpp tests/**/*.cpp
+
 install: build
 	mkdir -p {{INSTALL_DIR}}
 	BIN="$(cd {{PROJECT_ROOT}} && just --justfile {{PROJECT_ROOT}}/Justfile _targetfile {{DEFAULT_TARGET}})" && \
 	chmod +x "$BIN" && \
 	ln -sf "$BIN" "{{INSTALL_DIR}}/coconut"
-	ln -sf "{{PROJECT_ROOT}}/scripts/create-coconut-app" "{{INSTALL_DIR}}/create-coconut-app"
+	ln -sf "{{PROJECT_ROOT}}/../scripts/create-coconut-app" "{{INSTALL_DIR}}/create-coconut-app"
 	@echo "installed ({{MODE}}) to {{INSTALL_DIR}}:"
 	@ls -la "{{INSTALL_DIR}}/coconut" "{{INSTALL_DIR}}/create-coconut-app"
 
