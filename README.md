@@ -19,9 +19,9 @@
 
   <a href="#quick-start">Quick Start</a> •
   <a href="#features">Features</a> •
-  <a href="docs/">Documentation</a> •
-  <a href="docs/explanation/roadmap.md">Roadmap</a> •
-  <a href="docs/reference/specs/specs.md">Specification</a>
+  <a href="wiki/">Documentation</a> •
+  <a href="wiki/explanation/roadmap.md">Roadmap</a> •
+  <a href="wiki/reference/specs/specs.md">Specification</a>
 
   <br>
   <br>
@@ -175,7 +175,7 @@ create-coconut-app my-app --template vite --framework vue
 │   ├── *.g.lua           #   Lua registration glue
 │   ├── *.d.ts            #   TypeScript declarations
 │   └── *.g.js            #   JS wrappers with JSDoc
-├── docs/                 # Documentation site
+├── wiki/                 # Documentation site
 ├── src/                  # C++ source code
 └── tests/                # Test suite
 ```
@@ -197,15 +197,15 @@ commands/notes.lua
 
 | Section | Description |
 |---|---|
-| [📖 Getting Started](docs/getting-started.md) | Installation, first app, templates |
-| [🧠 Concepts](docs/explanation/concepts.md) | Architecture, view system, bridge protocol |
-| [📘 Lua Backend Guide](docs/reference/lua-guide.md) | Commands, events, views, best practices |
-| [🔧 Bridge Reference](docs/reference/bridge.md) | RPC protocol, message flow, transport |
-| [📋 API Reference](docs/reference/api-reference.md) | All Lua and JS APIs with signatures |
-| [💻 CLI Reference](docs/reference/cli.md) | coconut, generate, create-coconut-app |
-| [📐 Specs](docs/reference/specs/specs.md) | Full specification documents |
-| [🧪 Test Suite](docs/reference/test-suite.md) | Test plan and coverage |
-| [🗺️ Roadmap](docs/explanation/roadmap.md) | Implementation plan and phases |
+| [📖 Getting Started](wiki/getting-started.md) | Installation, first app, templates |
+| [🧠 Concepts](wiki/explanation/concepts.md) | Architecture, view system, bridge protocol |
+| [📘 Lua Backend Guide](wiki/reference/lua-guide.md) | Commands, events, views, best practices |
+| [🔧 Bridge Reference](wiki/reference/bridge.md) | RPC protocol, message flow, transport |
+| [📋 API Reference](wiki/reference/api-reference.md) | All Lua and JS APIs with signatures |
+| [💻 CLI Reference](wiki/reference/cli.md) | coconut, generate, create-coconut-app |
+| [📐 Specs](wiki/reference/specs/specs.md) | Full specification documents |
+| [🧪 Test Suite](wiki/reference/test-suite.md) | Test plan and coverage |
+| [🗺️ Roadmap](wiki/explanation/roadmap.md) | Implementation plan and phases |
 
 ---
 
@@ -230,16 +230,16 @@ commands/notes.lua
 
 | Example | Stack | Features |
 |---|---|---|
-| [Calculator Vue](docs/examples/examples.md#calculator-vue) | Vue 3 + Vite | Multi-page, settings |
-| [OCR Scanner](docs/examples/examples.md#ocr-app) | Alpine.js + Tesseract.js | Image processing |
-| [Code Editor](docs/examples/examples.md#code-editor) | CodeMirror 6 | File tree, native dialogs |
-| [Lua HTML App](docs/examples/examples.md#lua-html-app) | Pure Lua DSL | No build step |
+| [Calculator Vue](wiki/examples/examples.md#calculator-vue) | Vue 3 + Vite | Multi-page, settings |
+| [OCR Scanner](wiki/examples/examples.md#ocr-app) | Alpine.js + Tesseract.js | Image processing |
+| [Code Editor](wiki/examples/examples.md#code-editor) | CodeMirror 6 | File tree, native dialogs |
+| [Lua HTML App](wiki/examples/examples.md#lua-html-app) | Pure Lua DSL | No build step |
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please see our [Roadmap](docs/explanation/roadmap.md) for planned work and the [Specification](docs/reference/specs/specs.md) for architecture details.
+Contributions are welcome! Please see our [Roadmap](wiki/explanation/roadmap.md) for planned work and the [Specification](wiki/reference/specs/specs.md) for architecture details.
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -259,8 +259,8 @@ Distributed under the MIT License. See [`LICENSE`](LICENSE) for more information
   <p>
     <strong>🥥 Coconut Milk</strong> —
     <a href="https://github.com/lakubuDavid/coconut-milk">GitHub</a> •
-    <a href="docs/">Documentation</a> •
-    <a href="docs/explanation/roadmap.md">Roadmap</a>
+    <a href="wiki/">Documentation</a> •
+    <a href="wiki/explanation/roadmap.md">Roadmap</a>
   </p>
   <p>
     <sub>Built with ❤️ using C++20, LuaJIT, and WKWebView</sub>
