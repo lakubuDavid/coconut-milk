@@ -510,13 +510,13 @@ All tests pass. All examples work.
 
 | File | Change |
 |---|---|
-| `docs/specs.md` | Full event model rewrite (§3,4,5,8,11,12) |
-| `docs/api-reference.md` | All emit/events/on signatures |
-| `docs/lua-guide.md` | Event object usage |
-| `docs/concepts.md` | Event system concepts |
-| `docs/examples.md` | Example code snippets |
-| `docs/bridge.md` | RPC envelope unchanged (name stays separate) |
-| `docs/getting-started.md` | Quick-start snippets |
+| `wiki/reference/specs/specs.md` | Full event model rewrite (§3,4,5,8,11,12) |
+| `wiki/reference/api-reference.md` | All emit/events/on signatures |
+| `wiki/reference/lua-guide.md` | Event object usage |
+| `wiki/decisions/concepts.md` | Event system concepts |
+| `wiki/examples/index.md` | Example code snippets |
+| `wiki/reference/bridge.md` | RPC envelope unchanged (name stays separate) |
+| `wiki/guides/getting-started.md` | Quick-start snippets |
 
 ---
 

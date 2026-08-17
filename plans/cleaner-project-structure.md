@@ -56,7 +56,7 @@ coconut-milk/
 ├── examples/            # reference apps (node_modules gitignored)
 ├── thirdparty/          # vendored deps (webview submodule)
 ├── scripts/             # dev + release tooling (mise-install.sh, …)
-├── docs/                # docs + diagrams
+├── wiki/                # docs + diagrams
 ├── plans/               # planning docs
 ├── schemas/  res/  patches/
 ├── build/               # xmake artifacts (gitignored)
@@ -112,7 +112,7 @@ coconut-milk/
 ## 7. Deliberate keepers (do NOT move)
 
 - `thirdparty/` (webview submodule + patch in `patches/`)
-- `schemas/`, `res/`, `docs/`, `plans/`
+- `schemas/`, `res/`, `wiki/`, `plans/`
 - `.agents/`, `.pi/` (agent tooling), `.github/` (CI)
 - Root `xmake.lua` (build config stays discoverable at root)
 
