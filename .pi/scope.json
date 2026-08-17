@@ -1,5 +1,5 @@
 {
-  "currentScope": "base",
+  "currentScope": "v0.1.1",
   "blockMode": "soft",
   "scopes": [
     {
@@ -25,8 +25,34 @@
         "authentication",
         "cloud sync"
       ]
+    },
+    {
+      "name": "v0.1.1",
+      "goal": "Hardening, memory safety, test coverage, and code quality improvements before v0.2 features",
+      "features": [
+        "Smart pointer migration (unique_ptr for all owned resources)",
+        "CI: Add ASAN + TSAN sanitizer jobs",
+        "Test coverage for window, webview_transport, hotreload, context, argparse",
+        "Fix error swallowing in Lua-bound functions",
+        "Move remaining inline Lua registrations into modules",
+        "IWYU cleanup (remove iostream from headers, forward-declare where possible)",
+        "Platform dialog error recovery (try/catch around native calls)",
+        "Deduplicate CoconutContext usertype registration",
+        "Audit and fix string handling patterns",
+        "Configurable outbox queue capacity"
+      ],
+      "allowedPaths": [
+        "src/",
+        "tests/",
+        "scripts/",
+        "wiki/",
+        "examples/",
+        "schemas/",
+        "plans/"
+      ],
+      "allowedTopics": []
     }
   ],
   "parkingLot": [],
-  "enabled": false
+  "enabled": true
 }
