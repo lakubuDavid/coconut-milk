@@ -1,0 +1,20 @@
+# v0.1.1 hardening: safe auto-fix checks only.
+# No readability-identifier-naming — that renames every identifier
+# (struct members, functions, namespaces…) and would break Lua bindings,
+# the bridge envelope, and coconut.ts JS interop.
+---
+Checks: >
+  -*,
+  modernize-use-override,
+  modernize-use-nullptr,
+  modernize-use-emplace,
+  performance-for-range-copy,
+  performance-unnecessary-copy-initialization,
+  performance-move-const-arg,
+  performance-move-constructor-init,
+  readability-redundant-control-flow,
+  readability-qualified-auto,
+  bugprone-sizeof-expression,
+  bugprone-suspicious-enum-usage
+WarningsAsErrors: ''
+FormatStyle: file

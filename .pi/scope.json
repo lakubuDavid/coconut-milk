@@ -45,7 +45,7 @@
         "src/",
         "tests/",
         "scripts/",
-        "wiki/",
+        "docs/",
         "examples/",
         "schemas/",
         "plans/"
