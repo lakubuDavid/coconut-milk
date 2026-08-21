@@ -551,7 +551,7 @@ packIco(const std::vector<PngIcon>& icons) {
   uint32_t dataOffset = dirSize;
 
   std::vector<uint8_t> out;
-  out.reserve(dirSize + 256 * 1024);  // ~256KB should cover all PNGs
+  out.reserve(dirSize + 256 * 1024);  // ~256KB should cover all ONGs
 
   // ICONDIR header (little-endian)
   writeLE16(out, 0);                        // reserved

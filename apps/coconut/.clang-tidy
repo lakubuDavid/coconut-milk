@@ -15,6 +15,7 @@ Checks: >
   readability-redundant-control-flow,
   readability-qualified-auto,
   bugprone-sizeof-expression,
+  bugprone-unchecked-optional-access
   bugprone-suspicious-enum-usage
 WarningsAsErrors: ''
 FormatStyle: file

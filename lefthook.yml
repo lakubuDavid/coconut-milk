@@ -1,0 +1,7 @@
+# Lefthook configuration — https://github.com/evilmartians/lefthook
+pre-commit:
+  commands:
+    clang-format:
+      glob: "*.{cpp,h,hpp,c}"
+      run: "clang-format -i {staged_files}"
+      stage_fixed: true

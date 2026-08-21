@@ -61,6 +61,9 @@ enum class ModulesFlag : uint16_t {
   /// Convenience: all main-thread-only modules.
   MainOnly   = KEYBIND | DIALOG | NOTIFY | CLIPBOARD | HOTRELOAD
                | BRIDGE_EMIT | STUBS | BG_STUBS,
+
+  /// Convenience: every module flag combined.
+  ALL        = ThreadSafe | MainOnly,
 };
 
 /// Bitwise OR for ModulesFlag.

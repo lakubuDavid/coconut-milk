@@ -1,62 +1,6 @@
 {
   "version": "1.0",
-  "project": "coconut-milk",
-  "updatedAt": "2026-06-28T01:42:25.608Z",
-  "tasks": [
-    {
-      "id": "v011-module-refactor",
-      "title": "Module refactoring",
-      "description": "Modules extracted, files renamed, dialogResultToTable removed, toJson/toTable moved, store _app wired, bg thread routing working.",
-      "status": "completed"
-    },
-    {
-      "id": "v011-ci-sanitizers",
-      "title": "CI: ASAN + TSAN + GitHub Actions",
-      "description": "xmake sanitizer modes + .github/workflows/test.yml",
-      "status": "completed"
-    },
-    {
-      "id": "v011-test-coverage",
-      "title": "Test coverage: argparse, context, hotreload, webview_transport, window",
-      "description": "5 new test files, 45 new tests, 417 total",
-      "status": "completed"
-    },
-    {
-      "id": "v011-versioning",
-      "title": "Semantic versioning scheme documented",
-      "description": "AGENTS.md updated, v0.3.0→v0.2.1, .pi/scope.json fixed",
-      "status": "completed"
-    },
-    {
-      "id": "v011-error-swallowing",
-      "title": "Fix error swallowing in Lua-bound functions",
-      "description": "Audit clipboard, notify, dialog, fs modules for proper error propagation.",
-      "status": "pending"
-    },
-    {
-      "id": "v011-inline-registrations",
-      "title": "Move remaining inline Lua registrations into modules",
-      "description": "keybind, _bridge_emit, config, views, events, __registerPlatformKeybind still inline in main_runtime.cpp.",
-      "status": "completed",
-      "updatedAt": "2026-06-28T01:42:25.608Z"
-    },
-    {
-      "id": "v011-iwyu",
-      "title": "IWYU cleanup: remove iostream from headers, forward-declare",
-      "description": "Remove #include <iostream> from headers. Forward-declare App* where possible.",
-      "status": "pending"
-    },
-    {
-      "id": "v011-dialog-error",
-      "title": "Platform dialog error recovery",
-      "description": "darwin/dialog.mm, linux/dialog.cpp have no try/catch around native calls.",
-      "status": "pending"
-    },
-    {
-      "id": "v011-queue-capacity",
-      "title": "Configurable outbox queue capacity",
-      "description": "kQueueCapacity hardcoded at 64 in dispatch.h. Make configurable.",
-      "status": "pending"
-    }
-  ]
+  "project": "worker-command-execution",
+  "updatedAt": "2026-08-19T18:16:39.115Z",
+  "tasks": []
 }

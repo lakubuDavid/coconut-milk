@@ -116,7 +116,7 @@ target("coconut")
 
 target("tests")
     set_kind("binary")
-    add_includedirs("src", "tests", "thirdparty/webview/core/include")
+    add_includedirs("src", "src/core", "tests", "thirdparty/webview/core/include")
     add_includedirs("thirdparty")
     if is_plat("macosx") then
         add_frameworks("Cocoa", "WebKit", "Foundation",
@@ -134,6 +134,7 @@ target("tests")
         add_ldflags("$(shell pkg-config --libs gtk+-3.0 webkit2gtk-4.1 libnotify)")
     end
     add_files("src/*.cpp")
+    add_files("src/core/*.cpp")
     add_files("src/packages/*.cpp")
     add_files("src/generators/*.cpp")
     add_files("src/platform/scheme_handler.cpp")
@@ -151,6 +152,85 @@ target("tests")
     add_files("tests/*.cpp", "tests/**/*.cpp")
     add_packages("sol2", "luajit", "nlohmann_json", "lunasvg")
     add_deps("webview")
+
+-- =================================================================
+-- Module tests — self-contained binaries that compile only the
+-- sources needed for a single subsystem.  Define NO_PLATFORM so
+-- stub platform .cpp files supply the linker symbols instead of
+-- the real macOS/Win/Linux platform implementations.
+-- =================================================================
+
+target("test_modules_workers")
+    set_kind("binary")
+    add_defines("NO_PLATFORM")
+    add_includedirs("src", "src/core", "tests")
+    add_includedirs("thirdparty/webview/core/include")
+    add_includedirs("thirdparty")
+    add_files("src/core/worker.cpp")
+    add_files("src/core/exec_command.cpp")
+    add_files("src/modules/*.cpp")
+    add_files("src/config.cpp")
+    add_files("src/commands.cpp")
+    add_files("src/context.cpp")
+    add_files("src/debug.cpp")
+    add_files("src/error.cpp")
+    add_files("src/fs.cpp")
+    add_files("src/dispatch.cpp")
+    add_files("src/bridge.cpp")
+    add_files("src/main_runtime.cpp")
+    add_files("src/window.cpp")
+    add_files("src/dialog.cpp")
+    add_files("src/view_events.cpp")
+    -- Stub platform satisfies all platform symbols:
+    add_files("src/platform/stub/*.cpp")
+    -- Module test binary:
+    add_files("tests/modules/workers/main.cpp")
+    add_files("src/packages/env.cpp")
+    add_files("src/store.cpp")
+    add_files("src/hotreload.cpp")
+    add_files("src/packages/notify.cpp")
+    add_files("src/packages/clipboard.cpp")
+    add_files("src/generators/*.cpp")
+    add_files("src/webview_transport.cpp")
+    add_packages("sol2", "luajit", "nlohmann_json")
+    if is_plat("macosx") then
+        add_frameworks("CoreFoundation")
+    end
+
+target("test_modules_multi_workers")
+    set_kind("binary")
+    add_defines("NO_PLATFORM")
+    add_includedirs("src", "src/core", "tests")
+    add_includedirs("thirdparty/webview/core/include")
+    add_includedirs("thirdparty")
+    add_files("src/core/worker.cpp")
+    add_files("src/core/exec_command.cpp")
+    add_files("src/modules/*.cpp")
+    add_files("src/config.cpp")
+    add_files("src/commands.cpp")
+    add_files("src/context.cpp")
+    add_files("src/debug.cpp")
+    add_files("src/error.cpp")
+    add_files("src/fs.cpp")
+    add_files("src/dispatch.cpp")
+    add_files("src/bridge.cpp")
+    add_files("src/main_runtime.cpp")
+    add_files("src/window.cpp")
+    add_files("src/dialog.cpp")
+    add_files("src/view_events.cpp")
+    add_files("src/platform/stub/*.cpp")
+    add_files("src/packages/env.cpp")
+    add_files("src/store.cpp")
+    add_files("src/hotreload.cpp")
+    add_files("src/packages/notify.cpp")
+    add_files("src/packages/clipboard.cpp")
+    add_files("src/generators/*.cpp")
+    add_files("src/webview_transport.cpp")
+    add_files("tests/modules/multi_workers/main.cpp")
+    add_packages("sol2", "luajit", "nlohmann_json")
+    if is_plat("macosx") then
+        add_frameworks("CoreFoundation")
+    end
 
 -- ── Sanitizer rules (defined at bottom, after add_requires) ──────
 --   xmake f -m asan   → AddressSanitizer

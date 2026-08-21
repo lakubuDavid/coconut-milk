@@ -1,7 +1,9 @@
 #include "bridge.h"
 #include "app.h"
+#include "core/exec_command.h"
 #include "debug.h"
 #include "main_runtime.h"
+#include "modules/json.h"
 #include "webview_transport.h"
 #include "embeds/coconut_embed.h"
 
@@ -99,57 +101,29 @@ static void dispatchRpcEventToLua(coconut::App* app, const rpc::Message& msg) {
 /// Route an incoming kCall RPC message to the command registry.
 /// Sends a kReturn or kError response through the transport.
 static void dispatchRpcCallToLua(coconut::App* app, const rpc::Message& msg) {
-  if (app == nullptr || app->commands == nullptr) {
+  if (app == nullptr || app->commands == nullptr ||
+      app->lua_state == nullptr || app->lua_state->lua_state == nullptr) {
     return;
   }
-
-  // Look up handler in the command registry.
-  auto it = app->commands->handlers.find(msg.name);
-  if (it == app->commands->handlers.end()) {
-    rpc::Message err;
-    err.type = rpc::Type::kError;
-    err.id   = msg.id;
-    err.payload = {{"code", "CommandNotFound"},
-                   {"message", "No handler for '" + msg.name + "'"}};
-    rpcSend(app, err);
-    return;
-  }
-
-  // Invoke the registered Lua function.
-  const sol::protected_function& fn = it->second;
 
   sol::state_view lua(*app->lua_state->lua_state);
-  sol::table paramsTable = toTable(lua, msg.payload);
 
-  auto result = fn(paramsTable, app->lua_state->context);
-
-  if (!result.valid()) {
-    sol::error err = result;
-    debug::warn(std::format("bridge: cmd '{}' failed: {}", msg.name, err.what()));
-  }
+  core::CommandResult result = core::execCommand(
+      lua, app->commands->handlers, msg.name, msg.payload,
+      app->lua_state->context);
 
   rpc::Message reply;
   reply.id = msg.id;
 
-  if (result.valid()) {
+  if (result.ok) {
     reply.type = rpc::Type::kReturn;
-    sol::object val = result;
-    if (val.is<sol::table>()) {
-      reply.payload = toJson(val.as<sol::table>());
-    } else if (val.is<std::string>()) {
-      reply.payload = val.as<std::string>();
-    } else if (val.is<long long>()) {
-      reply.payload = val.as<long long>();
-    } else if (val.is<double>()) {
-      reply.payload = val.as<double>();
-    } else if (val.is<bool>()) {
-      reply.payload = val.as<bool>();
-    }
+    reply.payload = result.data;
   } else {
     reply.type = rpc::Type::kError;
-    sol::error err = result;
-    debug::warn(std::format("bridge: cmd '{}' failed: {}", msg.name, err.what()));
-    reply.payload = {{"code", "LuaError"}, {"message", err.what()}};
+    debug::warn(std::format("bridge: cmd '{}' failed: {}",
+                            msg.name,
+                            result.data.value("message", "unknown error")));
+    reply.payload = result.data;
   }
 
   rpcSend(app, reply);
@@ -282,209 +256,19 @@ void rpcSend(coconut::App* app, const rpc::Message& msg) {
 }
 
 // ---------------------------------------------------------------------------
-// JSON <-> Lua conversion helpers
+// JSON <-> Lua conversion helpers (thin wrappers around modules/json.h)
 // ---------------------------------------------------------------------------
 
-static sol::object jsonToLua(sol::state_view lua, const nlohmann::json& v) {
-  if (v.is_null()) {
-    return sol::lua_nil;
-  }
-  if (v.is_boolean()) {
-    return sol::make_object(lua, v.get<bool>());
-  }
-  if (v.is_number_integer()) {
-    return sol::make_object(lua, v.get<long long>());
-  }
-  if (v.is_number_unsigned()) {
-    return sol::make_object(lua, v.get<unsigned long long>());
-  }
-  if (v.is_number_float()) {
-    return sol::make_object(lua, v.get<double>());
-  }
-  if (v.is_string()) {
-    return sol::make_object(lua, v.get<std::string>());
-  }
-
-  if (v.is_array()) {
-    sol::table t = lua.create_table();
-    std::size_t i = 1;
-    for (const auto& item : v) {
-      t[i++] = jsonToLua(lua, item);
-    }
-    return t;
-  }
-
-  if (v.is_object()) {
-    sol::table t = lua.create_table();
-    for (auto it = v.begin(); it != v.end(); ++it) {
-      t[it.key()] = jsonToLua(lua, it.value());
-    }
-    return t;
-  }
-
-  return sol::lua_nil;
-}
-
 sol::table toTable(sol::state_view lua, const nlohmann::json& json) {
-  sol::object obj = jsonToLua(lua, json);
-  if (obj.is<sol::table>()) {
-    return obj.as<sol::table>();
-  }
-
-  sol::table t = lua.create_table();
-  t["value"] = obj;
-  return t;
+  return modules::toTable(lua, json);
 }
 
 sol::table toTable(sol::state_view lua, const std::string& jsonStr) {
-  nlohmann::json parsed = nlohmann::json::parse(jsonStr);
-  return toTable(lua, parsed);
-}
-
-static nlohmann::json luaToJsonValue(const sol::object& obj);
-
-static nlohmann::json luaToJsonTable(const sol::table& t) {
-  bool looksArray = true;
-  std::size_t maxIndex = 0;
-  std::size_t count = 0;
-
-  for (auto&& kv : t) {
-    const sol::object& k = kv.first;
-    if (!k.is<int>() && !k.is<long long>() && !k.is<unsigned int>() &&
-        !k.is<unsigned long long>()) {
-      looksArray = false;
-      break;
-    }
-
-    std::size_t idx = static_cast<std::size_t>(k.as<long long>());
-    maxIndex = (std::max)(maxIndex, idx);
-    ++count;
-  }
-
-  if (looksArray && maxIndex >= count) {
-    nlohmann::json arr = nlohmann::json::array();
-    for (std::size_t i = 0; i < maxIndex; ++i) {
-      arr.push_back(nullptr);
-    }
-
-    for (auto&& kv : t) {
-      const sol::object& k = kv.first;
-      std::size_t idx = static_cast<std::size_t>(k.as<long long>());
-      const sol::object& v = kv.second;
-      arr[idx - 1] = luaToJsonValue(v);
-    }
-    return arr;
-  }
-
-  nlohmann::json obj = nlohmann::json::object();
-  for (auto&& kv : t) {
-    const sol::object& k = kv.first;
-    const sol::object& v = kv.second;
-
-    std::string key;
-    if (k.is<std::string>()) {
-      key = k.as<std::string>();
-    } else {
-      if (k.is<long long>() || k.is<int>()) {
-        key = std::to_string(static_cast<long long>(k.as<long long>()));
-      } else {
-        key = "";
-      }
-    }
-
-    if (!key.empty()) {
-      obj[key] = luaToJsonValue(v);
-    }
-  }
-  return obj;
-}
-
-/// Sanitize a string for JSON serialization: remove null bytes and
-/// replace invalid UTF-8 sequences with the replacement character (U+FFFD).
-static std::string sanitizeJsonString(const std::string& s) {
-  std::string out;
-  out.reserve(s.size());
-  for (size_t i = 0; i < s.size();) {
-    unsigned char c = s[i];
-    // Remove null bytes
-    if (c == 0x00) {
-      ++i;
-      continue;
-    }
-    // 1-byte ASCII
-    if (c < 0x80) {
-      out.push_back(c);
-      ++i;
-      continue;
-    }
-    // 2-byte sequence
-    if ((c & 0xE0) == 0xC0 && i + 1 < s.size() &&
-        (s[i + 1] & 0xC0) == 0x80) {
-      out.push_back(c);
-      out.push_back(s[i + 1]);
-      i += 2;
-      continue;
-    }
-    // 3-byte sequence
-    if ((c & 0xF0) == 0xE0 && i + 2 < s.size() &&
-        (s[i + 1] & 0xC0) == 0x80 && (s[i + 2] & 0xC0) == 0x80) {
-      out.push_back(c);
-      out.push_back(s[i + 1]);
-      out.push_back(s[i + 2]);
-      i += 3;
-      continue;
-    }
-    // 4-byte sequence
-    if ((c & 0xF8) == 0xF0 && i + 3 < s.size() &&
-        (s[i + 1] & 0xC0) == 0x80 && (s[i + 2] & 0xC0) == 0x80 &&
-        (s[i + 3] & 0xC0) == 0x80) {
-      out.push_back(c);
-      out.push_back(s[i + 1]);
-      out.push_back(s[i + 2]);
-      out.push_back(s[i + 3]);
-      i += 4;
-      continue;
-    }
-    // Invalid UTF-8 — skip the byte (replace with nothing)
-    ++i;
-  }
-  return out;
-}
-
-static nlohmann::json luaToJsonValue(const sol::object& obj) {
-  if (!obj.valid()) {
-    return nullptr;
-  }
-  if (obj == sol::lua_nil) {
-    return nullptr;
-  }
-  if (obj.is<bool>()) {
-    return obj.as<bool>();
-  }
-  if (obj.is<std::string>()) {
-    return sanitizeJsonString(obj.as<std::string>());
-  }
-  if (obj.is<int>()) {
-    return obj.as<int>();
-  }
-  if (obj.is<long long>()) {
-    return obj.as<long long>();
-  }
-  if (obj.is<double>()) {
-    return obj.as<double>();
-  }
-  if (obj.is<float>()) {
-    return static_cast<double>(obj.as<float>());
-  }
-  if (obj.is<sol::table>()) {
-    return luaToJsonTable(obj.as<sol::table>());
-  }
-
-  return sanitizeJsonString(obj.as<std::string>());
+  return modules::toTable(lua, jsonStr);
 }
 
 nlohmann::json toJson(const sol::table& table) {
-  return luaToJsonTable(table);
+  return modules::toJson(table);
 }
 
 void destroy(State *state) {
