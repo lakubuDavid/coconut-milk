@@ -154,13 +154,14 @@ namespace coconut::core {
     }
   }
 
-  void Worker::exec(RequestId id, std::string command, nlohmann::json args) {
+  void Worker::exec(RequestId id, std::string command, nlohmann::json args, std::string rpcId) {
     if (!Input)
       return;
     Input->push(PromiseMessage{
         .id      = id,
         .command = std::move(command),
         .args    = std::move(args),
+        .RpcId   = std::move(rpcId),
     });
   }
 
@@ -193,7 +194,8 @@ namespace coconut::core {
             CommandResult result = execCommand(lua, worker->Commands, req.command, req.args, ctx);
 
             if (result.ok) {
-              worker->Output->push(ResolveMessage{.id = req.id, .result = std::move(result.data)});
+              worker->Output->push(ResolveMessage{
+                  .id = req.id, .result = std::move(result.data), .RpcId = req.RpcId});
             } else {
               // Extract error message from result.data
               std::string errMsg = "Unknown error";
@@ -201,7 +203,8 @@ namespace coconut::core {
                 errMsg = result.data["message"].get<std::string>();
               }
               debug::error(std::format("[woker_loop] : command execution failed : {}", errMsg));
-              worker->Output->push(RejectMessage{.id = req.id, .error = std::move(errMsg)});
+              worker->Output->push(RejectMessage{
+                  .id = req.id, .error = std::move(errMsg), .RpcId = req.RpcId});
             }
           },
           *message
@@ -370,7 +373,7 @@ namespace coconut::core {
   }
 
   std::optional<coconut::Error> WorkerPool::queueMessage(
-      const std::string &command, nlohmann::json args
+      const std::string &command, nlohmann::json args, const std::string &rpcId
   ) {
     if (Workers.empty()) {
       return coconut::Error{.message = "WorkerPool: empty pool"};
@@ -378,7 +381,7 @@ namespace coconut::core {
     // Round-robin to the next worker.
     size_t    i  = _next.fetch_add(1) % Workers.size();
     RequestId id = _nextId.fetch_add(1);
-    Workers[i]->exec(id, command, std::move(args));
+    Workers[i]->exec(id, command, std::move(args), rpcId);
     return std::nullopt;
   }
 

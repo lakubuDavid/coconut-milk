@@ -203,8 +203,9 @@ globalThis.__coconut_bridge_ready();
     //   webview_init()  — injects Coconut JS runtime (fires on next page load)
     //   webview_bind()  — registers __coconut_rpc for inbound messages
     // The transport handles dispatch internally (via App* reference).
-    auto* t                      = new WebviewTransport(app->webview, app, coconut_js);
-    app->bridge_state->transport = t;
+    // Held as shared_ptr so the core Bridge/Dispatcher can co-own it.
+    app->bridge_state->transport =
+        std::make_shared<WebviewTransport>(app->webview, app, coconut_js);
   }
 
   /// Signal to the frontend that the bridge is ready.
@@ -233,8 +234,7 @@ globalThis.__coconut_bridge_ready();
       state->store = nullptr;
     }
 
-    delete state->transport;  // WebviewTransport
-    state->transport = nullptr;
+    // Transport is shared_ptr — released when the last owner drops it.
     delete state;
   }
 

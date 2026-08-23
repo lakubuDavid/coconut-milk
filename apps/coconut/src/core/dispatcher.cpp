@@ -77,7 +77,7 @@ namespace coconut::core {
             if constexpr (std::is_same_v<T, CommandCallMessage>) {
               // Route command calls to the worker pool for background execution.
               if (_WorkerPool) {
-                auto err = _WorkerPool->queueMessage(m.CommandName, m.Args);
+                auto err = _WorkerPool->queueMessage(m.CommandName, m.Args, m.RpcId);
                 if (err) {
                   debug::warn(
                       std::format("Dispatcher: queue '{}' failed: {}", m.CommandName, err->message)
@@ -116,7 +116,7 @@ namespace coconut::core {
               if constexpr (std::is_same_v<T, ResolveMessage>) {
                 if (_Transport) {
                   JsRPCMessage rpcMsg;
-                  rpcMsg.id      = std::to_string(o.id);
+                  rpcMsg.id      = !o.RpcId.empty() ? o.RpcId : std::to_string(o.id);
                   rpcMsg.type    = RpcType::kReturn;
                   rpcMsg.payload = o.result;
                   _Transport->send(rpcMsg);
@@ -124,7 +124,7 @@ namespace coconut::core {
               } else if constexpr (std::is_same_v<T, RejectMessage>) {
                 if (_Transport) {
                   JsRPCMessage rpcMsg;
-                  rpcMsg.id      = std::to_string(o.id);
+                  rpcMsg.id      = !o.RpcId.empty() ? o.RpcId : std::to_string(o.id);
                   rpcMsg.type    = RpcType::kError;
                   rpcMsg.payload = {{"code", "WorkerError"}, {"message", o.error}};
                   _Transport->send(rpcMsg);

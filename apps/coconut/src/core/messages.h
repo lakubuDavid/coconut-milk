@@ -104,6 +104,9 @@ namespace coconut::core {
   struct CommandCallMessage {
     std::string    CommandName;
     nlohmann::json Args;
+    /// Original webview call id — resolves the correct JS promise when the
+    /// result returns asynchronously (via __coconut_rpc_receive).
+    std::string RpcId;
   };
 
   struct CommandResultMessage {
@@ -127,16 +130,19 @@ namespace coconut::core {
     RequestId      id;
     std::string    command;
     nlohmann::json args;
+    std::string    RpcId;  ///< passthrough from CommandCallMessage
   };
 
   struct ResolveMessage {
     RequestId      id;
     nlohmann::json result;
+    std::string    RpcId;  ///< echoes the originating PromiseMessage
   };
 
   struct RejectMessage {
     RequestId   id;
     std::string error;
+    std::string RpcId;  ///< echoes the originating PromiseMessage
   };
 
   using WorkerInput  = std::variant<PromiseMessage>;

@@ -63,8 +63,8 @@ namespace coconut::core {
     std::unordered_map<std::string, sol::protected_function> Commands;
 
     /// Push a command request onto the Input queue (thread-safe, called by main
-    /// thread).
-    void exec(RequestId id, std::string command, nlohmann::json args);
+    /// thread). rpcId echoes through to the Resolve/Reject output messages.
+    void exec(RequestId id, std::string command, nlohmann::json args, std::string rpcId = {});
 
     /// Drain all completed results from the Output queue (called by main thread).
     /// Invokes the callback for each ResolveMessage/RejectMessage.
@@ -136,7 +136,10 @@ namespace coconut::core {
     std::optional<coconut::Error> attachAll();
 
     /// Round-robin a command to the next worker. Assigns a unique RequestId.
-    std::optional<coconut::Error> queueMessage(const std::string &command, nlohmann::json args);
+    /// rpcId (optional) is echoed back on the worker's Resolve/Reject message.
+    std::optional<coconut::Error> queueMessage(
+        const std::string &command, nlohmann::json args, const std::string &rpcId = {}
+    );
 
     /// Shut down every worker (SoftAbort by default, HardAbort to detach).
     std::optional<coconut::Error> shutdownAll(

@@ -113,6 +113,16 @@ namespace coconut::bridge {
 
     auto msg = coconut::core::JsRPCMessage::fromJson(msgJson);
 
+    // Core-path routing: when a message callback is registered (the core
+    // Bridge/Dispatcher wiring), hand the envelope over and return. Promise
+    // resolution for kCall moves to the async protocol (__coconut_rpc_receive
+    // with the message id) — webview_return is not used on this path.
+    if (self->m_callback) {
+      self->m_callback(msg);
+      return;
+    }
+
+    // Legacy fallback: handle inline on the main Lua state.
     switch (msg.type) {
       case coconut::core::RpcType::kCall:
         self->handleCall(id, msg);

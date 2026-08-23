@@ -22,9 +22,10 @@ namespace coconut {
   namespace bridge {
 
     struct State {
-      Config*               configs   = nullptr;
-      transport::Transport* transport = nullptr;  ///< owned, deleted in destroy()
-      store::Store*         store     = nullptr;  ///< owned, deleted in destroy()
+      Config* configs = nullptr;
+      std::shared_ptr<transport::Transport>
+                    transport;        ///< shared; also held by core Bridge/Dispatcher
+      store::Store* store = nullptr;  ///< owned, deleted in destroy()
     };
 
     std::expected<State*, Error> create(Config* config);
