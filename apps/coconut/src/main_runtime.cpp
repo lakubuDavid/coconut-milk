@@ -193,6 +193,12 @@ namespace coconut::lua {
       end
       return { ok = true }
     end)
+    ctx:bind_mt("set_window_size", function(params)
+      if ctx.window then
+        ctx.window:resize(tonumber(params.w) or 800, tonumber(params.h) or 600)
+      end
+      return { ok = true }
+    end)
     ctx:bind_mt("set_window_min_width", function(params)
       if ctx.window then
         local cur = ctx.configs and ctx.configs.window_min_height or 0

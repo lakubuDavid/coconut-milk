@@ -97,6 +97,20 @@
       <div id="maxsize-result" class="result-msg" style="display:none"></div>
     </div>
 
+    <!-- Active window size -->
+    <div class="card">
+      <h3>📐 Window Size</h3>
+      <div class="desc">Resize the window right now (not min/max constraints).</div>
+      <div class="setting-row">
+        <label for="size-w">W</label>
+        <input type="number" id="size-w" value="1000" />
+        <label for="size-h">H</label>
+        <input type="number" id="size-h" value="700" />
+        <button onclick="setSize()">Set Size</button>
+      </div>
+      <div id="size-result" class="result-msg" style="display:none"></div>
+    </div>
+
     <!-- Position -->
     <div class="card">
       <h3>📍 Position</h3>
@@ -180,6 +194,13 @@
       const h = parseInt(document.getElementById('max-h').value) || 0;
       try { const r = await coconut.call('set_window_max_height', { height: h }); showResult('maxsize-result', '→ ' + JSON.stringify(r)); }
       catch (e) { showResult('maxsize-result', '✗ ' + (e.message || JSON.stringify(e)), true); }
+    }
+
+    async function setSize() {
+      const w = parseInt(document.getElementById('size-w').value) || 800;
+      const h = parseInt(document.getElementById('size-h').value) || 600;
+      try { const r = await coconut.call('set_window_size', { w, h }); showResult('size-result', '→ ' + JSON.stringify(r)); }
+      catch (e) { showResult('size-result', '✗ ' + (e.message || JSON.stringify(e)), true); }
     }
 
     async function setPosition() {
