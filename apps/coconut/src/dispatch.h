@@ -6,8 +6,10 @@
 
 #include <array>
 #include <atomic>
+#include <deque>
 #include <expected>
 #include <functional>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -40,6 +42,12 @@ namespace coconut::dispatch {
   /// Called internally by the CFRunLoopSource.  Also exposed so it can
   /// be called synchronously in tests.
   void drain(App* app);
+
+  /// Post a closure to run on the MAIN thread during the next drain().
+  /// Thread-safe — callable from any thread (workers, timers, etc.).
+  /// This is the landing pad for cross-thread native access (window
+  /// mutations from worker Lua, dialogs, clipboard, …).
+  void post(std::function<void()> fn);
 
   // ── Enqueue helpers (thread-safe, call from any code path) ──────────
 

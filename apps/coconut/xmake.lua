@@ -40,7 +40,7 @@ task("bridge_embeds")
         local hdr_out = "src/embeds/coconut_embed.h"
         os.run("bun build " .. ts_in .. " --outfile " .. js_out .. " --format esm")
         os.run("bunx tsc " .. ts_in .. " --declaration --emitDeclarationOnly --outDir src/embeds --lib ES2020,DOM --target ES2020")
-        os.run("python3 ../scripts/js2c_to_header.py --input " .. js_out .. " --output " .. hdr_out .. " --symbol coconut_js_embed")
+        os.run("python3 ../../scripts/js2c_to_header.py --input " .. js_out .. " --output " .. hdr_out .. " --symbol coconut_js_embed")
         cprint("[task] coconut-bridge-embeds: " .. js_out .. ", " .. dts_out .. ", " .. hdr_out)
     end)
 
