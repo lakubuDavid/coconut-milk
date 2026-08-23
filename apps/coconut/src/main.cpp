@@ -6,6 +6,7 @@
 #include "context.h"
 #include "core/bridge.h"
 #include "core/dispatcher.h"
+#include "core/exec_command.h"
 #include "core/worker.h"
 #include "debug.h"
 #include "dispatch.h"
@@ -468,10 +469,42 @@ int main(int argc, char* argv[]) {
       } else {
         app->dispatcher = std::move(dispatcherResult.value());
 
-        auto bridgeResult = coconut::core::Bridge::builder()
-                                .withTransport(app->bridge_state->transport)
-                                .withLuaState(sol::state_view(*lua_runtime->lua_state))
-                                .build();
+        auto bridgeResult =
+            coconut::core::Bridge::builder()
+                .withTransport(app->bridge_state->transport)
+                .withLuaState(sol::state_view(*lua_runtime->lua_state))
+                .withSyncExecutor(
+                    [app](
+                        const std::string& name, const nlohmann::json& args
+                    ) -> std::optional<coconut::core::CommandResult> {
+                      if (app->commands == nullptr || app->lua_state == nullptr ||
+                          app->lua_state->lua_state == nullptr ||
+                          app->lua_state->context == nullptr) {
+                        return std::nullopt;
+                      }
+                      // Main-thread registries: builtins/mt stubs
+                      // (bind_mt) first, then the main .lua command
+                      // registry. Anything else falls through to
+                      // the worker path.
+                      const auto& mt   = app->commands->mt_handlers;
+                      const auto& main = app->commands->handlers;
+                      const bool  isMt = mt.find(name) != mt.end();
+                      if (!isMt && main.find(name) == main.end()) {
+                        return std::nullopt;  // not ours — workers
+                      }
+                      sol::state_view lua(*app->lua_state->lua_state);
+                      return isMt ? std::optional(coconut::core::execCommand(
+                                        lua, mt, name, args, app->lua_state->context
+                                    ))
+                                  : std::optional(coconut::core::execCommand(
+                                        lua, main, name, args, app->lua_state->context
+                                    ));
+                    }
+                )
+                .withTargetResolver([app]() -> std::string {
+                  return app->window != nullptr ? app->window->current_view : "";
+                })
+                .build();
         if (!bridgeResult) {
           debug::warn("core wiring: bridge build failed: " + bridgeResult.error().message);
         } else {
@@ -482,9 +515,21 @@ int main(int argc, char* argv[]) {
               }
           );
           app->core_bridge = std::move(bridgeResult.value());
+
+          // ── Inbound cutover (Phase 2) ──
+          // Register the core Bridge as the transport's message sink. From
+          // here on, ALL inbound JS traffic routes through the core path:
+          //   kEvent → emitToLua · kCall → sync (mt/main commands)
+          //          or workers (async envelope replies).
+          // The legacy inline handleCall/handleEvent fallback stays compiled
+          // but is unreachable while the callback is registered.
+          auto* bridgePtr = app->core_bridge.get();
+          app->bridge_state->transport->setMessageCallback(
+              [bridgePtr](const coconut::core::JsRPCMessage& msg) { bridgePtr->onInbound(msg); }
+          );
           debug::info(std::format(
-              "core wiring: trio constructed ({} workers, shared transport, "
-              "legacy path still primary)",
+              "core wiring: trio constructed + inbound routed ({} workers, "
+              "async reply protocol)",
               kWorkerCount
           ));
         }
@@ -546,7 +591,9 @@ int main(int argc, char* argv[]) {
            "if (window.coconut) coconut.args = window.__coconut_args;",
           j.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace)
       );
-      webview_eval(app->webview, js.c_str());
+      if (app->bridge_state != nullptr && app->bridge_state->transport != nullptr) {
+        app->bridge_state->transport->eval(js);
+      }
       debug::info("coconut.args injected into JS");
     }
   }

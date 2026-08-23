@@ -22,11 +22,16 @@
 namespace {
 
   struct FakeTransport : public coconut::transport::Transport {
+    std::vector<std::string>                 evaluated;
     std::vector<coconut::core::JsRPCMessage> sent;
 
     void send(const coconut::core::JsRPCMessage& msg) override {
       sent.push_back(msg);
     }
+    void eval(const std::string& js) override {
+      evaluated.push_back(js);
+    }
+
     void setMessageCallback(coconut::transport::MessageCallback cb) override {
       callback = std::move(cb);
     }

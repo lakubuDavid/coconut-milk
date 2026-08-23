@@ -127,7 +127,9 @@ namespace coconut::bridge {
     }
     const std::string script = std::format("globalThis['{}']({});", functionName, payloadStr);
 
-    webview_eval(app->webview, script.c_str());
+    if (app->bridge_state != nullptr && app->bridge_state->transport != nullptr) {
+      app->bridge_state->transport->eval(script);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -151,18 +153,65 @@ namespace coconut::bridge {
 
     // Append shims for old __coconut_call / __coconut_emit names that
     // coconut.ts still references, and auto-fire the bridge-ready signal.
+    //
+    // Reply protocol (uniformly async):
+    //   __coconut_call generates a unique id, sends it inside the envelope,
+    //   and parks a promise resolver keyed by that id. The C++ side replies
+    //   with a kReturn/kError envelope carrying the same id, delivered via
+    //   __coconut_rpc_receive — webview_return is never used for commands.
     coconut_js += R"(
-// Shim: forward __coconut_call through the __coconut_rpc webview binding.
-// webview_bind creates an async function; webview_return() resolves the promise.
-globalThis.__coconut_call = async function(name, payloadJson) {
-  var msg = JSON.stringify({ type: "call", name: name, payload: JSON.parse(payloadJson) });
-  var result = await globalThis.__coconut_rpc(msg);
-  // __coconut_rpc returns the parsed envelope object; re-stringify for coconut.call()
-  return JSON.stringify(result);
+// Promise correlation: id → {resolve, reject}
+globalThis.__coconut_pendingRpc = new Map();
+var __coconut_rpcSeq = 0;
+
+// Inbound reply envelopes from C++ ({id, type: "return"|"error", payload}).
+// payload is the {ok:true,data} or {ok:false,error} envelope.
+globalThis.__coconut_rpc_receive = function(msgJson) {
+  var m;
+  try { m = JSON.parse(msgJson); } catch (e) { return; }
+  if (!m || !m.id) return;
+  var pending = globalThis.__coconut_pendingRpc.get(m.id);
+  if (!pending) return;
+  globalThis.__coconut_pendingRpc.delete(m.id);
+  if (m.type === 'error') {
+    pending.reject(m.payload && m.payload.error ? m.payload.error : m.payload);
+  } else {
+    pending.resolve(m.payload);
+  }
 };
-globalThis.__coconut_emit = async function(name, payloadJson) {
-  var msg = JSON.stringify({ type: "event", name: name, payload: JSON.parse(payloadJson) });
-  await globalThis.__coconut_rpc(msg);
+
+// Shim: forward __coconut_call through the __coconut_rpc webview binding.
+globalThis.__coconut_call = function(name, payloadJson) {
+  return new Promise(function(resolve, reject) {
+    var id = 'rpc-' + (++__coconut_rpcSeq) + '-' + Date.now();
+    var msg = JSON.stringify({ type: 'call', id: id, name: name, payload: JSON.parse(payloadJson) });
+    globalThis.__coconut_pendingRpc.set(id, { resolve: resolve, reject: reject });
+    try {
+      var p = globalThis.__coconut_rpc(msg);
+      // Safety net: if the binding itself rejects (bridge down), fail fast.
+      if (p && typeof p.catch === 'function') {
+        p.catch(function(e) {
+          if (globalThis.__coconut_pendingRpc.delete(id)) {
+            reject({ code: 'E_BRIDGE_DOWN', message: String(e) });
+          }
+        });
+      }
+    } catch (e) {
+      globalThis.__coconut_pendingRpc.delete(id);
+      reject({ code: 'E_BRIDGE_DOWN', message: String(e) });
+    }
+  });
+};
+
+// Events are fire-and-forget: send and return immediately. The webview_bind
+// promise is intentionally left unresolved (no webview_return for events).
+globalThis.__coconut_emit = function(name, payloadJson) {
+  var msg = JSON.stringify({ type: 'event', name: name, payload: JSON.parse(payloadJson) });
+  try {
+    var p = globalThis.__coconut_rpc(msg);
+    if (p && typeof p.catch === 'function') p.catch(function() {});
+  } catch (e) { /* ignore bridge errors */ }
+  return Promise.resolve('');
 };
 
 // Debug logging bridged to C++ via __coconut_rpc events.

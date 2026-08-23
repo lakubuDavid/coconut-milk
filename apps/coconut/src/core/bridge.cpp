@@ -19,6 +19,18 @@ namespace coconut::core {
     return *this;
   }
 
+  BridgeBuilder& BridgeBuilder::withSyncExecutor(
+      std::function<std::optional<CommandResult>(const std::string&, const nlohmann::json&)> fn
+  ) {
+    SyncExecutor = std::move(fn);
+    return *this;
+  }
+
+  BridgeBuilder& BridgeBuilder::withTargetResolver(std::function<std::string()> fn) {
+    TargetResolver = std::move(fn);
+    return *this;
+  }
+
   std::expected<std::unique_ptr<Bridge>, coconut::Error> BridgeBuilder::build() {
     if (!TransportPtr) {
       return std::unexpected(coconut::Error{
@@ -30,7 +42,9 @@ namespace coconut::core {
           .code = ErrorCode::InvalidConfig, .message = "BridgeBuilder::build: Lua state is null"});
     }
 
-    return std::unique_ptr<Bridge>(new Bridge(std::move(TransportPtr), *LuaState));
+    return std::unique_ptr<Bridge>(new Bridge(
+        std::move(TransportPtr), *LuaState, std::move(SyncExecutor), std::move(TargetResolver)
+    ));
   }
 
   // ── Bridge ──────────────────────────────────────────────────────────
@@ -39,12 +53,69 @@ namespace coconut::core {
     return BridgeBuilder{};
   }
 
-  Bridge::Bridge(std::shared_ptr<transport::Transport> transport, sol::state_view lua)
-      : _Transport(std::move(transport)), _MainLuaState(lua) {
+  Bridge::Bridge(
+      std::shared_ptr<transport::Transport> transport,
+      sol::state_view                       lua,
+      std::function<std::optional<CommandResult>(const std::string&, const nlohmann::json&)>
+                                   syncExecutor,
+      std::function<std::string()> targetResolver
+  )
+      : _Transport(std::move(transport)),
+        _MainLuaState(lua),
+        _SyncExecutor(std::move(syncExecutor)),
+        _TargetResolver(std::move(targetResolver)) {
   }
 
   void Bridge::setCommandCallHandler(std::function<void(CommandCallMessage)> handler) {
     _CommandCallHandler = std::move(handler);
+  }
+
+  // ── Inbound routing ─────────────────────────────────────────────────
+
+  void Bridge::onInbound(const JsRPCMessage& msg) {
+    switch (msg.type) {
+      case RpcType::kEvent:
+        emitToLua(msg.name, msg.payload);
+        break;
+
+      case RpcType::kCall: {
+        // Main-thread-only commands answer synchronously on the spot.
+        if (_SyncExecutor) {
+          auto result = _SyncExecutor(msg.name, msg.payload);
+          if (result.has_value()) {
+            JsRPCMessage reply;
+            reply.id      = msg.id;
+            reply.type    = result->ok ? RpcType::kReturn : RpcType::kError;
+            reply.payload = result->ok ? nlohmann::json{{"ok", true}, {"data", result->data}}
+                                       : nlohmann::json{{"ok", false}, {"error", result->data}};
+            rpcSend(reply);
+            return;
+          }
+        }
+
+        // Everything else routes to the workers (async envelope protocol).
+        if (!_CommandCallHandler) {
+          debug::warn("Bridge::onInbound: no command route for '" + msg.name + "'");
+          JsRPCMessage reply;
+          reply.id      = msg.id;
+          reply.type    = RpcType::kError;
+          reply.payload = {
+              {"ok", false}, {"error", {{"code", "NoRoute"}, {"message", "no command route"}}}};
+          rpcSend(reply);
+          return;
+        }
+        _CommandCallHandler(CommandCallMessage{
+            .CommandName = msg.name,
+            .Args        = msg.payload,
+            .RpcId       = msg.id,
+        });
+        break;
+      }
+
+      default:
+        debug::warn("Bridge::onInbound: unexpected inbound RPC type for id='" + msg.id + "'");
+        break;
+    }
   }
 
   void Bridge::forwardCommandCall(const CommandCallMessage& msg) {
@@ -70,7 +141,8 @@ namespace coconut::core {
     // Convert JSON payload to Lua table via common::toTable
     sol::table payloadTable = common::toTable(_MainLuaState, payload);
 
-    auto result = dispatchFn(name, payloadTable, "");
+    const std::string target = _TargetResolver ? _TargetResolver() : "";
+    auto              result = dispatchFn(name, payloadTable, target);
     if (!result.valid()) {
       sol::error err = result;
       debug::warn(

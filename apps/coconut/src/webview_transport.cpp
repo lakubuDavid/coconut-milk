@@ -87,6 +87,12 @@ namespace coconut::bridge {
     m_callback = std::move(cb);
   }
 
+  void WebviewTransport::eval(const std::string& js) {
+    if (m_webview != nullptr) {
+      webview_eval(m_webview, js.c_str());
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Inbound RPC: called when JS invokes window.__coconut_rpc(...)
   // ---------------------------------------------------------------------------

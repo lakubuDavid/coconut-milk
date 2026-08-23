@@ -96,6 +96,13 @@ namespace coconut::core {
 
   // ── Dispatcher messages ─────────────────────────────────────────────
 
+  /// Result of executing a Lua command handler (shared by execCommand,
+  /// the Bridge's sync executor, and worker results).
+  struct CommandResult {
+    bool           ok;
+    nlohmann::json data;  ///< result payload (valid data or {code,message})
+  };
+
   struct LifecycleMessage {
     std::string ViewName;
     std::string EventName;

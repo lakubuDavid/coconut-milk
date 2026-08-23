@@ -45,6 +45,9 @@ namespace coconut::bridge {
     /// Send an RPC message to the frontend via webview_eval().
     void send(const coconut::core::JsRPCMessage& msg) override;
 
+    /// Evaluate a raw JavaScript string in the frontend via webview_eval().
+    void eval(const std::string& js) override;
+
     /// Register the callback for messages received from the frontend.
     void setMessageCallback(transport::MessageCallback cb) override;
 

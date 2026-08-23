@@ -118,17 +118,20 @@ namespace coconut::core {
               if constexpr (std::is_same_v<T, ResolveMessage>) {
                 if (_Transport) {
                   JsRPCMessage rpcMsg;
-                  rpcMsg.id      = !o.RpcId.empty() ? o.RpcId : std::to_string(o.id);
-                  rpcMsg.type    = RpcType::kReturn;
-                  rpcMsg.payload = o.result;
+                  rpcMsg.id   = !o.RpcId.empty() ? o.RpcId : std::to_string(o.id);
+                  rpcMsg.type = RpcType::kReturn;
+                  // Same envelope shape as the Bridge's sync replies.
+                  rpcMsg.payload = {{"ok", true}, {"data", o.result}};
                   _Transport->send(rpcMsg);
                 }
               } else if constexpr (std::is_same_v<T, RejectMessage>) {
                 if (_Transport) {
                   JsRPCMessage rpcMsg;
-                  rpcMsg.id      = !o.RpcId.empty() ? o.RpcId : std::to_string(o.id);
-                  rpcMsg.type    = RpcType::kError;
-                  rpcMsg.payload = {{"code", "WorkerError"}, {"message", o.error}};
+                  rpcMsg.id   = !o.RpcId.empty() ? o.RpcId : std::to_string(o.id);
+                  rpcMsg.type = RpcType::kError;
+                  // Same envelope shape as the Bridge's sync replies.
+                  rpcMsg.payload = {
+                      {"ok", false}, {"error", {{"code", "WorkerError"}, {"message", o.error}}}};
                   _Transport->send(rpcMsg);
                 }
               }

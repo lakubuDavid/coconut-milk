@@ -35,6 +35,11 @@ namespace coconut::transport {
     /// Send an RPC message to the frontend.
     virtual void send(const coconut::core::JsRPCMessage& msg) = 0;
 
+    /// Evaluate a raw JavaScript string in the frontend context (page-level
+    /// actions like reload or property injection — NOT for RPC envelopes;
+    /// use send() for those).
+    virtual void eval(const std::string& js) = 0;
+
     /// Register the callback for messages received from the frontend.
     /// Only one callback can be registered at a time.
     /// Set an empty callback to unregister.

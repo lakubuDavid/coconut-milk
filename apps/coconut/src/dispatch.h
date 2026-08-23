@@ -108,7 +108,6 @@ namespace coconut::dispatch {
   void lifecycleEvent(App* app, std::string_view view_name, std::string_view event_name);
 
   /// Queue a command call to be dispatched in the correct runtime.
-  void commandCall(App* app, std::string_view command_name, std::string_view json_args);
 
 }  // namespace coconut::dispatch
 

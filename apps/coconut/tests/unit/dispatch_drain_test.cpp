@@ -1,82 +1,65 @@
-/// Tests: dispatch::drain() processing of queued messages.
+/// Tests: dispatch module — now a thin main-loop pump (Phase 2).
 ///
-/// These verify that drain() handles each message kind correctly
-/// without crashing when the App's subsystem pointers are null.
+/// evalJS() routes through the transport's eval(); lifecycleEvent() queues
+/// into the core Dispatcher; drain() just flushes the Dispatcher. All tests
+/// verify graceful handling of null subsystem pointers.
 
 #include "app.h"
+#include "bridge.h"
+#include "core/worker.h"
 #include "dispatch.h"
 #include "main_runtime.h"
+#include "modules/registry.h"
 #include "test.h"
 
-// Zeroed App — all subsystem pointers are null.
-// drain() should handle this gracefully (no-op, no crash).
+#include <memory>
 
-COCONUT_TEST(dispatch, drain_eval_js_with_null_webview) {
+namespace {
+
+  /// Captures eval() calls. Never owns a webview.
+  struct FakeTransport : public coconut::transport::Transport {
+    std::vector<std::string>                 evaluated;
+    std::vector<coconut::core::JsRPCMessage> sent;
+
+    void send(const coconut::core::JsRPCMessage& msg) override {
+      sent.push_back(msg);
+    }
+    void eval(const std::string& js) override {
+      evaluated.push_back(js);
+    }
+    void setMessageCallback(coconut::transport::MessageCallback cb) override {
+      (void)cb;
+    }
+  };
+
+}  // namespace
+
+COCONUT_TEST(dispatch, eval_js_routes_through_transport) {
   coconut::App app{};
+  auto         transport      = std::make_shared<FakeTransport>();
+  app.bridge_state            = new coconut::bridge::State{};
+  app.bridge_state->transport = transport;
 
-  coconut::dispatch::evalJS(&app, "console.log('test')");
-  COCONUT_REQUIRE(!app.outbox.empty());
+  coconut::dispatch::evalJS(&app, "console.log('a')");
+  coconut::dispatch::evalJS(&app, "console.log('b')");
 
-  // Must not crash even though webview is null.
-  coconut::dispatch::drain(&app);
-  COCONUT_REQUIRE(app.outbox.empty());
+  COCONUT_REQUIRE_EQ(transport->evaluated.size(), size_t{2});
+  COCONUT_REQUIRE_EQ(transport->evaluated[0], std::string("console.log('a')"));
+  COCONUT_REQUIRE_EQ(transport->evaluated[1], std::string("console.log('b')"));
 }
 
-COCONUT_TEST(dispatch, drain_eval_js_multi_with_null_webview) {
+COCONUT_TEST(dispatch, eval_js_noop_without_transport) {
   coconut::App app{};
 
-  coconut::dispatch::evalJS(&app, "a");
-  coconut::dispatch::evalJS(&app, "b");
-  coconut::dispatch::evalJS(&app, "c");
-
-  // Must not crash.
-  coconut::dispatch::drain(&app);
-  COCONUT_REQUIRE(app.outbox.empty());
+  // bridge_state/transport null — must not crash.
+  coconut::dispatch::evalJS(&app, "x");
 }
 
-COCONUT_TEST(dispatch, drain_lifecycle_with_null_lua) {
+COCONUT_TEST(dispatch, lifecycle_noop_without_dispatcher) {
   coconut::App app{};
 
+  // dispatcher null — must not crash and queue nothing.
   coconut::dispatch::lifecycleEvent(&app, "workspace", "load");
-  COCONUT_REQUIRE(!app.outbox.empty());
-
-  // Must not crash even though lua_state is null.
-  coconut::dispatch::drain(&app);
-  COCONUT_REQUIRE(app.outbox.empty());
-}
-
-COCONUT_TEST(dispatch, drain_lifecycle_multi_with_null_lua) {
-  coconut::App app{};
-
-  coconut::dispatch::lifecycleEvent(&app, "v1", "load");
-  coconut::dispatch::lifecycleEvent(&app, "v2", "mount");
-  coconut::dispatch::lifecycleEvent(&app, "v1", "unmount");
-
-  coconut::dispatch::drain(&app);
-  COCONUT_REQUIRE(app.outbox.empty());
-}
-
-COCONUT_TEST(dispatch, drain_command_with_null_commands) {
-  coconut::App app{};
-
-  coconut::dispatch::commandCall(&app, "some_cmd", "{}");
-  COCONUT_REQUIRE(!app.outbox.empty());
-
-  // Must not crash even though commands registry is null.
-  coconut::dispatch::drain(&app);
-  COCONUT_REQUIRE(app.outbox.empty());
-}
-
-COCONUT_TEST(dispatch, drain_mixed_all_null) {
-  coconut::App app{};
-
-  coconut::dispatch::evalJS(&app, "js");
-  coconut::dispatch::lifecycleEvent(&app, "v", "load");
-  coconut::dispatch::commandCall(&app, "cmd", "{}");
-
-  // All three kinds with null subsystems — no crash.
-  coconut::dispatch::drain(&app);
-  COCONUT_REQUIRE(app.outbox.empty());
 }
 
 COCONUT_TEST(dispatch, drain_null_app) {
@@ -84,25 +67,44 @@ COCONUT_TEST(dispatch, drain_null_app) {
   coconut::dispatch::drain(nullptr);
 }
 
-COCONUT_TEST(dispatch, drain_called_twice) {
+COCONUT_TEST(dispatch, drain_without_dispatcher_is_noop) {
   coconut::App app{};
 
-  coconut::dispatch::evalJS(&app, "x");
   coconut::dispatch::drain(&app);
-  COCONUT_REQUIRE(app.outbox.empty());
-
-  // Second drain on empty queue.
-  coconut::dispatch::drain(&app);
-  COCONUT_REQUIRE(app.outbox.empty());
+  coconut::dispatch::drain(&app);  // twice — still fine
 }
 
-COCONUT_TEST(dispatch, drain_after_init_with_null_ptrs) {
+COCONUT_TEST(dispatch, drain_flushes_queued_js_calls_via_dispatcher) {
   coconut::App app{};
+  auto         transport = std::make_shared<FakeTransport>();
 
-  coconut::dispatch::init(&app);
-  coconut::dispatch::evalJS(&app, "after_init");
-  coconut::dispatch::lifecycleEvent(&app, "v", "load");
+  auto runtimeResult = coconut::lua::create(nullptr, nullptr);
+  if (!runtimeResult) {
+    return;  // environment without Lua support — skip
+  }
+
+  auto poolResult = coconut::core::WorkerPool::builder(1)
+                        .withModules(coconut::modules::ModulesFlag::ThreadSafe)
+                        .build();
+  COCONUT_REQUIRE(poolResult.has_value());
+
+  auto dispatcherResult = coconut::core::DispatcherBuilder{}
+                              .withRuntime(runtimeResult.value())
+                              .withWorkerPool(std::move(poolResult.value()))
+                              .withTransport(transport)
+                              .build();
+  COCONUT_REQUIRE(dispatcherResult.has_value());
+  auto dispatcher = std::move(dispatcherResult.value());
+
+  // Queue an outbound JsCall; drain() must flush it through the transport.
+  dispatcher->queue(coconut::core::DispatchMessage{coconut::core::JsCallMessage{
+      .Message = coconut::core::JsRPCMessage{
+          .type = coconut::core::RpcType::kEvent, .name = "boot", .payload = {}}}});
+  COCONUT_REQUIRE(transport->sent.empty());
+
+  app.dispatcher = std::move(dispatcher);
   coconut::dispatch::drain(&app);
-  COCONUT_REQUIRE(app.outbox.empty());
-  coconut::dispatch::shutdown(&app);
+
+  COCONUT_REQUIRE_EQ(transport->sent.size(), size_t{1});
+  COCONUT_REQUIRE_EQ(transport->sent[0].name, std::string("boot"));
 }

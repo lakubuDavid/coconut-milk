@@ -278,8 +278,8 @@ namespace coconut {
   }
 
   void CoconutWindowHandle::reload() {
-    if (app && app->webview)
-      webview_eval(app->webview, "location.reload();");
+    if (app && app->bridge_state && app->bridge_state->transport)
+      app->bridge_state->transport->eval("location.reload();");
   }
 
   void CoconutWindowHandle::close() {

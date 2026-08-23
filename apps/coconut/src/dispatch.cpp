@@ -129,86 +129,10 @@ namespace coconut::dispatch {
       return;
     }
 
-    // Transitional (Phase 1): also flush the core Dispatcher when wired,
-    // so queued DispatchMessages route while the legacy path still runs.
+    // Thin pump (Phase 2): the core Dispatcher owns all message routing;
+    // the CFRunLoopSource just wakes the main loop to flush it.
     if (app->dispatcher != nullptr) {
       app->dispatcher->flush();
-    }
-
-    while (auto msg = app->outbox.pop()) {
-      switch (msg->kind) {
-        case MessageKind::EvalJS:
-          if (app->webview != nullptr) {
-            webview_eval(app->webview, msg->payload.c_str());
-          }
-          break;
-
-        case MessageKind::LifecycleEvent: {
-          // Split "viewName|eventName".
-          size_t pipe = msg->payload.find('|');
-          if (pipe == std::string::npos) {
-            debug::warn("dispatch::drain: malformed LifecycleEvent payload");
-            break;
-          }
-          std::string_view view(msg->payload.data(), pipe);
-          std::string_view event(msg->payload.data() + pipe + 1, msg->payload.size() - pipe - 1);
-
-          if (app->lua_state != nullptr) {
-            lua::dispatchViewLifecycleEvent(
-                app->lua_state, std::string(view), std::string(event), {}
-            );
-          }
-          break;
-        }
-
-        case MessageKind::CommandCall: {
-          // Split "commandName|jsonArgs".
-          size_t pipe = msg->payload.find('|');
-          if (pipe == std::string::npos) {
-            debug::warn("dispatch::drain: malformed CommandCall payload");
-            break;
-          }
-          std::string_view cmd(msg->payload.data(), pipe);
-          std::string_view args(msg->payload.data() + pipe + 1, msg->payload.size() - pipe - 1);
-
-          // TODO: Dispatch to command registry via bridge.
-          debug::info(std::format("dispatch::drain: CommandCall '{}' (not yet dispatched)", cmd));
-          (void)args;
-          break;
-        }
-      }
-    }
-
-    // Drain background thread outbox (results from bg commands).
-    if (app->bg != nullptr) {
-      while (auto msg = app->bg->outbox.pop()) {
-        switch (msg->kind) {
-          case MessageKind::CommandResult: {
-            // Payload: "callId|jsonResult"
-            size_t pipe = msg->payload.find('|');
-            if (pipe == std::string::npos) {
-              debug::warn("dispatch::drain: malformed bg CommandResult payload");
-              break;
-            }
-            std::string callId(msg->payload.data(), pipe);
-            std::string resultJson(msg->payload.data() + pipe + 1, msg->payload.size() - pipe - 1);
-
-            coconut::core::JsRPCMessage rpcMsg;
-            rpcMsg.id   = callId;
-            rpcMsg.type = coconut::core::RpcType::kReturn;
-            try {
-              rpcMsg.payload = nlohmann::json::parse(resultJson);
-            } catch (...) {
-              rpcMsg.type    = coconut::core::RpcType::kError;
-              rpcMsg.payload = {{"code", "ParseError"}, {"message", "bg result parse error"}};
-            }
-            bridge::rpcSend(app, rpcMsg);
-            break;
-          }
-          default:
-            break;
-        }
-      }
     }
   }
 
@@ -226,26 +150,22 @@ namespace coconut::dispatch {
   // ── Enqueue helpers ───────────────────────────────────────────────────
 
   void evalJS(App* app, std::string_view js) {
-    if (app == nullptr) {
+    if (app == nullptr || app->bridge_state == nullptr || app->bridge_state->transport == nullptr) {
       return;
     }
-    app->outbox.push({MessageKind::EvalJS, std::string(js)});
+    // Routed through the transport's eval() — no raw webview_eval here.
+    app->bridge_state->transport->eval(std::string(js));
   }
 
   void lifecycleEvent(App* app, std::string_view view_name, std::string_view event_name) {
-    if (app == nullptr) {
+    if (app == nullptr || app->dispatcher == nullptr) {
       return;
     }
-    std::string payload = std::string(view_name) + "|" + std::string(event_name);
-    app->outbox.push({MessageKind::LifecycleEvent, std::move(payload)});
-  }
-
-  void commandCall(App* app, std::string_view command_name, std::string_view json_args) {
-    if (app == nullptr) {
-      return;
-    }
-    std::string payload = std::string(command_name) + "|" + std::string(json_args);
-    app->outbox.push({MessageKind::CommandCall, std::move(payload)});
+    // Routed through the core Dispatcher (main-loop flush calls it).
+    app->dispatcher->queue(core::LifecycleMessage{
+        .ViewName  = std::string(view_name),
+        .EventName = std::string(event_name),
+    });
   }
 
 }  // namespace coconut::dispatch
