@@ -62,6 +62,9 @@ namespace coconut::core {
     );
 
    public:
+    /// Out-of-line so unique_ptr<WorkerPool> can hold a forward-declared type.
+    ~Dispatcher();
+
     void queue(DispatchMessage message);
     void flush();
   };

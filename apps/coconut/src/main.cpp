@@ -2,16 +2,21 @@
 #include "argparse.h"
 #include "bundle.h"
 #include "commands.h"
-#include "new_project.h"
 #include "config.h"
+#include "context.h"
+#include "core/bridge.h"
+#include "core/dispatcher.h"
+#include "core/worker.h"
 #include "debug.h"
 #include "dispatch.h"
 #include "generators/generate.h"
 #include "hotreload.h"
-#include "view_events.h"
+#include "main_runtime.h"
+#include "modules/registry.h"
+#include "new_project.h"
 #include "permissions.h"
 #include "routes.h"
-#include "main_runtime.h"
+#include "view_events.h"
 #include "window.h"
 
 // Custom URL scheme handler for coconut:// assets.
@@ -22,27 +27,105 @@
 #include "platform/darwin/create_window.h"
 #endif
 
-#include "print.h"
 #include <filesystem>
 #include <iostream>
 #include <memory>
 #include <set>
 #include <vector>
+#include "print.h"
 
 using namespace coconut;
+
+namespace {
+
+  /// Load .g.lua command modules into a core Worker's Lua state, mirroring
+  /// the legacy bg_runtime loader. Handlers land in `ctx`'s registry and are
+  /// then copied into the worker's own command map (one Lua VM per worker).
+  std::optional<coconut::Error> loadWorkerCommands(
+      coconut::core::Worker* w, CoconutContext* ctx, const Config& cfg
+  ) {
+    sol::state& lua     = *w->LuaState;
+    std::string cmdRoot = cfg.command_root.empty() ? "commands" : cfg.command_root;
+    std::string genDir  = "generated";
+    std::string pkgPath = ";" + cmdRoot + "/?.lua;" + cmdRoot + "/?/init.lua;" + genDir +
+                          "/?.lua;" + genDir + "/?/init.lua";
+    lua.script("package.path = package.path .. '" + pkgPath + "'");
+
+    // Expose ctx as a global so register(ctx) inside .g.lua works.
+    lua.set("ctx", ctx);
+
+    int                      loaded = 0;
+    std::vector<std::string> dirs   = {cmdRoot, genDir};
+    for (const auto& scanDir : dirs) {
+      if (!std::filesystem::is_directory(scanDir))
+        continue;
+      for (auto& entry : std::filesystem::directory_iterator(scanDir)) {
+        auto path = entry.path();
+        if (path.extension() != ".lua")
+          continue;
+        auto stem = path.stem().string();
+        // Only <name>.g.lua (skip .g_mt.lua — main-thread modules).
+        if (stem.size() < 2 || stem.substr(stem.size() - 2) != ".g")
+          continue;
+        if (stem.size() >= 5 && stem.substr(stem.size() - 5) == ".g_mt")
+          continue;
+
+        auto loadResult = lua.script_file(path.string(), sol::script_pass_on_error);
+        if (!loadResult.valid()) {
+          sol::error e = loadResult;
+          debug::warn(
+              std::format("[worker] failed to load {}: {}", path.filename().string(), e.what())
+          );
+          continue;
+        }
+        sol::object ret = loadResult;
+        if (!ret.is<sol::function>()) {
+          debug::warn(std::format("[worker] {} did not return a function", path.filename().string())
+          );
+          continue;
+        }
+        auto bindResult = ret.as<sol::function>()(ctx);
+        if (!bindResult.valid()) {
+          sol::error e = bindResult;
+          debug::warn(
+              std::format("[worker] register({}) failed: {}", path.stem().string(), e.what())
+          );
+          continue;
+        }
+        ++loaded;
+      }
+    }
+
+    // Copy bound handlers into the worker's own map for execCommand lookup.
+    if (ctx->commands != nullptr) {
+      for (auto& [name, fn] : ctx->commands->handlers) {
+        w->Commands[name] = fn;
+      }
+    }
+
+    if (loaded > 0) {
+      debug::info(std::format("[worker] loaded {} background command module(s)", loaded));
+    }
+    return std::nullopt;
+  }
+
+}  // namespace
 
 int main(int argc, char* argv[]) {
   // Step 0: parse command-line args (before anything else).
   auto args = argparse::parse(argc, argv);
 
-
-
   if (args.help) {
-    if (args.generate)      argparse::printGenerateHelp(argv[0]);
-    else if (args.bundle)   argparse::printBundleHelp(argv[0]);
-    else if (args.new_cmd)  argparse::printNewHelp(argv[0]);
-    else if (args.run_cmd)  argparse::printRunHelp(argv[0]);
-    else                    argparse::printHelp(argv[0]);
+    if (args.generate)
+      argparse::printGenerateHelp(argv[0]);
+    else if (args.bundle)
+      argparse::printBundleHelp(argv[0]);
+    else if (args.new_cmd)
+      argparse::printNewHelp(argv[0]);
+    else if (args.run_cmd)
+      argparse::printRunHelp(argv[0]);
+    else
+      argparse::printHelp(argv[0]);
     return 0;
   }
 
@@ -58,15 +141,16 @@ int main(int argc, char* argv[]) {
       try {
         std::filesystem::current_path(args.root);
       } catch (const std::exception& e) {
-        std::cerr << "error: cannot change directory to '" << args.root << "': " << e.what() << std::endl;
+        std::cerr << "error: cannot change directory to '" << args.root << "': " << e.what()
+                  << std::endl;
         return 1;
       }
     }
 
     // Load config to get command_root and output_dir
-    std::string cmdRoot = "commands";
-    std::string outDir = args.out_dir;
-    auto cfg_result = coconut::loadConfig();
+    std::string cmdRoot    = "commands";
+    std::string outDir     = args.out_dir;
+    auto        cfg_result = coconut::loadConfig();
     if (cfg_result) {
       cmdRoot = cfg_result->command_root;
       if (args.out_dir == "generated") {
@@ -96,14 +180,16 @@ int main(int argc, char* argv[]) {
   if (args.bundle) {
     // Resolve the bundle output directory
     std::string bundleDir = args.out_dir;
-    if (bundleDir == "generated") bundleDir = "bundle";
+    if (bundleDir == "generated")
+      bundleDir = "bundle";
 
     // Change to root if specified
     if (args.root != ".") {
       try {
         std::filesystem::current_path(args.root);
       } catch (const std::exception& e) {
-        std::cerr << "error: cannot change directory to '" << args.root << "': " << e.what() << std::endl;
+        std::cerr << "error: cannot change directory to '" << args.root << "': " << e.what()
+                  << std::endl;
         return 1;
       }
     }
@@ -112,7 +198,8 @@ int main(int argc, char* argv[]) {
     auto cfg_result = coconut::loadConfig();
     if (!cfg_result) {
       const auto err = cfg_result.error();
-      std::cerr << "error: config load failed: " << err.message << " (" << err.details << ")" << std::endl;
+      std::cerr << "error: config load failed: " << err.message << " (" << err.details << ")"
+                << std::endl;
       return 1;
     }
 
@@ -139,7 +226,8 @@ int main(int argc, char* argv[]) {
       try {
         std::filesystem::current_path(bundle_path);
       } catch (const std::exception& e) {
-        std::cerr << "error: cannot use bundle path '" << bundle_path << "': " << e.what() << std::endl;
+        std::cerr << "error: cannot use bundle path '" << bundle_path << "': " << e.what()
+                  << std::endl;
         return 1;
       }
     }
@@ -150,13 +238,13 @@ int main(int argc, char* argv[]) {
   // If root looks like a file (not a directory), treat it as a positional
   // app arg and stay in CWD.
   if (args.root != ".") {
-    if (std::filesystem::exists(args.root) &&
-        !std::filesystem::is_directory(args.root)) {
+    if (std::filesystem::exists(args.root) && !std::filesystem::is_directory(args.root)) {
       // Root is a file, not a directory — treat as positional app arg
       args.positional_args.insert(args.positional_args.begin(), args.root);
       args.root = ".";
-      debug::info(std::format("root '{}' is a file, treating as positional arg",
-                               args.positional_args.front()));
+      debug::info(std::format(
+          "root '{}' is a file, treating as positional arg", args.positional_args.front()
+      ));
     } else {
       debug::info(std::format("changing root to '{}'", args.root));
       try {
@@ -172,7 +260,7 @@ int main(int argc, char* argv[]) {
   Config cfg{};
 
   // Apply --debug flag (config file can override).
-  cfg.debug.enabled = args.debug;
+  cfg.debug.enabled           = args.debug;
   cfg.debug.showTransportDump = args.debug;
 
   // Step 1: load config file (keep defaults on failure).
@@ -184,22 +272,28 @@ int main(int argc, char* argv[]) {
     debug::info(std::format("config loaded: frameless={}", cfg.frameless));
   } else {
     const auto err = cfg_result.error();
-    debug::warn(std::format("Config load failed (keeping defaults): {} ({})",
-                            err.message, err.details));
+    debug::warn(
+        std::format("Config load failed (keeping defaults): {} ({})", err.message, err.details)
+    );
     debug::info("Place coconut.config.lua (or coconut.config.json) in the working directory.");
   }
 
   // Apply CLI config overrides (--frameless, --transparent, --title, etc.).
   // These override whatever the config file says.
-  if (args.override_window_width > 0)  cfg.window_width  = args.override_window_width;
-  if (args.override_window_height > 0) cfg.window_height = args.override_window_height;
-  if (args.override_frameless)          cfg.frameless     = true;
-  if (args.override_transparent)        cfg.transparent   = true;
-  if (args.override_title_given)        cfg.title         = args.override_title;
+  if (args.override_window_width > 0)
+    cfg.window_width = args.override_window_width;
+  if (args.override_window_height > 0)
+    cfg.window_height = args.override_window_height;
+  if (args.override_frameless)
+    cfg.frameless = true;
+  if (args.override_transparent)
+    cfg.transparent = true;
+  if (args.override_title_given)
+    cfg.title = args.override_title;
 
   // --debug flag overrides config file value.
   if (args.debug) {
-    cfg.debug.enabled = true;
+    cfg.debug.enabled           = true;
     cfg.debug.showTransportDump = true;
   }
 
@@ -211,13 +305,14 @@ int main(int argc, char* argv[]) {
     // Resolve effective bundle identifier: darwin.bundle_identifier >
     // darwin.app.id > app.id
     std::string bid = dn.bundle_identifier;
-    if (bid.empty()) bid = dn.app.id;
-    if (bid.empty()) bid = cfg.app.id;
+    if (bid.empty())
+      bid = dn.app.id;
+    if (bid.empty())
+      bid = cfg.app.id;
 
     std::string notifStyle = dn.ns.notification_alert_style;
 
-    coconut::permissions::applyDarwinConfig(
-        bid, notifStyle, dn.ns.usage_descriptions);
+    coconut::permissions::applyDarwinConfig(bid, notifStyle, dn.ns.usage_descriptions);
     if (!bid.empty()) {
       debug::info(std::format("darwin: applied CFBundleIdentifier='{}'", bid));
     }
@@ -239,8 +334,8 @@ int main(int argc, char* argv[]) {
 #if defined(__APPLE__)
   if (cfg.frameless) {
     debug::info("main: frameless=true, creating frameless NSWindow...");
-    int w = cfg.window_width > 0 ? cfg.window_width : 1280;
-    int h = cfg.window_height > 0 ? cfg.window_height : 720;
+    int w        = cfg.window_width > 0 ? cfg.window_width : 1280;
+    int h        = cfg.window_height > 0 ? cfg.window_height : 720;
     nativeWindow = coconut::platform::createFramelessWindow(100, 100, w, h);
     if (nativeWindow) {
       debug::info("main: frameless NSWindow created successfully");
@@ -268,12 +363,12 @@ int main(int argc, char* argv[]) {
   {
     auto cmd_result = coconut::commands::create(&cfg);
     if (!cmd_result) {
-      debug::error(std::format("Failed to create commands registry: {}",
-                                cmd_result.error().message));
+      debug::error(std::format("Failed to create commands registry: {}", cmd_result.error().message)
+      );
       coconut::app::destroy(app);
       return 1;
     }
-    app->commands = cmd_result.value();
+    app->commands          = cmd_result.value();
     app->context->commands = app->commands;
   }
 
@@ -282,8 +377,7 @@ int main(int argc, char* argv[]) {
   {
     auto bridge_result = coconut::bridge::create(&cfg);
     if (!bridge_result) {
-      debug::error(std::format("Failed to create bridge state: {}",
-                                bridge_result.error().message));
+      debug::error(std::format("Failed to create bridge state: {}", bridge_result.error().message));
       coconut::app::destroy(app);
       return 1;
     }
@@ -294,26 +388,24 @@ int main(int argc, char* argv[]) {
   // Step 4: create window wrapper using the app-owned webview handle.
   auto window_result = coconut::window::createWindow(&cfg, app->webview);
   if (!window_result) {
-    debug::error(std::format("Failed to create window: {}",
-                              window_result.error().message));
+    debug::error(std::format("Failed to create window: {}", window_result.error().message));
     coconut::app::destroy(app);
     return 1;
   }
-  auto* window = window_result.value();
-  app->window = window;
+  auto* window         = window_result.value();
+  app->window          = window;
   app->context->window = window;
 
   debug::info("main: creating lua runtime...");
   // Step 5: create Lua runtime.
   auto lua_result = coconut::lua::create(&cfg, app->context);
   if (!lua_result) {
-    debug::error(std::format("Failed to create Lua runtime: {}",
-                              lua_result.error().message));
+    debug::error(std::format("Failed to create Lua runtime: {}", lua_result.error().message));
     coconut::app::destroy(app);
     return 1;
   }
   auto* lua_runtime = lua_result.value();
-  app->lua_state = lua_runtime;
+  app->lua_state    = lua_runtime;
 
   // Wire back: runtime needs app for bridge access.
   lua_runtime->app = app;
@@ -324,6 +416,81 @@ int main(int argc, char* argv[]) {
   // Create the bridge transport and bind JS entry points.
   // Must happen after runtime->app is set (transport needs the App*).
   bridge::createTransport(app);
+
+  // ── Core message architecture (Phase 1) ───────────────────────────
+  // Construct WorkerPool + Dispatcher + Bridge alongside the legacy path.
+  // Inbound traffic still uses the legacy handlers; this only proves the
+  // trio can be built, attached, flushed and torn down inside the real app.
+  {
+    constexpr int kWorkerCount = 2;
+
+    // One CoconutContext per worker — each Lua VM binds its own handlers,
+    // so registries must never be shared across workers.
+    for (int i = 0; i < kWorkerCount; ++i) {
+      auto ctxResult = coconut::context::create(&cfg);
+      if (!ctxResult) {
+        debug::warn(
+            std::format("core wiring: worker ctx {} failed: {}", i, ctxResult.error().message)
+        );
+        continue;
+      }
+      app->worker_contexts.push_back(ctxResult.value());
+    }
+
+    size_t nextWorkerCtx = 0;
+    auto   poolResult =
+        coconut::core::WorkerPool::builder(kWorkerCount)
+            .withModules(
+                coconut::modules::ModulesFlag::ThreadSafe | coconut::modules::ModulesFlag::BG_STUBS
+            )
+            .withInitializer([&](coconut::core::Worker* w) -> std::optional<coconut::Error> {
+              size_t i = nextWorkerCtx++;
+              if (i >= app->worker_contexts.size()) {
+                return coconut::Error{.message = "no CoconutContext for worker"};
+              }
+              w->Context = app->worker_contexts[i];
+              return loadWorkerCommands(w, w->Context, cfg);
+            })
+            .build();
+
+    if (!poolResult) {
+      debug::warn("core wiring: pool build failed: " + poolResult.error().message);
+    } else if (auto attachErr = poolResult.value()->attachAll()) {
+      debug::warn("core wiring: pool attach failed: " + attachErr->message);
+    } else {
+      auto dispatcherResult = coconut::core::DispatcherBuilder{}
+                                  .withRuntime(lua_runtime)
+                                  .withWorkerPool(std::move(poolResult.value()))
+                                  .withTransport(app->bridge_state->transport)
+                                  .build();
+      if (!dispatcherResult) {
+        debug::warn("core wiring: dispatcher build failed: " + dispatcherResult.error().message);
+      } else {
+        app->dispatcher = std::move(dispatcherResult.value());
+
+        auto bridgeResult = coconut::core::Bridge::builder()
+                                .withTransport(app->bridge_state->transport)
+                                .withLuaState(sol::state_view(*lua_runtime->lua_state))
+                                .build();
+        if (!bridgeResult) {
+          debug::warn("core wiring: bridge build failed: " + bridgeResult.error().message);
+        } else {
+          auto* dispatcherPtr = app->dispatcher.get();
+          bridgeResult.value()->setCommandCallHandler(
+              [dispatcherPtr](coconut::core::CommandCallMessage msg) {
+                dispatcherPtr->queue(coconut::core::DispatchMessage{std::move(msg)});
+              }
+          );
+          app->core_bridge = std::move(bridgeResult.value());
+          debug::info(std::format(
+              "core wiring: trio constructed ({} workers, shared transport, "
+              "legacy path still primary)",
+              kWorkerCount
+          ));
+        }
+      }
+    }
+  }
 
   // Finalize the coconut:// scheme handler after the transport / webview
   // is fully initialized.  On macOS this is a no-op (done via pre-webview
@@ -338,7 +505,7 @@ int main(int argc, char* argv[]) {
   // Expose CLI args as coconut.args (read-only Lua table).
   {
     sol::state_view lua(*lua_runtime->lua_state);
-    auto args_tbl = lua.create_table();
+    auto            args_tbl = lua.create_table();
     {
       sol::table pos = lua.create_table();
       for (size_t i = 0; i < args.positional_args.size(); ++i) {
@@ -361,21 +528,24 @@ int main(int argc, char* argv[]) {
       args_tbl["flags"] = flags;
     }
     lua["coconut"]["args"] = args_tbl;
-    debug::info(std::format("coconut.args set: {} positional, {} named, {} flags",
-                             args.positional_args.size(),
-                             args.key_value_args.size(),
-                             args.flag_args.size()));
+    debug::info(std::format(
+        "coconut.args set: {} positional, {} named, {} flags",
+        args.positional_args.size(),
+        args.key_value_args.size(),
+        args.flag_args.size()
+    ));
 
     // Also inject into JS for frontend access.
     {
       nlohmann::json j;
       j["positional"] = args.positional_args;
-      j["named"] = args.key_value_args;
-      j["flags"] = args.flag_args;
-      std::string js = std::format(
-        "window.__coconut_args = {};"
-        "if (window.coconut) coconut.args = window.__coconut_args;",
-        j.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace));
+      j["named"]      = args.key_value_args;
+      j["flags"]      = args.flag_args;
+      std::string js  = std::format(
+          "window.__coconut_args = {};"
+           "if (window.coconut) coconut.args = window.__coconut_args;",
+          j.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace)
+      );
       webview_eval(app->webview, js.c_str());
       debug::info("coconut.args injected into JS");
     }
@@ -393,9 +563,9 @@ int main(int argc, char* argv[]) {
   auto entry_result = coconut::lua::loadEntryPoint(lua_runtime, &cfg);
   if (!entry_result && entry_result.error().code != ErrorCode::Ok) {
     // Log the error but continue — non-fatal; app runs with current config.
-    debug::warn(std::format("entry-point: {} ({})",
-                             entry_result.error().message,
-                             entry_result.error().details));
+    debug::warn(std::format(
+        "entry-point: {} ({})", entry_result.error().message, entry_result.error().details
+    ));
   }
 
   // Step 7: load view descriptors into the window.
@@ -415,17 +585,16 @@ int main(int argc, char* argv[]) {
     else if (entry.kind == "url")
       kind = window::VIEW_KIND_URL;
     else {
-      debug::info(std::format("skipping view '{}': unknown kind '{}'",
-                              name, entry.kind));
+      debug::info(std::format("skipping view '{}': unknown kind '{}'", name, entry.kind));
       continue;
     }
 
-    debug::info(std::format("creating view '{}' ({}, {}...)",
-                             name, entry.kind, entry.src.substr(0, 60)));
+    debug::info(
+        std::format("creating view '{}' ({}, {}...)", name, entry.kind, entry.src.substr(0, 60))
+    );
     auto view_result = window::createView(entry.src, kind, std::nullopt);
     if (!view_result) {
-      debug::warn(std::format("failed to create view '{}': {}",
-                               name, view_result.error().message));
+      debug::warn(std::format("failed to create view '{}': {}", name, view_result.error().message));
       continue;
     }
 
@@ -479,8 +648,8 @@ int main(int argc, char* argv[]) {
   if (cfg.initial_view.empty()) {
     debug::warn("no initial_view set — app starts with default blank view");
   } else if (window->views.find(cfg.initial_view) == window->views.end()) {
-    debug::warn(std::format("initial_view '{}' not found among registered views",
-                             cfg.initial_view));
+    debug::warn(std::format("initial_view '{}' not found among registered views", cfg.initial_view)
+    );
     debug::info("registered views:");
     for (const auto& [name, _] : window->views) {
       debug::info(std::format("  - {}", name));
@@ -503,7 +672,7 @@ int main(int argc, char* argv[]) {
     // Subscribers can use coconut.on("ready", fn, { once = true }).
     if (lua_runtime && lua_runtime->lua_state) {
       sol::state_view lv(*lua_runtime->lua_state);
-      sol::function dispatch = lv["coconut"]["_dispatch"];
+      sol::function   dispatch = lv["coconut"]["_dispatch"];
       if (dispatch.valid()) {
         dispatch("ready", sol::table(lv, sol::create), "");
       }

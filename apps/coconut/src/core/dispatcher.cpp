@@ -62,6 +62,8 @@ namespace coconut::core {
       : _Runtime(runtime), _WorkerPool(std::move(pool)), _Transport(std::move(transport)) {
   }
 
+  Dispatcher::~Dispatcher() = default;
+
   void Dispatcher::queue(DispatchMessage message) {
     this->_MessageQueue.push(std::move(message));
   }

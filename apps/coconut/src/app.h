@@ -5,6 +5,8 @@
 #include "commands.h"
 #include "config.h"
 #include "context.h"
+#include "core/bridge.h"
+#include "core/dispatcher.h"
 #include "dispatch.h"
 #include "error.h"
 #include "fs.h"
@@ -16,20 +18,22 @@
 #include <expected>
 #include <optional>
 #include <string>
-#include <vector>
 #include <unordered_set>
+#include <vector>
 
 namespace coconut {
 
-  namespace bg_thread { struct Context; }
+  namespace bg_thread {
+    struct Context;
+  }
 
   /// Top-level runtime owner.
   struct App {
-    Config*             configs      = nullptr;
-    CoconutContext*     context      = nullptr;
+    Config*         configs = nullptr;
+    CoconutContext* context = nullptr;
 
     /// webview handle (created by App core).
-    webview_t           webview      = nullptr;
+    webview_t webview = nullptr;
 
     window::Window*     window       = nullptr;
     lua::Runtime*       lua_state    = nullptr;
@@ -49,6 +53,15 @@ namespace coconut {
     /// Background thread for offloaded command execution.
     /// Created during init, destroyed during shutdown.
     bg_thread::Context* bg = nullptr;
+
+    /// Per-worker CoconutContexts (one per core Worker; destroyed in
+    /// app::destroy after the worker pool has shut down).
+    std::vector<CoconutContext*> worker_contexts;
+
+    /// Core message architecture (Phase 1 wiring — constructed alongside the
+    /// legacy path; inbound traffic still flows through the legacy handlers).
+    std::unique_ptr<core::Dispatcher> dispatcher;
+    std::unique_ptr<core::Bridge>     core_bridge;
   };
 
   namespace app {
@@ -65,7 +78,7 @@ namespace coconut {
 
     std::optional<Error> getError(App* app);
     void                 pushError(App* app, Error err);
-    void                 pushError(App* app, ErrorCode code, std::string message, std::string details);
+    void pushError(App* app, ErrorCode code, std::string message, std::string details);
 
     void run(App* app);
 

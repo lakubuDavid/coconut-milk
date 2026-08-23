@@ -129,6 +129,12 @@ namespace coconut::dispatch {
       return;
     }
 
+    // Transitional (Phase 1): also flush the core Dispatcher when wired,
+    // so queued DispatchMessages route while the legacy path still runs.
+    if (app->dispatcher != nullptr) {
+      app->dispatcher->flush();
+    }
+
     while (auto msg = app->outbox.pop()) {
       switch (msg->kind) {
         case MessageKind::EvalJS:
