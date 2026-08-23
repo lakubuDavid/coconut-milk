@@ -1,9 +1,7 @@
 #include "bridge.h"
-#include "app.h"
 #include "common.h"
 #include "debug.h"
-#include "webview/types.h"
-#include "worker.h"
+#include "rpc_envelope.h"  // rpc::Message, rpc::Type
 
 #include <format>
 #include <string>
@@ -12,8 +10,8 @@ namespace coconut::core {
 
   // ── BridgeBuilder ───────────────────────────────────────────────────
 
-  BridgeBuilder& BridgeBuilder::withWebView(webview_t* handle) {
-    WebViewHandle = handle;
+  BridgeBuilder& BridgeBuilder::withTransport(std::shared_ptr<transport::Transport> transport) {
+    TransportPtr = std::move(transport);
     return *this;
   }
 
@@ -22,16 +20,10 @@ namespace coconut::core {
     return *this;
   }
 
-  BridgeBuilder& BridgeBuilder::withWorkerPool(WorkerPool* pool) {
-    WorkerPoolPtr = pool;
-    return *this;
-  }
-
   std::expected<std::unique_ptr<Bridge>, coconut::Error> BridgeBuilder::build() {
-    if (!WebViewHandle) {
+    if (!TransportPtr) {
       return std::unexpected(coconut::Error{
-          .code    = ErrorCode::InvalidConfig,
-          .message = "BridgeBuilder::build: webview handle is null"});
+          .code = ErrorCode::InvalidConfig, .message = "BridgeBuilder::build: transport is null"});
     }
 
     if (!LuaState.lua_state()) {
@@ -39,7 +31,7 @@ namespace coconut::core {
           .code = ErrorCode::InvalidConfig, .message = "BridgeBuilder::build: Lua state is null"});
     }
 
-    return std::unique_ptr<Bridge>(new Bridge(WebViewHandle, LuaState, WorkerPoolPtr));
+    return std::unique_ptr<Bridge>(new Bridge(std::move(TransportPtr), LuaState));
   }
 
   // ── Bridge ──────────────────────────────────────────────────────────
@@ -48,11 +40,21 @@ namespace coconut::core {
     return BridgeBuilder{};
   }
 
-  Bridge::Bridge(webview_t* webview, sol::state_view lua, WorkerPool* pool)
-      : _WebViewHandle(webview), _MainLuaState(lua), _WorkerPool(pool) {
+  Bridge::Bridge(std::shared_ptr<transport::Transport> transport, sol::state_view lua)
+      : _Transport(std::move(transport)), _MainLuaState(lua) {
   }
 
-  // ── Outbound: C++ → Lua / JS ────────────────────────────────────────
+  void Bridge::setCommandCallHandler(std::function<void(CommandCallMessage)> handler) {
+    _CommandCallHandler = std::move(handler);
+  }
+
+  void Bridge::forwardCommandCall(const CommandCallMessage& msg) {
+    if (_CommandCallHandler) {
+      _CommandCallHandler(msg);
+    }
+  }
+
+  // ── Inbound: JS → Lua ───────────────────────────────────────────────
 
   void Bridge::emitToLua(const std::string& name, const nlohmann::json& payload) {
     if (!_MainLuaState.lua_state()) {
@@ -78,39 +80,27 @@ namespace coconut::core {
     }
   }
 
-  void Bridge::emitToJS(const std::string& eventName, const nlohmann::json& payload) {
-    if (!_WebViewHandle) {
-      debug::warn("Bridge::emitToJS: webview handle is not available");
-      return;
+  // ── Outbound: C++ → JS ──────────────────────────────────────────────
+
+  void Bridge::rpcSend(const rpc::Message& msg) {
+    if (_Transport) {
+      _Transport->send(msg);
     }
-
-    // Build the JS call: globalThis.__coconut_emit(eventName, jsonPayload)
-    std::string payloadStr;
-    try {
-      payloadStr = payload.dump();
-    } catch (const std::exception& e) {
-      debug::warn(std::format("Bridge::emitToJS: JSON serialization failed: {}", e.what()));
-      payloadStr = "{}";
-    }
-
-    const std::string script = std::format(
-        "globalThis.__coconut_emit('{}', {});", common::escapeString(eventName, '\''), payloadStr
-    );
-
-    webview_eval(_WebViewHandle, script.c_str());
   }
 
-  void Bridge::callLuaCommand(const std::string& name, const nlohmann::json& args) {
-    if (!_WorkerPool) {
-      debug::warn("Bridge::callLuaCommand: worker pool not configured");
+  void Bridge::emitToJS(const std::string& eventName, const nlohmann::json& payload) {
+    if (!_Transport) {
+      debug::warn("Bridge::emitToJS: transport is not available");
       return;
     }
 
-    auto err = _WorkerPool->queueMessage(name, args);
-    if (err) {
-      debug::warn(std::format("Bridge::callLuaCommand('{}'): queue failed: {}", name, err->message)
-      );
-    }
+    // Forward as an RPC event envelope; the transport maps kEvent →
+    // globalThis.__coconut_dispatch_event(name, payloadJson).
+    rpc::Message rpcMsg;
+    rpcMsg.type    = rpc::Type::kEvent;
+    rpcMsg.name    = eventName;
+    rpcMsg.payload = payload;
+    rpcSend(rpcMsg);
   }
 
 }  // namespace coconut::core

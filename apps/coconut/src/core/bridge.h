@@ -2,64 +2,76 @@
 #define CORE_BRIDGE_H
 
 #include "error.h"
+#include "messages.h"      // CommandCallMessage
+#include "rpc_envelope.h"  // rpc::Message
+#include "transport.h"     // transport::Transport
 
-#include <webview.h>
 #include <nlohmann/json.hpp>
 #include <sol/state_view.hpp>
 
 #include <expected>
+#include <functional>
 #include <memory>
 #include <string>
 
 namespace coconut::core {
-
-  struct WorkerPool;  // forward decl
 
   class Bridge;  // forward decl — defined below
 
   /// Fluent builder for Bridge. Each `with*` step configures a dependency;
   /// `build()` validates and constructs the Bridge instance.
   struct BridgeBuilder {
-    webview_t*      WebViewHandle = nullptr;
-    sol::state_view LuaState      = nullptr;
-    WorkerPool*     WorkerPoolPtr = nullptr;
+    std::shared_ptr<transport::Transport> TransportPtr;        ///< shared with Dispatcher
+    sol::state_view                       LuaState = nullptr;  ///< borrowed (App-owned)
 
-    /// Bind the webview handle for outbound JS evaluation.
-    BridgeBuilder& withWebView(webview_t* handle);
+    /// Share the webview transport (also used by the Dispatcher).
+    BridgeBuilder& withTransport(std::shared_ptr<transport::Transport> transport);
     /// Bind the main-thread Lua state for event dispatch and command routing.
     BridgeBuilder& withLuaState(sol::state_view lua);
-    /// Bind the worker pool for background command execution.
-    BridgeBuilder& withWorkerPool(WorkerPool* pool);
     /// Validate configuration and construct the Bridge.
     std::expected<std::unique_ptr<Bridge>, coconut::Error> build();
   };
 
   /// The bridge between C++ and the webview/Lua runtime.
-  /// Created via `Bridge::builder().withWebView(...).withLuaState(...).build()`.
+  ///
+  /// Owns the transport; terminates inbound RPC and provides the outbound
+  /// facade. Command *calls* are forwarded to an injected handler (the
+  /// Dispatcher) — the Bridge deliberately holds no WorkerPool dependency.
+  ///
+  /// Created via `Bridge::builder().withTransport(...).withLuaState(...).build()`.
   class Bridge {
     friend struct BridgeBuilder;
 
    private:
-    webview_t*      _WebViewHandle;
-    sol::state_view _MainLuaState;
-    WorkerPool*     _WorkerPool;
+    std::shared_ptr<transport::Transport>   _Transport;     ///< shared with Dispatcher
+    sol::state_view                         _MainLuaState;  ///< borrowed (App-owned)
+    std::function<void(CommandCallMessage)> _CommandCallHandler;
 
-    Bridge(webview_t* webview, sol::state_view lua, WorkerPool* pool);
+    Bridge(std::shared_ptr<transport::Transport> transport, sol::state_view lua);
 
    public:
     /// Begin a fluent builder for a new Bridge.
     static BridgeBuilder builder();
 
-    // ── Outbound: C++ → Lua / JS ──────────────────────────────────────
+    // ── Inbound RPC (driven by the transport's callback) ─────────────
 
-    /// Dispatch events through `coconut._dispatch` on the main Lua thread.
+    /// Dispatch an event through `coconut._dispatch` on the main Lua thread.
     void emitToLua(const std::string& name, const nlohmann::json& payload);
 
-    /// Trigger `coconut.on` / webview event emission in the frontend.
+    /// Forward a command call to the registered handler (e.g. the Dispatcher).
+    /// No-op if no handler is set — keeps the Bridge unaware of the WorkerPool.
+    void forwardCommandCall(const CommandCallMessage& msg);
+
+    /// Register the sink for inbound command calls (typically the Dispatcher).
+    void setCommandCallHandler(std::function<void(CommandCallMessage)> handler);
+
+    // ── Outbound: C++ → JS ────────────────────────────────────────────
+
+    /// Emit an event to the frontend via the transport (rpc::Type::kEvent).
     void emitToJS(const std::string& eventName, const nlohmann::json& payload);
 
-    /// Forward a command call to the worker pool for background execution.
-    void callLuaCommand(const std::string& name, const nlohmann::json& args);
+    /// Send a raw RPC envelope to the frontend via the transport.
+    void rpcSend(const rpc::Message& msg);
   };
 
 }  // namespace coconut::core

@@ -1,13 +1,40 @@
 #ifndef CORE_DISPATCHER_H
 #define CORE_DISPATCHER_H
 
-#include "../app.h"
+#include <expected>
+#include <memory>
+
+#include "error.h"
 #include "message_queue.h"
 #include "messages.h"
+#include "transport.h"  // transport::Transport
+
+namespace coconut::lua {
+  struct Runtime;  // forward decl — Dispatcher stores only a pointer
+}
 
 namespace coconut::core {
 
   struct WorkerPool;  // forward decl — defined in worker.h
+  class Dispatcher;   // forward decl — defined below
+
+  /// Fluent builder for Dispatcher. Each `with*` step configures a dependency;
+  /// `build()` validates and constructs the Dispatcher instance.
+  struct DispatcherBuilder {
+    lua::Runtime*                         RuntimePtr = nullptr;  ///< borrowed (App-owned)
+    std::unique_ptr<WorkerPool>           WorkerPoolPtr;         ///< transferred
+    std::shared_ptr<transport::Transport> TransportPtr;          ///< shared with Bridge
+
+    /// Bind the main-thread Lua runtime for lifecycle dispatch. Borrowed —
+    /// owned by App, so the Dispatcher must never delete it.
+    DispatcherBuilder& withRuntime(lua::Runtime* runtime);
+    /// Transfer ownership of the worker pool to the Dispatcher.
+    DispatcherBuilder& withWorkerPool(std::unique_ptr<WorkerPool> pool);
+    /// Share the webview transport (also used by the Bridge).
+    DispatcherBuilder& withTransport(std::shared_ptr<transport::Transport> transport);
+    /// Validate configuration and construct the Dispatcher.
+    std::expected<std::unique_ptr<Dispatcher>, coconut::Error> build();
+  };
 
   /// Central message hub.
   ///
@@ -15,21 +42,29 @@ namespace coconut::core {
   /// them to the right destination:
   ///   • CommandCallMessage → WorkerPool (background execution)
   ///   • LifecycleMessage   → Main Runtime (Lua: dispatchViewLifecycleEvent)
-  ///   • EvalJSMessage      → Webview (webview_eval)
+  ///   • JsCallMessage      → Webview (transport->send, RPC envelope)
   ///
   /// On every flush() it also drains the WorkerPool's shared Output queue
-  /// and routes command results back to the Webview via RPC.
+  /// and routes command results back to the Webview via the transport.
   class Dispatcher {
+    friend struct DispatcherBuilder;
+
    private:
-    MessageQueue<DispatchMessage> _MessageQueue;
-    App*                          _App;
-    WorkerPool*                   _WorkerPool;
+    MessageQueue<DispatchMessage>         _MessageQueue;
+    lua::Runtime*                         _Runtime;     ///< borrowed (App-owned)
+    std::unique_ptr<WorkerPool>           _WorkerPool;  ///< owned
+    std::shared_ptr<transport::Transport> _Transport;   ///< shared with Bridge
+
+    Dispatcher(
+        lua::Runtime*                         runtime,
+        std::unique_ptr<WorkerPool>           pool,
+        std::shared_ptr<transport::Transport> transport
+    );
 
    public:
-    Dispatcher(App* app, WorkerPool* pool);
     void queue(DispatchMessage message);
     void flush();
   };
 
 }  // namespace coconut::core
-#endif
+#endif  // CORE_DISPATCHER_H

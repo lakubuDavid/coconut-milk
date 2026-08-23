@@ -83,6 +83,10 @@ namespace coconut::bridge {
     }
   }
 
+  void WebviewTransport::send(const coconut::core::JsCallMessage& msg) {
+    send(msg.Message);
+  }
+
   void WebviewTransport::setMessageCallback(transport::MessageCallback cb) {
     m_callback = std::move(cb);
   }

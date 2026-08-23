@@ -17,6 +17,7 @@
 /// created by webview_bind() on the JS side.
 
 #include "app_fwd.h"
+#include "core/messages.h"
 #include "transport.h"
 
 #include <webview/webview.h>
@@ -27,56 +28,60 @@
 
 namespace coconut::bridge {
 
-/// Transport backed by webview's native WKWebView / WebView2.
-///
-/// Inbound messages arrive via the `__coconut_rpc` webview binding.
-/// The callback parses the RPC envelope and dispatches:
-///   - kCall → command registry → result sent via webview_return()
-///   - kEvent → Lua event handler → then webview_return() with undefined
-class WebviewTransport : public transport::Transport {
-public:
-  /// Create the transport, inject the Coconut JS runtime, and bind
-  /// the inbound RPC channel.
-  WebviewTransport(webview_t w, coconut::App* app,
-                   const std::string& coconut_js);
+  /// Transport backed by webview's native WKWebView / WebView2.
+  ///
+  /// Inbound messages arrive via the `__coconut_rpc` webview binding.
+  /// The callback parses the RPC envelope and dispatches:
+  ///   - kCall → command registry → result sent via webview_return()
+  ///   - kEvent → Lua event handler → then webview_return() with undefined
+  class WebviewTransport : public transport::Transport {
+   public:
+    /// Create the transport, inject the Coconut JS runtime, and bind
+    /// the inbound RPC channel.
+    WebviewTransport(webview_t w, coconut::App* app, const std::string& coconut_js);
 
-  ~WebviewTransport() override;
+    ~WebviewTransport() override;
 
-  /// Send an RPC message to the frontend via webview_eval().
-  void send(const rpc::Message& msg) override;
+    /// Send an RPC message to the frontend via webview_eval().
+    void send(const rpc::Message& msg) override;
 
-  /// Register the callback for messages received from the frontend.
-  void setMessageCallback(transport::MessageCallback cb) override;
+    /// Send a core::JsCallMessage, unwrapping its rpc::Message envelope.
+    void send(const coconut::core::JsCallMessage& msg);
 
-  /// Return the webview handle (for window management).
-  webview_t handle() const { return m_webview; }
+    /// Register the callback for messages received from the frontend.
+    void setMessageCallback(transport::MessageCallback cb) override;
 
-private:
-  /// Static webview bind callback — dispatches to instance.
-  static void static_on_rpc(const char* id, const char* req, void* arg);
+    /// Return the webview handle (for window management).
+    webview_t handle() const {
+      return m_webview;
+    }
 
-  /// Static webview bind callback — returns view names as JSON array.
-  static void static_list_views(const char* id, const char* req, void* arg);
+   private:
+    /// Static webview bind callback — dispatches to instance.
+    static void static_on_rpc(const char* id, const char* req, void* arg);
 
-  /// Handle an inbound kCall: invoke Lua command, respond via webview_return.
-  void handleCall(const char* id, const rpc::Message& msg);
+    /// Static webview bind callback — returns view names as JSON array.
+    static void static_list_views(const char* id, const char* req, void* arg);
 
-  /// Handle an inbound kEvent: dispatch to Lua, respond via webview_return.
-  void handleEvent(const char* id, const rpc::Message& msg);
+    /// Handle an inbound kCall: invoke Lua command, respond via webview_return.
+    void handleCall(const char* id, const rpc::Message& msg);
 
-  /// Resolve a background command result using the stored webview callback ID.
-  /// Called by dispatch::drain() when a CommandResult arrives from the bg thread.
-  void resolveBgCommand(const std::string& callId, const nlohmann::json& payload, bool isError);
+    /// Handle an inbound kEvent: dispatch to Lua, respond via webview_return.
+    void handleEvent(const char* id, const rpc::Message& msg);
 
-  webview_t m_webview;
-  coconut::App* m_app = nullptr;
-  transport::MessageCallback m_callback;
+    /// Resolve a background command result using the stored webview callback ID.
+    /// Called by dispatch::drain() when a CommandResult arrives from the bg thread.
+    void resolveBgCommand(const std::string& callId, const nlohmann::json& payload, bool isError);
 
-  /// Pending background commands: maps callId -> webview callback id.
-  std::unordered_map<std::string, std::string> m_pendingBgCalls;
-  std::mutex m_pendingMutex;
-};
+    webview_t                  m_webview;
+    coconut::App*              m_app = nullptr;
+    transport::MessageCallback m_callback;
 
-} // namespace coconut::bridge
+    /// Pending background commands: maps callId -> webview callback id.
+    std::unordered_map<std::string, std::string> m_pendingBgCalls;
+    std::mutex                                   m_pendingMutex;
+  };
 
-#endif // COCONUT_WEBVIEW_TRANSPORT_H
+}  // namespace coconut::bridge
+
+#endif  // COCONUT_WEBVIEW_TRANSPORT_H

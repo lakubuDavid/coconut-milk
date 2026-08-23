@@ -19,9 +19,20 @@ namespace coconut {
 
 namespace coconut::dispatch {
 
-  /// Alias consolidated types for backward compatibility.
-  using core::Message;
-  using core::MessageKind;
+  /// Legacy stringly-typed dispatch envelope (pre-core path:
+  /// dispatch.cpp / bg_runtime.cpp). The new typed messages live in
+  /// core/messages.h (DispatchMessage, WorkerInput/Output).
+  enum class MessageKind : uint8_t {
+    EvalJS,
+    LifecycleEvent,
+    CommandCall,
+    CommandResult,
+  };
+
+  struct Message {
+    MessageKind kind;
+    std::string payload;
+  };
 
   /// Maximum in-flight messages in a single Outbox queue.
   constexpr size_t kQueueCapacity = 64;

@@ -26,11 +26,13 @@ namespace coconut::core {
     nlohmann::json Result;
   };
 
-  struct EvalJSMessage {
-    std::string JsCode;
+  struct JsCallMessage {
+    /// RPC envelope forwarded to the Webview via the transport (e.g. a kCall or
+    /// kEvent). The Dispatcher sends it directly — no raw webview_eval.
+    rpc::Message Message;
   };
 
-  using DispatchMessage = std::variant<LifecycleMessage, CommandCallMessage, EvalJSMessage>;
+  using DispatchMessage = std::variant<LifecycleMessage, CommandCallMessage, JsCallMessage>;
 
   // ── Worker messages ─────────────────────────────────────────────────
 
@@ -55,21 +57,9 @@ namespace coconut::core {
   using WorkerInput  = std::variant<PromiseMessage>;
   using WorkerOutput = std::variant<ResolveMessage, RejectMessage>;
 
-  // ── Legacy dispatch (pipe-separated payload) ────────────────────────
-
-  enum class MessageKind : uint8_t {
-    EvalJS,
-    LifecycleEvent,
-    CommandCall,
-    CommandResult,
-  };
-
-  struct Message {
-    MessageKind kind;
-    std::string payload;
-  };
-
-  // Note: rpc::Message is defined in rpc_envelope.h
+  // Note: rpc::Message (the JS↔C++ wire envelope) is defined in rpc_envelope.h.
+  // The legacy stringly-typed dispatch envelope (Message / MessageKind) now
+  // lives in dispatch.h, used only by the pre-core dispatch/bg_runtime path.
 
 }  // namespace coconut::core
 

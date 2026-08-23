@@ -1,9 +1,12 @@
 #ifndef CORE_WORKER_H
 #define CORE_WORKER_H
 
-#include "app.h"
 #include "error.h"
 #include "message_queue.h"
+
+namespace coconut {
+  class CoconutContext;  // forward decl — Worker stores only a pointer
+}
 #include "messages.h"
 #include "modules/registry.h"
 
@@ -44,11 +47,11 @@ namespace coconut::core {
 
   struct Worker {
     enum ShutdownFlag { SoftAbort, HardAbort };
-    std::atomic<bool>             _Running{false};
-    std::unique_ptr<sol::state>   LuaState;
-    std::unique_ptr<coconut::App> App;
-    std::thread                   Thread;
-    std::atomic<bool>             StopRequested{false};
+    std::atomic<bool>           _Running{false};
+    std::unique_ptr<sol::state> LuaState;
+    CoconutContext             *Context = nullptr;  ///< command-exec ctx (not owned)
+    std::thread                 Thread;
+    std::atomic<bool>           StopRequested{false};
 
     /// Per-worker input queue — exclusive to this worker.
     std::unique_ptr<MessageQueue<WorkerInput>> Input;

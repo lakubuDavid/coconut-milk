@@ -1,18 +1,66 @@
 #include "dispatcher.h"
 
-#include <webview/webview.h>  // webview_eval
-#include "bridge.h"           // bridge::rpcSend — Webview RPC back-channel
 #include "debug.h"
 #include "main_runtime.h"  // lua::dispatchViewLifecycleEvent
+#include "rpc_envelope.h"  // rpc::Message, rpc::Type
 #include "worker.h"        // WorkerPool — full type for queueMessage/Output
 
+#include <memory>
 #include <string>
 #include <type_traits>
 #include <variant>
 
 namespace coconut::core {
 
-  Dispatcher::Dispatcher(App* app, WorkerPool* pool) : _App(app), _WorkerPool(pool) {
+  // ── DispatcherBuilder ───────────────────────────────────────────────────
+
+  DispatcherBuilder& DispatcherBuilder::withRuntime(lua::Runtime* runtime) {
+    RuntimePtr = runtime;
+    return *this;
+  }
+
+  DispatcherBuilder& DispatcherBuilder::withWorkerPool(std::unique_ptr<WorkerPool> pool) {
+    WorkerPoolPtr = std::move(pool);
+    return *this;
+  }
+
+  DispatcherBuilder& DispatcherBuilder::withTransport(
+      std::shared_ptr<transport::Transport> transport
+  ) {
+    TransportPtr = std::move(transport);
+    return *this;
+  }
+
+  std::expected<std::unique_ptr<Dispatcher>, coconut::Error> DispatcherBuilder::build() {
+    if (!RuntimePtr) {
+      return std::unexpected(coconut::Error{
+          .code = ErrorCode::InvalidConfig, .message = "DispatcherBuilder::build: runtime is null"}
+      );
+    }
+    if (!WorkerPoolPtr) {
+      return std::unexpected(coconut::Error{
+          .code    = ErrorCode::InvalidConfig,
+          .message = "DispatcherBuilder::build: worker pool is null"});
+    }
+    if (!TransportPtr) {
+      return std::unexpected(coconut::Error{
+          .code    = ErrorCode::InvalidConfig,
+          .message = "DispatcherBuilder::build: transport is null"});
+    }
+
+    return std::unique_ptr<Dispatcher>(
+        new Dispatcher(RuntimePtr, std::move(WorkerPoolPtr), std::move(TransportPtr))
+    );
+  }
+
+  // ── Dispatcher ──────────────────────────────────────────────────────────
+
+  Dispatcher::Dispatcher(
+      lua::Runtime*                         runtime,
+      std::unique_ptr<WorkerPool>           pool,
+      std::shared_ptr<transport::Transport> transport
+  )
+      : _Runtime(runtime), _WorkerPool(std::move(pool)), _Transport(std::move(transport)) {
   }
 
   void Dispatcher::queue(DispatchMessage message) {
@@ -20,7 +68,7 @@ namespace coconut::core {
   }
 
   void Dispatcher::flush() {
-    // ── 1. Drain inbound dispatch messages ──────────────────────────
+    //  1. Drain inbound dispatch messages
     while (auto maybe = _MessageQueue.tryPop()) {
       DispatchMessage msg = std::move(*maybe);
       std::visit(
@@ -42,14 +90,15 @@ namespace coconut::core {
 
             } else if constexpr (std::is_same_v<T, LifecycleMessage>) {
               // Forward view lifecycle events to the Lua runtime (main thread).
-              if (_App && _App->lua_state) {
-                lua::dispatchViewLifecycleEvent(_App->lua_state, m.ViewName, m.EventName, {});
+              if (_Runtime) {
+                lua::dispatchViewLifecycleEvent(_Runtime, m.ViewName, m.EventName, {});
               }
 
-            } else if constexpr (std::is_same_v<T, EvalJSMessage>) {
-              // Evaluate JS on the main-thread webview.
-              if (_App && _App->webview) {
-                webview_eval(_App->webview, m.JsCode.c_str());
+            } else if constexpr (std::is_same_v<T, JsCallMessage>) {
+              // Forward the RPC envelope to the Webview via the transport
+              // (e.g. a kCall / kEvent). No raw webview_eval.
+              if (_Transport) {
+                _Transport->send(m.Message);
               }
             }
           },
@@ -57,7 +106,7 @@ namespace coconut::core {
       );
     }
 
-    // ── 2. Drain worker results and route them back to the Webview ─
+    //  2. Drain worker results and route them back to the Webview
     if (_WorkerPool && _WorkerPool->Output) {
       while (auto maybe = _WorkerPool->Output->tryPop()) {
         WorkerOutput out = std::move(*maybe);
@@ -66,20 +115,20 @@ namespace coconut::core {
               using T = std::decay_t<decltype(o)>;
 
               if constexpr (std::is_same_v<T, ResolveMessage>) {
-                if (_App && _App->webview) {
+                if (_Transport) {
                   rpc::Message rpcMsg;
                   rpcMsg.id      = std::to_string(o.id);
                   rpcMsg.type    = rpc::Type::kReturn;
                   rpcMsg.payload = o.result;
-                  bridge::rpcSend(_App, rpcMsg);
+                  _Transport->send(rpcMsg);
                 }
               } else if constexpr (std::is_same_v<T, RejectMessage>) {
-                if (_App && _App->webview) {
+                if (_Transport) {
                   rpc::Message rpcMsg;
                   rpcMsg.id      = std::to_string(o.id);
                   rpcMsg.type    = rpc::Type::kError;
                   rpcMsg.payload = {{"code", "WorkerError"}, {"message", o.error}};
-                  bridge::rpcSend(_App, rpcMsg);
+                  _Transport->send(rpcMsg);
                 }
               }
             },
