@@ -63,23 +63,9 @@ namespace coconut::bridge {
     /// Static webview bind callback — returns view names as JSON array.
     static void static_list_views(const char* id, const char* req, void* arg);
 
-    /// Handle an inbound kCall: invoke Lua command, respond via webview_return.
-    void handleCall(const char* id, const coconut::core::JsRPCMessage& msg);
-
-    /// Handle an inbound kEvent: dispatch to Lua, respond via webview_return.
-    void handleEvent(const char* id, const coconut::core::JsRPCMessage& msg);
-
-    /// Resolve a background command result using the stored webview callback ID.
-    /// Called by dispatch::drain() when a CommandResult arrives from the bg thread.
-    void resolveBgCommand(const std::string& callId, const nlohmann::json& payload, bool isError);
-
     webview_t                  m_webview;
     coconut::App*              m_app = nullptr;
     transport::MessageCallback m_callback;
-
-    /// Pending background commands: maps callId -> webview callback id.
-    std::unordered_map<std::string, std::string> m_pendingBgCalls;
-    std::mutex                                   m_pendingMutex;
   };
 
 }  // namespace coconut::bridge

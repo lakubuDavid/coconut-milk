@@ -1,6 +1,5 @@
 #include "dispatch.h"
 #include "app.h"
-#include "bg_runtime.h"
 #include "bridge.h"
 #include "debug.h"
 #include "main_runtime.h"
@@ -39,44 +38,6 @@ namespace {
 }  // anonymous namespace
 
 namespace coconut::dispatch {
-
-  // ── Outbox — lock-free SPSC ring buffer ──────────────────────────────
-
-  bool Outbox::push(Message msg) {
-    const size_t w = write_idx_.load(std::memory_order_relaxed);
-    const size_t r = read_idx_.load(std::memory_order_acquire);
-
-    if (w - r >= kQueueCapacity) {
-      return false;
-    }
-
-    ring_[w % kQueueCapacity] = std::move(msg);
-    write_idx_.store(w + 1, std::memory_order_release);
-    return true;
-  }
-
-  std::optional<Message> Outbox::pop() {
-    const size_t r = read_idx_.load(std::memory_order_relaxed);
-    const size_t w = write_idx_.load(std::memory_order_acquire);
-
-    if (r == w) {
-      return std::nullopt;
-    }
-
-    Message msg = ring_[r % kQueueCapacity];
-    read_idx_.store(r + 1, std::memory_order_release);
-    return msg;
-  }
-
-  bool Outbox::empty() const {
-    return size() == 0;
-  }
-
-  size_t Outbox::size() const {
-    const size_t w = write_idx_.load(std::memory_order_acquire);
-    const size_t r = read_idx_.load(std::memory_order_acquire);
-    return w - r;
-  }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────
 

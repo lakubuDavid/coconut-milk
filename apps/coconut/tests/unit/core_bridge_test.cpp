@@ -10,7 +10,6 @@
 
 #include "core/bridge.h"
 
-#include "rpc_envelope.h"
 #include "test.h"
 #include "transport.h"
 

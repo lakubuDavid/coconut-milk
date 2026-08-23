@@ -66,41 +66,6 @@ namespace coconut::bridge {
     }
   }
 
-  static void dispatchRpcEventToLua(coconut::App* app, const coconut::core::JsRPCMessage& msg) {
-    dispatchEventToLua(app, msg.name, msg.payload);
-  }
-
-  /// Route an incoming kCall RPC message to the command registry.
-  /// Sends a kReturn or kError response through the transport.
-  static void dispatchRpcCallToLua(coconut::App* app, const coconut::core::JsRPCMessage& msg) {
-    if (app == nullptr || app->commands == nullptr || app->lua_state == nullptr ||
-        app->lua_state->lua_state == nullptr) {
-      return;
-    }
-
-    sol::state_view lua(*app->lua_state->lua_state);
-
-    core::CommandResult result = core::execCommand(
-        lua, app->commands->handlers, msg.name, msg.payload, app->lua_state->context
-    );
-
-    coconut::core::JsRPCMessage reply;
-    reply.id = msg.id;
-
-    if (result.ok) {
-      reply.type    = coconut::core::RpcType::kReturn;
-      reply.payload = result.data;
-    } else {
-      reply.type = coconut::core::RpcType::kError;
-      debug::warn(std::format(
-          "bridge: cmd '{}' failed: {}", msg.name, result.data.value("message", "unknown error")
-      ));
-      reply.payload = result.data;
-    }
-
-    rpcSend(app, reply);
-  }
-
   // ---------------------------------------------------------------------------
   // JS bridge helpers
   // ---------------------------------------------------------------------------
@@ -112,24 +77,6 @@ namespace coconut::bridge {
     msg.name    = std::move(eventName);
     msg.payload = std::move(payload);
     rpcSend(app, msg);
-  }
-
-  void callJS(coconut::App* app, std::string functionName, nlohmann::json payload) {
-    if (app == nullptr || app->window == nullptr || app->webview == nullptr) {
-      return;
-    }
-
-    std::string payloadStr;
-    try {
-      payloadStr = payload.dump();
-    } catch (const std::exception&) {
-      payloadStr = "{}";
-    }
-    const std::string script = std::format("globalThis['{}']({});", functionName, payloadStr);
-
-    if (app->bridge_state != nullptr && app->bridge_state->transport != nullptr) {
-      app->bridge_state->transport->eval(script);
-    }
   }
 
   // ---------------------------------------------------------------------------
@@ -255,14 +202,6 @@ globalThis.__coconut_bridge_ready();
     // Held as shared_ptr so the core Bridge/Dispatcher can co-own it.
     app->bridge_state->transport =
         std::make_shared<WebviewTransport>(app->webview, app, coconut_js);
-  }
-
-  /// Signal to the frontend that the bridge is ready.
-  /// With webview this is a no-op — kReady is baked into the init script
-  /// passed to webview_init() in createTransport().
-  void signalReady(coconut::App* app) {
-    (void)app;
-    // kReady fires automatically via webview_init script.
   }
 
   void rpcSend(coconut::App* app, const coconut::core::JsRPCMessage& msg) {

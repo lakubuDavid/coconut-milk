@@ -9,7 +9,6 @@
 #include "core/worker.h"
 
 #include "main_runtime.h"  // lua::Runtime full definition
-#include "rpc_envelope.h"
 #include "test.h"
 #include "transport.h"
 

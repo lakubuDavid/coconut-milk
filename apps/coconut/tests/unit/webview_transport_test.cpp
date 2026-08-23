@@ -45,17 +45,17 @@ COCONUT_TEST(unit, webview_transport_set_message_callback) {
 // ── RPC envelope types (compile-time check) ──────────────────────────
 
 COCONUT_TEST(unit, webview_transport_rpc_types) {
-  // Verify that rpc::Message and related enums are accessible
-  // (they are defined in rpc_envelope.h, included by webview_transport.h)
+  // Verify that core::JsRPCMessage and related enums are accessible
+  // (defined in core/messages.h, included by transport.h)
 
-  coconut::rpc::Message msg;
+  coconut::core::JsRPCMessage msg;
   msg.id      = "test-1";
-  msg.type    = coconut::rpc::Type::kCall;
+  msg.type    = coconut::core::RpcType::kCall;
   msg.name    = "my_command";
   msg.payload = nullptr;
 
   COCONUT_REQUIRE_EQ(msg.id, std::string("test-1"));
-  COCONUT_REQUIRE_EQ(static_cast<int>(msg.type), static_cast<int>(coconut::rpc::Type::kCall));
+  COCONUT_REQUIRE_EQ(static_cast<int>(msg.type), static_cast<int>(coconut::core::RpcType::kCall));
   COCONUT_REQUIRE_EQ(msg.name, std::string("my_command"));
 }
 

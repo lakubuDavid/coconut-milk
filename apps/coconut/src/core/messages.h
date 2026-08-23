@@ -1,13 +1,16 @@
 #ifndef CORE_MESSAGES_H
 #define CORE_MESSAGES_H
 
-#include "rpc_envelope.h"
+#include <cstdint>
 
 #include <nlohmann/json.hpp>
 #include <string>
 #include <variant>
 
 namespace coconut::core {
+
+  /// Worker-internal request id (assigned by WorkerPool round-robin).
+  using RequestId = std::uint64_t;
 
   // ── Wire envelope (JS ↔ C++) ────────────────────────────────────────
 

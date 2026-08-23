@@ -4,7 +4,6 @@
 #include "common.h"
 #include "config.h"
 #include "error.h"
-#include "rpc_envelope.h"
 #include "store.h"
 #include "transport.h"
 
@@ -37,7 +36,6 @@ namespace coconut {
     );
 
     void emitToJS(coconut::App* app, std::string eventName, nlohmann::json payload);
-    void callJS(coconut::App* app, std::string functionName, nlohmann::json payload);
 
     /// Create a transport for the given app and store it on the bridge State.
     /// Registers the frontend-side binding and injects the JS adapter.
@@ -46,10 +44,6 @@ namespace coconut {
 
     /// Send an RPC message through the bridge state's transport.
     void rpcSend(App* app, const coconut::core::JsRPCMessage& msg);
-
-    /// Signal the frontend that the bridge is ready.
-    /// Called after the window is shown and JS has loaded.
-    void signalReady(App* app);
 
   }  // namespace bridge
 }  // namespace coconut

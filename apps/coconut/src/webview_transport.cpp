@@ -128,19 +128,10 @@ namespace coconut::bridge {
       return;
     }
 
-    // Legacy fallback: handle inline on the main Lua state.
-    switch (msg.type) {
-      case coconut::core::RpcType::kCall:
-        self->handleCall(id, msg);
-        break;
-      case coconut::core::RpcType::kEvent:
-        self->handleEvent(id, msg);
-        break;
-      default:
-        // Unknown type — resolve with undefined.
-        webview_return(self->m_webview, id, 0, "");
-        break;
-    }
+    // No callback registered — inbound traffic has no route. Resolve the
+    // bind promise so JS doesn't hang on an eternally-pending call.
+    debug::warn("static_on_rpc: no message callback registered; dropping message");
+    webview_return(self->m_webview, id, 0, "");
   }
 
   // static
@@ -164,144 +155,6 @@ namespace coconut::bridge {
         0,
         names.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace).c_str()
     );
-  }
-
-  void WebviewTransport::handleCall(const char* id, const coconut::core::JsRPCMessage& msg) {
-    // Always log payload to debug command dispatch
-    std::string payloadPreview;
-    try {
-      payloadPreview = msg.payload.dump();
-    } catch (...) {
-      payloadPreview = "[invalid json]";
-    }
-    debug::info(std::format("handleCall: '{}' payload={}", msg.name, payloadPreview));
-
-    // Build the full envelope so webview's onReply parses it back to an object.
-    // The JS shim for __coconut_call re-stringifies it for coconut.call().
-    auto respond = [this, id](nlohmann::json envelope) {
-      std::string result;
-      try {
-        result = envelope.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
-      } catch (const std::exception& e) {
-        debug::error(std::format("handleCall: JSON dump failed: {}", e.what()));
-        nlohmann::json fallback;
-        fallback["ok"]    = false;
-        fallback["error"] = {{"code", "BridgeError"}, {"message", "JSON serialization failed"}};
-        result            = fallback.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
-      }
-      webview_return(m_webview, id, 0, result.c_str());
-    };
-
-    auto makeError = [](const std::string& code, const std::string& message) -> nlohmann::json {
-      return {{"ok", false}, {"error", {{"code", code}, {"message", message}}}};
-    };
-
-    if (!m_app || !m_app->commands) {
-      respond(makeError("BridgeError", "No command registry"));
-      return;
-    }
-
-    auto it = m_app->commands->handlers.find(msg.name);
-    if (it == m_app->commands->handlers.end()) {
-      respond(makeError("CommandNotFound", "No handler for '" + msg.name + "'"));
-      return;
-    }
-
-    if (!m_app->lua_state || !m_app->lua_state->lua_state || !m_app->lua_state->context) {
-      respond(makeError("BridgeError", "No Lua runtime"));
-      return;
-    }
-
-    sol::state_view lua(*m_app->lua_state->lua_state);
-    sol::table      paramsTable = common::toTable(lua, msg.payload);
-
-    debug::info(std::format("calling cmd '{}' with {} args", msg.name, paramsTable.size()));
-
-    // Debug: dump table keys
-    if (paramsTable.size() > 0) {
-      std::string keys;
-      for (auto&& [k, _] : paramsTable) {
-        if (!keys.empty())
-          keys += ", ";
-        if (k.is<std::string>())
-          keys += k.as<std::string>();
-      }
-      debug::info(std::format("  params keys: [{}]", keys));
-    }
-    auto result = it->second(paramsTable, m_app->lua_state->context);
-
-    nlohmann::json envelope;
-    if (result.valid()) {
-      envelope["ok"]  = true;
-      sol::object val = result;
-      if (!val.valid() || val == sol::lua_nil) {
-        envelope["data"] = nullptr;
-      } else if (val.is<std::string>()) {
-        envelope["data"] = val.as<std::string>();
-      } else if (val.is<bool>()) {
-        envelope["data"] = val.as<bool>();
-      } else if (val.is<int>() || val.is<long long>()) {
-        envelope["data"] = val.as<long long>();
-      } else if (val.is<double>() || val.is<float>()) {
-        envelope["data"] = val.as<double>();
-      } else if (val.is<sol::table>()) {
-        envelope["data"] = common::toJson(val.as<sol::table>());
-      } else {
-        envelope["data"] = nullptr;
-      }
-    } else {
-      envelope["ok"] = false;
-      sol::error err = result;
-      debug::warn(std::format("bridge handleCall: cmd '{}' failed: {}", msg.name, err.what()));
-      envelope["error"] = {{"code", "LuaError"}, {"message", err.what()}};
-    }
-
-    respond(envelope);
-  }
-
-  void WebviewTransport::handleEvent(const char* id, const coconut::core::JsRPCMessage& msg) {
-    if (m_app && m_app->configs && m_app->configs->debug.showTransportDump) {
-      std::string eventPayloadPreview;
-      try {
-        eventPayloadPreview = msg.payload.dump();
-      } catch (...) {
-        eventPayloadPreview = "[invalid json]";
-      }
-      debug::info(std::format("handleEvent: name='{}' payload={}", msg.name, eventPayloadPreview));
-    }
-
-    // Bridge console.* logs to C++ stderr
-    if (msg.name.rfind("__console__", 0) == 0) {
-      std::string level = msg.name.substr(11);  // strip "__console__"
-      std::string text  = msg.payload.value("message", "");
-      if (level == "error") {
-        debug::error(std::format("[JS] {}", text));
-      } else if (level == "warn") {
-        debug::warn(std::format("[JS] {}", text));
-      } else {
-        debug::info(std::format("[JS] {}", text));
-      }
-      webview_return(m_webview, id, 0, "");
-      return;
-    }
-
-    // Dispatch to Lua's coconut.events(name, payload, ctx).
-    if (m_app && m_app->lua_state && m_app->lua_state->lua_state && m_app->lua_state->context) {
-      sol::state_view lua(*m_app->lua_state->lua_state);
-      sol::table      payloadTable = common::toTable(lua, msg.payload);
-
-      sol::object coconutObj = lua["coconut"];
-      if (coconutObj.valid() && coconutObj.is<sol::table>()) {
-        sol::table              coconutTbl = coconutObj.as<sol::table>();
-        sol::protected_function eventsFn   = coconutTbl["events"];
-        if (eventsFn.valid()) {
-          eventsFn(msg.name, payloadTable, m_app->lua_state->context);
-        }
-      }
-    }
-
-    // Resolve the JS promise with undefined.
-    webview_return(m_webview, id, 0, "");
   }
 
 }  // namespace coconut::bridge

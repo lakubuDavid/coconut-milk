@@ -19,64 +19,6 @@ namespace coconut {
 
 namespace coconut::dispatch {
 
-  /// Legacy stringly-typed dispatch envelope (pre-core path:
-  /// dispatch.cpp / bg_runtime.cpp). The new typed messages live in
-  /// core/messages.h (DispatchMessage, WorkerInput/Output).
-  enum class MessageKind : uint8_t {
-    EvalJS,
-    LifecycleEvent,
-    CommandCall,
-    CommandResult,
-  };
-
-  struct Message {
-    MessageKind kind;
-    std::string payload;
-  };
-
-  /// Maximum in-flight messages in a single Outbox queue.
-  constexpr size_t kQueueCapacity = 64;
-
-  // ─ Lock-free SPSC Outbox ───────────────────────────────────────────
-  //
-  // Single-producer, single-consumer ring buffer.  The producer (Lua thread
-  // or any code path that generates an event) pushes messages.  The consumer
-  // (main-thread CFRunLoop source) drains them on each iteration.
-  //
-  // Thread safety: the producer and consumer sides each touch separate
-  // atomic indices, so no lock is needed.  Only one producer and one
-  // consumer at a time.
-
-  class Outbox {
-   public:
-    Outbox() = default;
-
-    // Non-copyable, non-movable (the atomics and ring are tied to this
-    // instance by the CFRunLoopSource registration).
-    Outbox(const Outbox&)            = delete;
-    Outbox& operator=(const Outbox&) = delete;
-
-    /// Push a message into the ring buffer.
-    /// Returns false if the queue is full (message dropped).
-    bool push(Message msg);
-
-    /// Pop the oldest message, or nullopt if empty.
-    std::optional<Message> pop();
-
-    /// Returns true when the queue has no messages.
-    bool empty() const;
-
-    /// Number of messages currently in the queue.
-    size_t size() const;
-
-   private:
-    std::array<Message, kQueueCapacity> ring_{};
-    /// Producer index — written only by the producer thread.
-    alignas(64) std::atomic<size_t> write_idx_{0};
-    /// Consumer index — written only by the consumer thread.
-    alignas(64) std::atomic<size_t> read_idx_{0};
-  };
-
   // ── Lifecycle ───────────────────────────────────────────────────────
 
   /// Create the dispatch system for an App.
