@@ -112,6 +112,11 @@ namespace coconut {
       configs->window_min_width  = size.w;
       configs->window_min_height = size.h;
     }
+    // Runtime phase: apply live, not just config (window_handle is null
+    // during setup — config-only path is unchanged there).
+    if (window_handle != nullptr) {
+      window_handle->setMinimumSize(size.w, size.h);
+    }
     return this;
   }
 
@@ -120,42 +125,57 @@ namespace coconut {
       configs->window_max_width  = size.w;
       configs->window_max_height = size.h;
     }
+    if (window_handle != nullptr) {
+      window_handle->setMaximumSize(size.w, size.h);
+    }
     return this;
   }
 
   CoconutContext* CoconutContext::setMinimumWindowWidth(int w) {
     if (configs != nullptr)
       configs->window_min_width = w;
+    if (window_handle != nullptr)
+      window_handle->setMinimumSize(w, configs ? configs->window_min_height : 0);
     return this;
   }
 
   CoconutContext* CoconutContext::setMinimumWindowHeight(int h) {
     if (configs != nullptr)
       configs->window_min_height = h;
+    if (window_handle != nullptr)
+      window_handle->setMinimumSize(configs ? configs->window_min_width : 0, h);
     return this;
   }
 
   CoconutContext* CoconutContext::setMaximumWindowWidth(int w) {
     if (configs != nullptr)
       configs->window_max_width = w;
+    if (window_handle != nullptr)
+      window_handle->setMaximumSize(w, configs ? configs->window_max_height : 0);
     return this;
   }
 
   CoconutContext* CoconutContext::setMaximumWindowHeight(int h) {
     if (configs != nullptr)
       configs->window_max_height = h;
+    if (window_handle != nullptr)
+      window_handle->setMaximumSize(configs ? configs->window_max_width : 0, h);
     return this;
   }
 
   CoconutContext* CoconutContext::setTitle(const std::string& t) {
     if (configs != nullptr)
       configs->title = t;
+    if (window_handle != nullptr)
+      window_handle->setTitle(t);
     return this;
   }
 
   CoconutContext* CoconutContext::setResizable(bool on) {
     if (configs != nullptr)
       configs->resizable = on;
+    if (window_handle != nullptr)
+      window_handle->setResizable(on);
     return this;
   }
 
@@ -350,6 +370,30 @@ namespace coconut {
   void CoconutWindowHandle::setBackgroundColor(float r, float g, float b, float a) {
     if (app && app->webview) {
       window::platformSetWindowBackgroundColor(app->webview, r, g, b, a);
+    }
+  }
+
+  void CoconutWindowHandle::setTitle(const std::string& title) {
+    if (app && app->webview) {
+      window::platformSetWindowTitle(app->webview, title);
+    }
+  }
+
+  void CoconutWindowHandle::setResizable(bool on) {
+    if (app && app->webview) {
+      window::platformSetResizable(app->webview, on);
+    }
+  }
+
+  void CoconutWindowHandle::setMinimumSize(int w, int h) {
+    if (app && app->webview) {
+      window::platformSetMinimumWindowSize(app->webview, w, h);
+    }
+  }
+
+  void CoconutWindowHandle::setMaximumSize(int w, int h) {
+    if (app && app->webview) {
+      window::platformSetMaximumWindowSize(app->webview, w, h);
     }
   }
 

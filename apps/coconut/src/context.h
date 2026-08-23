@@ -123,6 +123,12 @@ namespace coconut {
     void setMovableByBackground(bool on);
     /// Set window background color (0-1 range).
     void setBackgroundColor(float r, float g, float b, float a = 1.0f);
+
+    /// Live window mutations (main-thread only — AppKit requirement).
+    void setTitle(const std::string& title);
+    void setResizable(bool on);
+    void setMinimumSize(int w, int h);
+    void setMaximumSize(int w, int h);
     /// Set absolute screen position (bottom-left origin — macOS native).
     void setPosition(int x, int y);
     /// Move window by offset (dx = right, dy = up in screen coords).

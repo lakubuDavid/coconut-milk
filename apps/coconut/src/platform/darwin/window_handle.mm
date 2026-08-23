@@ -91,4 +91,41 @@ void platformSetWindowBackgroundColor(webview_t wv, float r, float g, float b, f
   win.backgroundColor = [NSColor colorWithRed:r green:g blue:b alpha:a];
 }
 
-} // namespace coconut::window
+void platformSetWindowTitle(webview_t wv, const std::string& title) {
+  NSWindow* win = getNSWindow(wv);
+  if (!win) {
+    debug::warn("platformSetWindowTitle: no native window");
+    return;
+  }
+  [win setTitle:[NSString stringWithUTF8String:title.c_str()]];
+}
+
+void platformSetMinimumWindowSize(webview_t wv, int w, int h) {
+  NSWindow* win = getNSWindow(wv);
+  if (!win) {
+    debug::warn("platformSetMinimumWindowSize: no native window");
+    return;
+  }
+  [win setMinSize:NSMakeSize(w, h)];
+}
+
+void platformSetMaximumWindowSize(webview_t wv, int w, int h) {
+  NSWindow* win = getNSWindow(wv);
+  if (!win) {
+    debug::warn("platformSetMaximumWindowSize: no native window");
+    return;
+  }
+  [win setMaxSize:NSMakeSize(w, h)];
+}
+
+void platformSetResizable(webview_t wv, bool on) {
+  NSWindow* win = getNSWindow(wv);
+  if (!win) {
+    debug::warn("platformSetResizable: no native window");
+    return;
+  }
+  win.styleMask = on ? (win.styleMask | NSWindowStyleMaskResizable)
+                     : (win.styleMask & ~NSWindowStyleMaskResizable);
+}
+
+}  // namespace coconut::window

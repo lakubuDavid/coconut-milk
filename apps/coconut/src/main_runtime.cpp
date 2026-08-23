@@ -166,6 +166,74 @@ namespace coconut::lua {
       end
       return { ok = false, error = "missing combo or binding" }
     end)
+
+    -- ── Window settings (Settings view) ──
+    -- All of these mutate window state that must live on the main thread,
+    -- so they are bound via bind_mt and answered by the Bridge's sync
+    -- executor instead of being queued to background workers.
+    ctx:bind_mt("set_window_title", function(params)
+      -- Live mutation via the window handle (config-only setters never
+      -- reach the native window after startup).
+      if ctx.window then ctx.window:setTitle(tostring(params.title or "")) end
+      return { ok = true }
+    end)
+    ctx:bind_mt("set_window_resizable", function(params)
+      if ctx.window then ctx.window:setResizable(params.resizable == true) end
+      return { ok = true }
+    end)
+    ctx:bind_mt("set_window_min_size", function(params)
+      if ctx.window then
+        ctx.window:setMinimumSize(tonumber(params.w) or 0, tonumber(params.h) or 0)
+      end
+      return { ok = true }
+    end)
+    ctx:bind_mt("set_window_max_size", function(params)
+      if ctx.window then
+        ctx.window:setMaximumSize(tonumber(params.w) or 0, tonumber(params.h) or 0)
+      end
+      return { ok = true }
+    end)
+    ctx:bind_mt("set_window_min_width", function(params)
+      if ctx.window then
+        local cur = ctx.configs and ctx.configs.window_min_height or 0
+        ctx.window:setMinimumSize(tonumber(params.width) or 0, cur)
+      end
+      return { ok = true }
+    end)
+    ctx:bind_mt("set_window_min_height", function(params)
+      if ctx.window then
+        local cur = ctx.configs and ctx.configs.window_min_width or 0
+        ctx.window:setMinimumSize(cur, tonumber(params.height) or 0)
+      end
+      return { ok = true }
+    end)
+    ctx:bind_mt("set_window_max_width", function(params)
+      if ctx.window then
+        local cur = ctx.configs and ctx.configs.window_max_height or 0
+        ctx.window:setMaximumSize(tonumber(params.width) or 0, cur)
+      end
+      return { ok = true }
+    end)
+    ctx:bind_mt("set_window_max_height", function(params)
+      if ctx.window then
+        local cur = ctx.configs and ctx.configs.window_max_width or 0
+        ctx.window:setMaximumSize(cur, tonumber(params.height) or 0)
+      end
+      return { ok = true }
+    end)
+    ctx:bind_mt("set_window_position", function(params)
+      if ctx.window then
+        ctx.window:setPosition(tonumber(params.x) or 0, tonumber(params.y) or 0)
+      end
+      return { ok = true }
+    end)
+    ctx:bind_mt("get_window_position", function()
+      if ctx.window then
+        local p = ctx.window:getPosition()
+        return { x = p.x, y = p.y }
+      end
+      return { x = 0, y = 0 }
+    end)
     ctx:bind_mt("store_set", function(params)
       local ok, err = pcall(coconut.store.set, params.key, params.value)
       if ok then return { ok = true } end
@@ -520,7 +588,29 @@ namespace coconut::lua {
         "setPosition",
         &CoconutWindowHandle::setPosition,
         "getPosition",
-        &CoconutWindowHandle::getPosition,
+        [](CoconutWindowHandle* h, sol::this_state s) -> sol::table {
+          // Wrap CoconutPoint as {x, y} table — raw struct pushes as
+          // opaque userdata with unreadable fields.
+          sol::state_view lv(s);
+          sol::table      t = lv.create_table();
+          if (h != nullptr) {
+            CoconutPoint p = h->getPosition();
+            t["x"]         = p.x;
+            t["y"]         = p.y;
+          } else {
+            t["x"] = 0;
+            t["y"] = 0;
+          }
+          return t;
+        },
+        "setTitle",
+        &CoconutWindowHandle::setTitle,
+        "setResizable",
+        &CoconutWindowHandle::setResizable,
+        "setMinimumSize",
+        &CoconutWindowHandle::setMinimumSize,
+        "setMaximumSize",
+        &CoconutWindowHandle::setMaximumSize,
         "move",
         std::move(moveHandle)
     );

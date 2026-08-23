@@ -1,7 +1,9 @@
 #ifndef COCONUT_PLATFORM_DARWIN_WINDOW_HANDLE_H
 #define COCONUT_PLATFORM_DARWIN_WINDOW_HANDLE_H
 
-#include "webview/api.h" // webview_t
+#include "webview/api.h"  // webview_t
+
+#include <string>
 
 namespace coconut {
   namespace window {
@@ -32,7 +34,17 @@ namespace coconut {
 
     /// Set window background color (0-1 range).
     void platformSetWindowBackgroundColor(webview_t wv, float r, float g, float b, float a);
-  }
-}
 
-#endif // COCONUT_PLATFORM_DARWIN_WINDOW_HANDLE_H
+    /// Set window title (live).
+    void platformSetWindowTitle(webview_t wv, const std::string& title);
+
+    /// Set minimum / maximum window size (live).
+    void platformSetMinimumWindowSize(webview_t wv, int w, int h);
+    void platformSetMaximumWindowSize(webview_t wv, int w, int h);
+
+    /// Toggle live resizability.
+    void platformSetResizable(webview_t wv, bool on);
+  }  // namespace window
+}  // namespace coconut
+
+#endif  // COCONUT_PLATFORM_DARWIN_WINDOW_HANDLE_H
