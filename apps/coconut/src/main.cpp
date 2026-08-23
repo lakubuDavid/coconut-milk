@@ -14,6 +14,7 @@
 #include "hotreload.h"
 #include "main_runtime.h"
 #include "modules/registry.h"
+#include "modules/store.h"
 #include "modules/window.h"
 #include "new_project.h"
 #include "permissions.h"
@@ -464,6 +465,9 @@ int main(int argc, char* argv[]) {
     // main run loop via dispatch::post, landing on this webview handle.
     coconut::modules::setWindowTarget(app->webview);
 
+    // Store module forwarding target — same mechanism for worker store ops.
+    coconut::modules::setStoreApp(app);
+
     // One CoconutContext per worker — each Lua VM binds its own handlers,
     // so registries must never be shared across workers.
     for (int i = 0; i < kWorkerCount; ++i) {
@@ -482,7 +486,9 @@ int main(int argc, char* argv[]) {
         coconut::core::WorkerPool::builder(kWorkerCount)
             .withModules(
                 coconut::modules::ModulesFlag::ThreadSafe |
-                coconut::modules::ModulesFlag::BG_STUBS | coconut::modules::ModulesFlag::WINDOW
+                coconut::modules::ModulesFlag::BG_STUBS | coconut::modules::ModulesFlag::WINDOW |
+                coconut::modules::ModulesFlag::CLIPBOARD | coconut::modules::ModulesFlag::NOTIFY |
+                coconut::modules::ModulesFlag::OPENURL | coconut::modules::ModulesFlag::DIALOG
             )
             .withOutputNotifier([&app] { coconut::dispatch::notify(app); })
             .withInitializer([&](coconut::core::Worker* w) -> std::optional<coconut::Error> {
