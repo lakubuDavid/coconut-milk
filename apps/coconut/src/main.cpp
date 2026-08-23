@@ -14,6 +14,7 @@
 #include "hotreload.h"
 #include "main_runtime.h"
 #include "modules/registry.h"
+#include "modules/window.h"
 #include "new_project.h"
 #include "permissions.h"
 #include "routes.h"
@@ -459,6 +460,10 @@ int main(int argc, char* argv[]) {
   {
     constexpr int kWorkerCount = 2;
 
+    // Window module target — workers marshal window mutations onto the
+    // main run loop via dispatch::post, landing on this webview handle.
+    coconut::modules::setWindowTarget(app->webview);
+
     // One CoconutContext per worker — each Lua VM binds its own handlers,
     // so registries must never be shared across workers.
     for (int i = 0; i < kWorkerCount; ++i) {
@@ -476,7 +481,8 @@ int main(int argc, char* argv[]) {
     auto   poolResult =
         coconut::core::WorkerPool::builder(kWorkerCount)
             .withModules(
-                coconut::modules::ModulesFlag::ThreadSafe | coconut::modules::ModulesFlag::BG_STUBS
+                coconut::modules::ModulesFlag::ThreadSafe |
+                coconut::modules::ModulesFlag::BG_STUBS | coconut::modules::ModulesFlag::WINDOW
             )
             .withOutputNotifier([&app] { coconut::dispatch::notify(app); })
             .withInitializer([&](coconut::core::Worker* w) -> std::optional<coconut::Error> {

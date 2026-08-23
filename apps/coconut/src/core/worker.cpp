@@ -18,6 +18,7 @@
 #include "modules/store.h"
 #include "modules/stubs.h"
 #include "modules/thread_kind.h"
+#include "modules/window.h"
 
 #include <atomic>
 #include <exception>
@@ -133,6 +134,8 @@ namespace coconut::core {
       modules::init_stubs(lua, modules::ThreadKind::Background);
     if (has(modules, F::BG_STUBS))
       modules::init_bg_stubs(lua, modules::ThreadKind::Background);
+    if (has(modules, F::WINDOW))
+      modules::init_window(lua, modules::ThreadKind::Background);
 
     return std::nullopt;
   }
