@@ -2,7 +2,6 @@
 
 #include "debug.h"
 #include "main_runtime.h"  // lua::dispatchViewLifecycleEvent
-#include "rpc_envelope.h"  // rpc::Message, rpc::Type
 #include "worker.h"        // WorkerPool — full type for queueMessage/Output
 
 #include <memory>
@@ -116,17 +115,17 @@ namespace coconut::core {
 
               if constexpr (std::is_same_v<T, ResolveMessage>) {
                 if (_Transport) {
-                  rpc::Message rpcMsg;
+                  JsRPCMessage rpcMsg;
                   rpcMsg.id      = std::to_string(o.id);
-                  rpcMsg.type    = rpc::Type::kReturn;
+                  rpcMsg.type    = RpcType::kReturn;
                   rpcMsg.payload = o.result;
                   _Transport->send(rpcMsg);
                 }
               } else if constexpr (std::is_same_v<T, RejectMessage>) {
                 if (_Transport) {
-                  rpc::Message rpcMsg;
+                  JsRPCMessage rpcMsg;
                   rpcMsg.id      = std::to_string(o.id);
-                  rpcMsg.type    = rpc::Type::kError;
+                  rpcMsg.type    = RpcType::kError;
                   rpcMsg.payload = {{"code", "WorkerError"}, {"message", o.error}};
                   _Transport->send(rpcMsg);
                 }

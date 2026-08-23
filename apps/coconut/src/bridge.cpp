@@ -66,13 +66,13 @@ namespace coconut::bridge {
     }
   }
 
-  static void dispatchRpcEventToLua(coconut::App* app, const rpc::Message& msg) {
+  static void dispatchRpcEventToLua(coconut::App* app, const coconut::core::JsRPCMessage& msg) {
     dispatchEventToLua(app, msg.name, msg.payload);
   }
 
   /// Route an incoming kCall RPC message to the command registry.
   /// Sends a kReturn or kError response through the transport.
-  static void dispatchRpcCallToLua(coconut::App* app, const rpc::Message& msg) {
+  static void dispatchRpcCallToLua(coconut::App* app, const coconut::core::JsRPCMessage& msg) {
     if (app == nullptr || app->commands == nullptr || app->lua_state == nullptr ||
         app->lua_state->lua_state == nullptr) {
       return;
@@ -84,14 +84,14 @@ namespace coconut::bridge {
         lua, app->commands->handlers, msg.name, msg.payload, app->lua_state->context
     );
 
-    rpc::Message reply;
+    coconut::core::JsRPCMessage reply;
     reply.id = msg.id;
 
     if (result.ok) {
-      reply.type    = rpc::Type::kReturn;
+      reply.type    = coconut::core::RpcType::kReturn;
       reply.payload = result.data;
     } else {
-      reply.type = rpc::Type::kError;
+      reply.type = coconut::core::RpcType::kError;
       debug::warn(std::format(
           "bridge: cmd '{}' failed: {}", msg.name, result.data.value("message", "unknown error")
       ));
@@ -107,8 +107,8 @@ namespace coconut::bridge {
 
   void emitToJS(coconut::App* app, std::string eventName, nlohmann::json payload) {
     // Route through the transport as an RPC event.
-    rpc::Message msg;
-    msg.type    = rpc::Type::kEvent;
+    coconut::core::JsRPCMessage msg;
+    msg.type    = coconut::core::RpcType::kEvent;
     msg.name    = std::move(eventName);
     msg.payload = std::move(payload);
     rpcSend(app, msg);
@@ -215,7 +215,7 @@ globalThis.__coconut_bridge_ready();
     // kReady fires automatically via webview_init script.
   }
 
-  void rpcSend(coconut::App* app, const rpc::Message& msg) {
+  void rpcSend(coconut::App* app, const coconut::core::JsRPCMessage& msg) {
     if (app == nullptr || app->bridge_state == nullptr || app->bridge_state->transport == nullptr) {
       return;
     }

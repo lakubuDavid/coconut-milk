@@ -2,9 +2,8 @@
 #define CORE_BRIDGE_H
 
 #include "error.h"
-#include "messages.h"      // CommandCallMessage
-#include "rpc_envelope.h"  // rpc::Message
-#include "transport.h"     // transport::Transport
+#include "messages.h"   // CommandCallMessage, JsRPCMessage
+#include "transport.h"  // transport::Transport
 
 #include <nlohmann/json.hpp>
 #include <sol/state_view.hpp>
@@ -12,6 +11,7 @@
 #include <expected>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 
 namespace coconut::core {
@@ -21,8 +21,8 @@ namespace coconut::core {
   /// Fluent builder for Bridge. Each `with*` step configures a dependency;
   /// `build()` validates and constructs the Bridge instance.
   struct BridgeBuilder {
-    std::shared_ptr<transport::Transport> TransportPtr;        ///< shared with Dispatcher
-    sol::state_view                       LuaState = nullptr;  ///< borrowed (App-owned)
+    std::shared_ptr<transport::Transport> TransportPtr;  ///< shared with Dispatcher
+    std::optional<sol::state_view>        LuaState;      ///< set via withLuaState
 
     /// Share the webview transport (also used by the Dispatcher).
     BridgeBuilder& withTransport(std::shared_ptr<transport::Transport> transport);
@@ -71,7 +71,7 @@ namespace coconut::core {
     void emitToJS(const std::string& eventName, const nlohmann::json& payload);
 
     /// Send a raw RPC envelope to the frontend via the transport.
-    void rpcSend(const rpc::Message& msg);
+    void rpcSend(const JsRPCMessage& msg);
   };
 
 }  // namespace coconut::core

@@ -44,12 +44,12 @@ namespace coconut::bridge {
     m_app     = nullptr;
   }
 
-  void WebviewTransport::send(const rpc::Message& msg) {
+  void WebviewTransport::send(const coconut::core::JsRPCMessage& msg) {
     if (!m_webview)
       return;
 
     switch (msg.type) {
-      case rpc::Type::kEvent: {
+      case coconut::core::RpcType::kEvent: {
         auto payloadStr =
             msg.payload.is_null()
                 ? "{}"
@@ -61,30 +61,26 @@ namespace coconut::bridge {
         webview_eval(m_webview, script.c_str());
         break;
       }
-      case rpc::Type::kReturn:
-      case rpc::Type::kError: {
+      case coconut::core::RpcType::kReturn:
+      case coconut::core::RpcType::kError: {
         auto json    = msg.toJson().dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
         auto escaped = common::escapeString(json, '\'');
         auto script  = std::format("globalThis.__coconut_rpc_receive('{}');", escaped);
         webview_eval(m_webview, script.c_str());
         break;
       }
-      case rpc::Type::kCall: {
+      case coconut::core::RpcType::kCall: {
         auto payloadStr =
             msg.payload.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
         auto script = std::format("globalThis['{}']({});", msg.name, payloadStr);
         webview_eval(m_webview, script.c_str());
         break;
       }
-      case rpc::Type::kReady: {
+      case coconut::core::RpcType::kReady: {
         // Handled by webview_init() — no eval needed.
         break;
       }
     }
-  }
-
-  void WebviewTransport::send(const coconut::core::JsCallMessage& msg) {
-    send(msg.Message);
   }
 
   void WebviewTransport::setMessageCallback(transport::MessageCallback cb) {
@@ -115,13 +111,13 @@ namespace coconut::bridge {
     if (msgJson.empty())
       return;
 
-    auto msg = rpc::Message::fromJson(msgJson);
+    auto msg = coconut::core::JsRPCMessage::fromJson(msgJson);
 
     switch (msg.type) {
-      case rpc::Type::kCall:
+      case coconut::core::RpcType::kCall:
         self->handleCall(id, msg);
         break;
-      case rpc::Type::kEvent:
+      case coconut::core::RpcType::kEvent:
         self->handleEvent(id, msg);
         break;
       default:
@@ -154,7 +150,7 @@ namespace coconut::bridge {
     );
   }
 
-  void WebviewTransport::handleCall(const char* id, const rpc::Message& msg) {
+  void WebviewTransport::handleCall(const char* id, const coconut::core::JsRPCMessage& msg) {
     // Always log payload to debug command dispatch
     std::string payloadPreview;
     try {
@@ -247,7 +243,7 @@ namespace coconut::bridge {
     respond(envelope);
   }
 
-  void WebviewTransport::handleEvent(const char* id, const rpc::Message& msg) {
+  void WebviewTransport::handleEvent(const char* id, const coconut::core::JsRPCMessage& msg) {
     if (m_app && m_app->configs && m_app->configs->debug.showTransportDump) {
       std::string eventPayloadPreview;
       try {

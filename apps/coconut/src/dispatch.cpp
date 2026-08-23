@@ -7,6 +7,7 @@
 
 #include <nlohmann/json.hpp>
 #include "common.h"
+#include "core/messages.h"  // JsRPCMessage
 
 #include <format>
 
@@ -186,13 +187,13 @@ namespace coconut::dispatch {
             std::string callId(msg->payload.data(), pipe);
             std::string resultJson(msg->payload.data() + pipe + 1, msg->payload.size() - pipe - 1);
 
-            rpc::Message rpcMsg;
+            coconut::core::JsRPCMessage rpcMsg;
             rpcMsg.id   = callId;
-            rpcMsg.type = rpc::Type::kReturn;
+            rpcMsg.type = coconut::core::RpcType::kReturn;
             try {
               rpcMsg.payload = nlohmann::json::parse(resultJson);
             } catch (...) {
-              rpcMsg.type    = rpc::Type::kError;
+              rpcMsg.type    = coconut::core::RpcType::kError;
               rpcMsg.payload = {{"code", "ParseError"}, {"message", "bg result parse error"}};
             }
             bridge::rpcSend(app, rpcMsg);

@@ -1,4 +1,5 @@
 #include "bridge.h"
+#include "common.h"
 #include "config.h"
 #include "test.h"
 
@@ -30,45 +31,45 @@ COCONUT_TEST(unit, bridge_state_create_null_config) {
   COCONUT_REQUIRE(!result.has_value());
 }
 
-// ── JS string escaping ────────────────────────────────────────────────
+// ── JS string escaping (consolidated into common::escapeString) ─────
 
 COCONUT_TEST(unit, bridge_escape_js_single_quoted_empty) {
-  auto result = coconut::bridge::escapeJsSingleQuotedString("");
+  auto result = coconut::common::escapeString("", '\'');
   COCONUT_REQUIRE(result.empty());
 }
 
 COCONUT_TEST(unit, bridge_escape_js_single_quoted_plain) {
-  auto result = coconut::bridge::escapeJsSingleQuotedString("hello");
+  auto result = coconut::common::escapeString("hello", '\'');
   COCONUT_REQUIRE_EQ(result, std::string("hello"));
 }
 
 COCONUT_TEST(unit, bridge_escape_js_single_quoted_backslash) {
-  auto result = coconut::bridge::escapeJsSingleQuotedString("a\\b");
+  auto result = coconut::common::escapeString("a\\b", '\'');
   COCONUT_REQUIRE_EQ(result, std::string("a\\\\b"));
 }
 
 COCONUT_TEST(unit, bridge_escape_js_single_quoted_quote) {
-  auto result = coconut::bridge::escapeJsSingleQuotedString("it's");
+  auto result = coconut::common::escapeString("it's", '\'');
   COCONUT_REQUIRE_EQ(result, std::string("it\\'s"));
 }
 
 COCONUT_TEST(unit, bridge_escape_js_single_quoted_newline) {
-  auto result = coconut::bridge::escapeJsSingleQuotedString("a\nb");
+  auto result = coconut::common::escapeString("a\nb", '\'');
   COCONUT_REQUIRE_EQ(result, std::string("a\\nb"));
 }
 
 COCONUT_TEST(unit, bridge_escape_js_single_quoted_carriage) {
-  auto result = coconut::bridge::escapeJsSingleQuotedString("a\rb");
+  auto result = coconut::common::escapeString("a\rb", '\'');
   COCONUT_REQUIRE_EQ(result, std::string("a\\rb"));
 }
 
 COCONUT_TEST(unit, bridge_escape_js_single_quoted_tab) {
-  auto result = coconut::bridge::escapeJsSingleQuotedString("a\tb");
+  auto result = coconut::common::escapeString("a\tb", '\'');
   COCONUT_REQUIRE_EQ(result, std::string("a\\tb"));
 }
 
 COCONUT_TEST(unit, bridge_escape_js_single_quoted_complex) {
-  auto result = coconut::bridge::escapeJsSingleQuotedString("it's a \"test\"\nwith\\backslash");
+  auto result = coconut::common::escapeString("it's a \"test\"\nwith\\backslash", '\'');
   COCONUT_REQUIRE_EQ(result, std::string("it\\'s a \"test\"\\nwith\\\\backslash"));
 }
 
@@ -83,6 +84,6 @@ COCONUT_TEST(unit, bridge_json_to_table_null_json) {
 }
 
 COCONUT_TEST(unit, bridge_escape_js_empty_string) {
-  auto result = coconut::bridge::escapeJsSingleQuotedString("");
+  auto result = coconut::common::escapeString("", '\'');
   COCONUT_REQUIRE(result.empty());
 }

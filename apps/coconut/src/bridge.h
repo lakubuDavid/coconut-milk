@@ -44,7 +44,7 @@ namespace coconut {
     void createTransport(App* app);
 
     /// Send an RPC message through the bridge state's transport.
-    void rpcSend(App* app, const rpc::Message& msg);
+    void rpcSend(App* app, const coconut::core::JsRPCMessage& msg);
 
     /// Signal the frontend that the bridge is ready.
     /// Called after the window is shown and JS has loaded.

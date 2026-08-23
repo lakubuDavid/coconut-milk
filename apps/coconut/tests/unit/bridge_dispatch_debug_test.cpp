@@ -18,11 +18,10 @@ COCONUT_TEST(unit, rpc_message_default) {
 
 COCONUT_TEST(unit, rpc_message_with_values) {
   coconut::rpc::Message msg{
-    .type = coconut::rpc::Type::kReturn,
-    .id = "42",
-    .name = "ping",
-    .payload = {{"key", "value"}}
-  };
+      .type    = coconut::rpc::Type::kReturn,
+      .id      = "42",
+      .name    = "ping",
+      .payload = {{"key", "value"}}};
   COCONUT_REQUIRE_EQ(msg.type, coconut::rpc::Type::kReturn);
   COCONUT_REQUIRE_EQ(msg.id, std::string("42"));
   COCONUT_REQUIRE_EQ(msg.name, std::string("ping"));
@@ -36,28 +35,30 @@ COCONUT_TEST(unit, rpc_type_values) {
   auto evt   = coconut::rpc::Type::kEvent;
   auto ready = coconut::rpc::Type::kReady;
 
-  COCONUT_REQUIRE(call  != ret);
-  COCONUT_REQUIRE(ret   != err);
-  COCONUT_REQUIRE(err   != evt);
-  COCONUT_REQUIRE(evt   != ready);
+  COCONUT_REQUIRE(call != ret);
+  COCONUT_REQUIRE(ret != err);
+  COCONUT_REQUIRE(err != evt);
+  COCONUT_REQUIRE(evt != ready);
 }
 
 // ── RPC type serialization ────────────────────────────────────────────
 
 COCONUT_TEST(unit, rpc_type_to_string) {
-  COCONUT_REQUIRE_EQ(coconut::rpc::typeToString(coconut::rpc::Type::kCall),   std::string("call"));
-  COCONUT_REQUIRE_EQ(coconut::rpc::typeToString(coconut::rpc::Type::kReturn), std::string("return"));
-  COCONUT_REQUIRE_EQ(coconut::rpc::typeToString(coconut::rpc::Type::kError),  std::string("error"));
-  COCONUT_REQUIRE_EQ(coconut::rpc::typeToString(coconut::rpc::Type::kEvent),  std::string("event"));
-  COCONUT_REQUIRE_EQ(coconut::rpc::typeToString(coconut::rpc::Type::kReady),  std::string("ready"));
+  COCONUT_REQUIRE_EQ(coconut::rpc::typeToString(coconut::rpc::Type::kCall), std::string("call"));
+  COCONUT_REQUIRE_EQ(
+      coconut::rpc::typeToString(coconut::rpc::Type::kReturn), std::string("return")
+  );
+  COCONUT_REQUIRE_EQ(coconut::rpc::typeToString(coconut::rpc::Type::kError), std::string("error"));
+  COCONUT_REQUIRE_EQ(coconut::rpc::typeToString(coconut::rpc::Type::kEvent), std::string("event"));
+  COCONUT_REQUIRE_EQ(coconut::rpc::typeToString(coconut::rpc::Type::kReady), std::string("ready"));
 }
 
 COCONUT_TEST(unit, rpc_type_from_string) {
-  COCONUT_REQUIRE_EQ(coconut::rpc::typeFromString("call"),   coconut::rpc::Type::kCall);
+  COCONUT_REQUIRE_EQ(coconut::rpc::typeFromString("call"), coconut::rpc::Type::kCall);
   COCONUT_REQUIRE_EQ(coconut::rpc::typeFromString("return"), coconut::rpc::Type::kReturn);
-  COCONUT_REQUIRE_EQ(coconut::rpc::typeFromString("error"),  coconut::rpc::Type::kError);
-  COCONUT_REQUIRE_EQ(coconut::rpc::typeFromString("event"),  coconut::rpc::Type::kEvent);
-  COCONUT_REQUIRE_EQ(coconut::rpc::typeFromString("ready"),  coconut::rpc::Type::kReady);
+  COCONUT_REQUIRE_EQ(coconut::rpc::typeFromString("error"), coconut::rpc::Type::kError);
+  COCONUT_REQUIRE_EQ(coconut::rpc::typeFromString("event"), coconut::rpc::Type::kEvent);
+  COCONUT_REQUIRE_EQ(coconut::rpc::typeFromString("ready"), coconut::rpc::Type::kReady);
 }
 
 COCONUT_TEST(unit, rpc_type_from_unknown_returns_event) {
@@ -72,11 +73,7 @@ COCONUT_TEST(unit, rpc_type_from_empty_returns_event) {
 
 COCONUT_TEST(unit, rpc_message_to_json) {
   coconut::rpc::Message msg{
-    .type = coconut::rpc::Type::kCall,
-    .id = "1",
-    .name = "ping",
-    .payload = {{"arg", 42}}
-  };
+      .type = coconut::rpc::Type::kCall, .id = "1", .name = "ping", .payload = {{"arg", 42}}};
   nlohmann::json j = msg.toJson();
   COCONUT_REQUIRE_EQ(j["type"], std::string("call"));
   COCONUT_REQUIRE_EQ(j["id"], std::string("1"));
@@ -86,11 +83,7 @@ COCONUT_TEST(unit, rpc_message_to_json) {
 
 COCONUT_TEST(unit, rpc_message_from_json) {
   nlohmann::json j = {
-    {"type", "return"},
-    {"id", "42"},
-    {"name", "getConfig"},
-    {"payload", {{"result", "ok"}}}
-  };
+      {"type", "return"}, {"id", "42"}, {"name", "getConfig"}, {"payload", {{"result", "ok"}}}};
   auto msg = coconut::rpc::Message::fromJson(j);
   COCONUT_REQUIRE_EQ(msg.type, coconut::rpc::Type::kReturn);
   COCONUT_REQUIRE_EQ(msg.id, std::string("42"));
@@ -100,12 +93,9 @@ COCONUT_TEST(unit, rpc_message_from_json) {
 
 COCONUT_TEST(unit, rpc_message_roundtrip) {
   coconut::rpc::Message original{
-    .type = coconut::rpc::Type::kEvent,
-    .name = "update",
-    .payload = {{"count", 5}}
-  };
-  nlohmann::json j = original.toJson();
-  auto restored = coconut::rpc::Message::fromJson(j);
+      .type = coconut::rpc::Type::kEvent, .name = "update", .payload = {{"count", 5}}};
+  nlohmann::json j        = original.toJson();
+  auto           restored = coconut::rpc::Message::fromJson(j);
   COCONUT_REQUIRE_EQ(restored.type, original.type);
   COCONUT_REQUIRE_EQ(restored.name, original.name);
   COCONUT_REQUIRE_EQ(restored.payload["count"], 5);
@@ -113,7 +103,7 @@ COCONUT_TEST(unit, rpc_message_roundtrip) {
 
 COCONUT_TEST(unit, rpc_message_from_json_null) {
   nlohmann::json j;
-  auto msg = coconut::rpc::Message::fromJson(j);
+  auto           msg = coconut::rpc::Message::fromJson(j);
   COCONUT_REQUIRE_EQ(msg.type, coconut::rpc::Type::kEvent);
   COCONUT_REQUIRE(msg.id.empty());
 }
@@ -129,8 +119,8 @@ COCONUT_TEST(unit, rpc_message_from_json_invalid) {
 }
 
 COCONUT_TEST(unit, rpc_message_from_json_partial) {
-  nlohmann::json j = {{"type", "error"}};
-  auto msg = coconut::rpc::Message::fromJson(j);
+  nlohmann::json j   = {{"type", "error"}};
+  auto           msg = coconut::rpc::Message::fromJson(j);
   COCONUT_REQUIRE_EQ(msg.type, coconut::rpc::Type::kError);
   COCONUT_REQUIRE(msg.id.empty());
   COCONUT_REQUIRE(msg.name.empty());
@@ -154,7 +144,7 @@ COCONUT_TEST(unit, bridge_emit_to_js_empty_event) {
 }
 
 COCONUT_TEST(unit, bridge_rpc_send_null_app) {
-  coconut::bridge::rpcSend(nullptr, coconut::rpc::Message{});
+  coconut::bridge::rpcSend(nullptr, coconut::core::JsRPCMessage{});
 }
 
 COCONUT_TEST(unit, bridge_signal_ready_null_app) {

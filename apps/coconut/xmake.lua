@@ -150,6 +150,9 @@ target("tests")
     add_files("src/permissions.cpp")
     add_files("src/modules/*.cpp")
     add_files("tests/*.cpp", "tests/**/*.cpp")
+    -- Module-test mains have their own binaries (test_modules_*); keep them
+    -- out of the aggregate test binary to avoid duplicate main()/symbols.
+    remove_files("tests/modules/**/*.cpp")
     add_packages("sol2", "luajit", "nlohmann_json", "lunasvg")
     add_deps("webview")
 

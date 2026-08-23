@@ -1,7 +1,6 @@
 #include "bridge.h"
 #include "common.h"
 #include "debug.h"
-#include "rpc_envelope.h"  // rpc::Message, rpc::Type
 
 #include <format>
 #include <string>
@@ -16,7 +15,7 @@ namespace coconut::core {
   }
 
   BridgeBuilder& BridgeBuilder::withLuaState(sol::state_view lua) {
-    LuaState = lua;
+    LuaState.emplace(lua);
     return *this;
   }
 
@@ -26,12 +25,12 @@ namespace coconut::core {
           .code = ErrorCode::InvalidConfig, .message = "BridgeBuilder::build: transport is null"});
     }
 
-    if (!LuaState.lua_state()) {
+    if (!LuaState.has_value() || !LuaState->lua_state()) {
       return std::unexpected(coconut::Error{
           .code = ErrorCode::InvalidConfig, .message = "BridgeBuilder::build: Lua state is null"});
     }
 
-    return std::unique_ptr<Bridge>(new Bridge(std::move(TransportPtr), LuaState));
+    return std::unique_ptr<Bridge>(new Bridge(std::move(TransportPtr), *LuaState));
   }
 
   // ── Bridge ──────────────────────────────────────────────────────────
@@ -82,7 +81,7 @@ namespace coconut::core {
 
   // ── Outbound: C++ → JS ──────────────────────────────────────────────
 
-  void Bridge::rpcSend(const rpc::Message& msg) {
+  void Bridge::rpcSend(const JsRPCMessage& msg) {
     if (_Transport) {
       _Transport->send(msg);
     }
@@ -96,8 +95,8 @@ namespace coconut::core {
 
     // Forward as an RPC event envelope; the transport maps kEvent →
     // globalThis.__coconut_dispatch_event(name, payloadJson).
-    rpc::Message rpcMsg;
-    rpcMsg.type    = rpc::Type::kEvent;
+    JsRPCMessage rpcMsg;
+    rpcMsg.type    = RpcType::kEvent;
     rpcMsg.name    = eventName;
     rpcMsg.payload = payload;
     rpcSend(rpcMsg);

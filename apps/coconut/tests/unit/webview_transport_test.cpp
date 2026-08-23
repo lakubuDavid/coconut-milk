@@ -1,5 +1,5 @@
-#include "test.h"
 #include "webview_transport.h"
+#include "test.h"
 
 #include <string>
 
@@ -15,8 +15,8 @@
 COCONUT_TEST(unit, webview_transport_header_includes) {
   // Verify the transport namespace and types are accessible
   using coconut::bridge::WebviewTransport;
-  using coconut::transport::Transport;
   using coconut::transport::MessageCallback;
+  using coconut::transport::Transport;
 
   // The types exist and are meaningful
   bool is_transport = std::is_base_of<Transport, WebviewTransport>::value;
@@ -38,9 +38,7 @@ COCONUT_TEST(unit, webview_transport_set_message_callback) {
 
   // Setting a valid callback should also not crash
   bool called = false;
-  transport.setMessageCallback([&called](const coconut::rpc::Message&) {
-    called = true;
-  });
+  transport.setMessageCallback([&called](const coconut::core::JsRPCMessage&) { called = true; });
   // (message callback won't fire without a real webview)
 }
 
@@ -51,14 +49,13 @@ COCONUT_TEST(unit, webview_transport_rpc_types) {
   // (they are defined in rpc_envelope.h, included by webview_transport.h)
 
   coconut::rpc::Message msg;
-  msg.id = "test-1";
-  msg.type = coconut::rpc::Type::kCall;
-  msg.name = "my_command";
+  msg.id      = "test-1";
+  msg.type    = coconut::rpc::Type::kCall;
+  msg.name    = "my_command";
   msg.payload = nullptr;
 
   COCONUT_REQUIRE_EQ(msg.id, std::string("test-1"));
-  COCONUT_REQUIRE_EQ(static_cast<int>(msg.type),
-                     static_cast<int>(coconut::rpc::Type::kCall));
+  COCONUT_REQUIRE_EQ(static_cast<int>(msg.type), static_cast<int>(coconut::rpc::Type::kCall));
   COCONUT_REQUIRE_EQ(msg.name, std::string("my_command"));
 }
 

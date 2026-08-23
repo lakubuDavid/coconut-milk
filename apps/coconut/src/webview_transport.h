@@ -43,10 +43,7 @@ namespace coconut::bridge {
     ~WebviewTransport() override;
 
     /// Send an RPC message to the frontend via webview_eval().
-    void send(const rpc::Message& msg) override;
-
-    /// Send a core::JsCallMessage, unwrapping its rpc::Message envelope.
-    void send(const coconut::core::JsCallMessage& msg);
+    void send(const coconut::core::JsRPCMessage& msg) override;
 
     /// Register the callback for messages received from the frontend.
     void setMessageCallback(transport::MessageCallback cb) override;
@@ -64,10 +61,10 @@ namespace coconut::bridge {
     static void static_list_views(const char* id, const char* req, void* arg);
 
     /// Handle an inbound kCall: invoke Lua command, respond via webview_return.
-    void handleCall(const char* id, const rpc::Message& msg);
+    void handleCall(const char* id, const coconut::core::JsRPCMessage& msg);
 
     /// Handle an inbound kEvent: dispatch to Lua, respond via webview_return.
-    void handleEvent(const char* id, const rpc::Message& msg);
+    void handleEvent(const char* id, const coconut::core::JsRPCMessage& msg);
 
     /// Resolve a background command result using the stored webview callback ID.
     /// Called by dispatch::drain() when a CommandResult arrives from the bg thread.
