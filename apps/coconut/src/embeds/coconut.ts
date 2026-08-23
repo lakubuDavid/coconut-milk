@@ -166,13 +166,20 @@ const coconut = {
     }
   },
 
-  emit: async (event: Record<string, unknown>) : Promise<void> => {
+  emit: async (
+    event: Record<string, unknown> | string,
+    legacyPayload?: Record<string, unknown>
+  ) : Promise<void> => {
     await coconut.ready()
-    const name = event.name as string
+    // Legacy positional form: emit('name', {payload}) — normalised to the
+    // canonical object form so older apps keep working.
+    const ev: Record<string, unknown> =
+      typeof event === 'string' ? { name: event, ...(legacyPayload ?? {}) } : event
+    const name = ev.name as string
     if (!name) throw new Error("event must have a 'name' field")
 
     // Separate name from rest of payload
-    const { name: _, ...payload } = event
+    const { name: _, ...payload } = ev
     const payloadJson = _stringifyPayload(payload)
 
     // ack envelope is optional; if you return a JSON envelope string from C++, we parse it.

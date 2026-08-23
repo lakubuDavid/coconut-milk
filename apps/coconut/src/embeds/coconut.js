@@ -92,12 +92,13 @@ var coconut = {
         entries.splice(idx, 1);
     };
   },
-  emit: async (event) => {
+  emit: async (event, legacyPayload) => {
     await coconut.ready();
-    const name = event.name;
+    const ev = typeof event === "string" ? { name: event, ...legacyPayload ?? {} } : event;
+    const name = ev.name;
     if (!name)
       throw new Error("event must have a 'name' field");
-    const { name: _, ...payload } = event;
+    const { name: _, ...payload } = ev;
     const payloadJson = _stringifyPayload(payload);
     const ack = await __coconut_emit(name, payloadJson);
     if (!ack || ack.length === 0)
@@ -392,49 +393,37 @@ coconut.getKeybinds = () => {
   return result;
 };
 globalThis.coconut = coconut;
-
-// ── JS error forwarding (global uncaught exceptions) ───────────────────────
-
-let _pendingErrors = [];
-
+var _pendingErrors = [];
 function _flushPendingErrors() {
   const pending = _pendingErrors;
   _pendingErrors = [];
   for (const err of pending) {
-    coconut.call('_js_log', err).catch(() => {});
+    coconut.call("_js_log", err).catch(() => {});
   }
 }
-
 window.onerror = (_event, _source, _lineno, _colno, _error) => {
-  const msg = typeof _event === 'string' ? _event : (_event?.toString() ?? 'Unknown script error');
-  const stack = _error?.stack || `${_source ?? '?'}:${_lineno ?? 0}:${_colno ?? 0}`;
-  const entry = { level: 'error', message: `[JS] ${msg}`, stack };
-
+  const msg = typeof _event === "string" ? _event : _event?.toString() ?? "Unknown script error";
+  const stack = _error?.stack || `${_source ?? "?"}:${_lineno ?? 0}:${_colno ?? 0}`;
+  const entry = { level: "error", message: `[JS] ${msg}`, stack };
   if (!_ready) {
     _pendingErrors.push(entry);
     return false;
   }
-
-  coconut.call('_js_log', entry).catch(() => {});
+  coconut.call("_js_log", entry).catch(() => {});
   return false;
 };
-
-window.addEventListener('unhandledrejection', (e) => {
+window.addEventListener("unhandledrejection", (e) => {
   const reason = e.reason;
   const msg = reason?.message ?? String(reason);
-  const stack = reason?.stack ?? '';
-  const entry = { level: 'error', message: `[JS] Unhandled Promise rejection: ${msg}`, stack };
-
+  const stack = reason?.stack ?? "";
+  const entry = { level: "error", message: `[JS] Unhandled Promise rejection: ${msg}`, stack };
   if (!_ready) {
     _pendingErrors.push(entry);
     return;
   }
-
-  coconut.call('_js_log', entry).catch(() => {});
+  coconut.call("_js_log", entry).catch(() => {});
 });
-
 coconut.ready().then(() => _flushPendingErrors());
-
 keybind({ mac: "mod+q", win: "alt+f4", linux: "alt+f4" }, () => {
   coconut.window.close();
 }, { id: "coconut.window.close", description: "Close window" });

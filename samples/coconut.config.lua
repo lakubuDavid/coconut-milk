@@ -12,7 +12,5 @@ return {
   views = {
     home = { kind = "file", src = "views/home.html" },
     note = { kind = "file", src = "views/note.html" },
-    about = { kind = "html", src = "<h1>About Coconut</h1><p>A minimal Lua desktop UI framework.</p>" },
-    external = { kind = "url", src = "https://lakubudavid.me" }
-  }
+    about = { kind = "html", src = "<h1>About Coconut</h1><p>A minimal Lua desktop UI framework.</p>" },  }
 }

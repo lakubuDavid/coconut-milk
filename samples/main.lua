@@ -7,7 +7,6 @@ function coconut.views()
     note = View.load("views/note.html"),
     commands=View.load("views/commands.html"),
     settings=View.load("views/settings.html"),
-    external = View.url("https://lakubudavid.me"),
   }
 end
 

@@ -123,7 +123,9 @@ globalThis.__coconut_rpc_receive = function(msgJson) {
   if (m.type === 'error') {
     pending.reject(m.payload && m.payload.error ? m.payload.error : m.payload);
   } else {
-    pending.resolve(m.payload);
+    // coconut.call() expects __coconut_call to return a JSON STRING of the
+    // {ok,data}/{ok,error} envelope (it JSON.parses it) — stringify here.
+    pending.resolve(JSON.stringify(m.payload));
   }
 };
 

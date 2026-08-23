@@ -26,7 +26,7 @@ function doClose() {
       lastX = e.screenX;
       lastY = e.screenY;
       if (window.coconut && window.coconut.emit)
-        window.coconut.emit('grab_start', {});
+        window.coconut.emit({ name: 'grab_start' });
     });
   }
 
@@ -37,14 +37,14 @@ function doClose() {
     lastX = e.screenX;
     lastY = e.screenY;
     if (window.coconut && window.coconut.emit)
-      window.coconut.emit('move', { dx, dy });
+      window.coconut.emit({ name: 'move', dx, dy });
   });
 
   document.addEventListener('mouseup', () => {
     if (!grabbing) return;
     grabbing = false;
     if (window.coconut && window.coconut.emit)
-      window.coconut.emit('grab_end', {});
+      window.coconut.emit({ name: 'grab_end' });
   });
 })();
 
@@ -79,7 +79,7 @@ function doClose() {
             e.preventDefault();
             const view = a.dataset.view;
             if (window.coconut && window.coconut.emit)
-              window.coconut.emit('navigate', { view });
+              window.coconut.emit({ name: 'navigate', view });
           });
         });
         continue;
@@ -95,7 +95,7 @@ function doClose() {
         a.addEventListener('click', (e) => {
           e.preventDefault();
           if (window.coconut && window.coconut.emit)
-            window.coconut.emit('navigate', { view: name });
+            window.coconut.emit({ name: 'navigate', view: name });
           // Update active class
           nav.querySelectorAll('a[data-view]').forEach(link => link.classList.remove('active'));
           a.classList.add('active');
