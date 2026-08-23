@@ -1,6 +1,7 @@
 #ifndef BRIDGE_H
 #define BRIDGE_H
 
+#include "common.h"
 #include "config.h"
 #include "error.h"
 #include "rpc_envelope.h"
@@ -21,20 +22,21 @@ namespace coconut {
   namespace bridge {
 
     struct State {
-      Config*                   configs    = nullptr;
-      transport::Transport*     transport  = nullptr; ///< owned, deleted in destroy()
-      store::Store*             store      = nullptr; ///< owned, deleted in destroy()
+      Config*               configs   = nullptr;
+      transport::Transport* transport = nullptr;  ///< owned, deleted in destroy()
+      store::Store*         store     = nullptr;  ///< owned, deleted in destroy()
     };
 
     std::expected<State*, Error> create(Config* config);
     void                         destroy(State* state);
 
     /// Dispatch a named event + JSON payload through coconut._dispatch().
-    void dispatchEventToLua(coconut::App* app, const std::string& name,
-                            const nlohmann::json& payload);
+    void dispatchEventToLua(
+        coconut::App* app, const std::string& name, const nlohmann::json& payload
+    );
 
-    void emitToJS(coconut::App* app,std::string eventName,nlohmann::json payload);
-    void callJS(coconut::App* app,std::string functionName,nlohmann::json payload);
+    void emitToJS(coconut::App* app, std::string eventName, nlohmann::json payload);
+    void callJS(coconut::App* app, std::string functionName, nlohmann::json payload);
 
     /// Create a transport for the given app and store it on the bridge State.
     /// Registers the frontend-side binding and injects the JS adapter.
@@ -47,31 +49,6 @@ namespace coconut {
     /// Signal the frontend that the bridge is ready.
     /// Called after the window is shown and JS has loaded.
     void signalReady(App* app);
-
-    // Convert json object/array to a lua table.
-    // Requires a Lua state to allocate the sol::table.
-    sol::table toTable(sol::state_view lua, const nlohmann::json& json);
-    sol::table toTable(sol::state_view lua, const std::string& json);
-
-    // Convert lua table to a json value.
-    nlohmann::json toJson(const sol::table& table);
-
-  // ── Utility: escape a string for embedding in a single-quoted JS string ──
-  inline std::string escapeJsSingleQuotedString(std::string_view s) {
-    std::string out;
-    out.reserve(s.size());
-    for (char c : s) {
-      switch (c) {
-        case '\\': out += "\\\\"; break;
-        case '\'': out += "\\'"; break;
-        case '\n': out += "\\n"; break;
-        case '\r': out += "\\r"; break;
-        case '\t': out += "\\t"; break;
-        default:   out += c;      break;
-      }
-    }
-    return out;
-  }
 
   }  // namespace bridge
 }  // namespace coconut

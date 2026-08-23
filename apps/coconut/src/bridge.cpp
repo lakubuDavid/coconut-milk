@@ -1,11 +1,12 @@
 #include "bridge.h"
 #include "app.h"
+#include "common.h"
 #include "core/exec_command.h"
 #include "debug.h"
+#include "embeds/coconut_embed.h"
 #include "main_runtime.h"
 #include "modules/json.h"
 #include "webview_transport.h"
-#include "embeds/coconut_embed.h"
 
 #include <format>
 #include <iostream>
@@ -14,176 +15,143 @@
 
 namespace coconut::bridge {
 
-std::expected<State *, Error> create(Config *config) {
-  if (!config) {
-    return std::unexpected(Error{
-      .code = ErrorCode::InvalidConfig,
-      .message = "bridge::create: config is null"});
+  std::expected<State*, Error> create(Config* config) {
+    if (!config) {
+      return std::unexpected(Error{
+          .code = ErrorCode::InvalidConfig, .message = "bridge::create: config is null"});
+    }
+    return new State{.configs = config};
   }
-  return new State{.configs = config};
-}
 
-static std::string escapeLuaString(std::string_view s) {
-  std::string out;
-  out.reserve(s.size());
-  for (char c : s) {
-    switch (c) {
-      case '\\':
-        out += "\\\\";
-        break;
-      case '"':
-        out += "\\\"";
-        break;
-      case '\n':
-        out += "\\n";
-        break;
-      case '\r':
-        out += "\\r";
-        break;
-      case '\t':
-        out += "\\t";
-        break;
-      default:
-        out += c;
-        break;
+  // ---------------------------------------------------------------------------
+  // Inbound RPC dispatch helpers (bridge owns the dispatch logic)
+  // ---------------------------------------------------------------------------
+
+  /// Route an incoming kEvent RPC message through the three-tier dispatch chain.
+  /// Calls coconut._dispatch(name, payload, target).
+  void dispatchEventToLua(
+      coconut::App* app, const std::string& name, const nlohmann::json& payload
+  ) {
+    if (app == nullptr || app->lua_state == nullptr || app->lua_state->lua_state == nullptr ||
+        app->lua_state->context == nullptr) {
+      return;
+    }
+
+    sol::state_view lua(*app->lua_state->lua_state);
+
+    // Build a Lua table from the JSON payload
+    sol::table payloadTable = common::toTable(lua, payload);
+
+    // Determine the active view for target
+    std::string target = app->window ? app->window->current_view : "";
+
+    // Route through the central dispatch: coconut._dispatch(name, payload, target)
+    sol::function dispatch = lua["coconut"]["_dispatch"];
+    if (!dispatch.valid()) {
+      debug::warn("dispatchEventToLua: coconut._dispatch not found");
+      // Fallback: try old-style coconut.events(event) for backward compat
+      sol::function fallback = lua["coconut"]["events"];
+      if (fallback.valid()) {
+        fallback(payloadTable);
+      }
+      return;
+    }
+
+    auto result = dispatch(name, payloadTable, target);
+    if (!result.valid()) {
+      sol::error err = result;
+      debug::warn(
+          std::format("dispatchEventToLua('{}'): coconut._dispatch failed: {}", name, err.what())
+      );
     }
   }
-  return out;
-}
 
-// escapeJsSingleQuotedString is now defined inline in bridge.h
-
-// ---------------------------------------------------------------------------
-// Inbound RPC dispatch helpers (bridge owns the dispatch logic)
-// ---------------------------------------------------------------------------
-
-/// Route an incoming kEvent RPC message through the three-tier dispatch chain.
-/// Calls coconut._dispatch(name, payload, target).
-void dispatchEventToLua(coconut::App* app, const std::string& name,
-                         const nlohmann::json& payload) {
-  if (app == nullptr || app->lua_state == nullptr ||
-      app->lua_state->lua_state == nullptr || app->lua_state->context == nullptr) {
-    return;
+  static void dispatchRpcEventToLua(coconut::App* app, const rpc::Message& msg) {
+    dispatchEventToLua(app, msg.name, msg.payload);
   }
 
-  sol::state_view lua(*app->lua_state->lua_state);
-
-  // Build a Lua table from the JSON payload
-  sol::table payloadTable = toTable(lua, payload);
-
-  // Determine the active view for target
-  std::string target = app->window ? app->window->current_view : "";
-
-  // Route through the central dispatch: coconut._dispatch(name, payload, target)
-  sol::function dispatch = lua["coconut"]["_dispatch"];
-  if (!dispatch.valid()) {
-    debug::warn("dispatchEventToLua: coconut._dispatch not found");
-    // Fallback: try old-style coconut.events(event) for backward compat
-    sol::function fallback = lua["coconut"]["events"];
-    if (fallback.valid()) {
-      fallback(payloadTable);
+  /// Route an incoming kCall RPC message to the command registry.
+  /// Sends a kReturn or kError response through the transport.
+  static void dispatchRpcCallToLua(coconut::App* app, const rpc::Message& msg) {
+    if (app == nullptr || app->commands == nullptr || app->lua_state == nullptr ||
+        app->lua_state->lua_state == nullptr) {
+      return;
     }
-    return;
+
+    sol::state_view lua(*app->lua_state->lua_state);
+
+    core::CommandResult result = core::execCommand(
+        lua, app->commands->handlers, msg.name, msg.payload, app->lua_state->context
+    );
+
+    rpc::Message reply;
+    reply.id = msg.id;
+
+    if (result.ok) {
+      reply.type    = rpc::Type::kReturn;
+      reply.payload = result.data;
+    } else {
+      reply.type = rpc::Type::kError;
+      debug::warn(std::format(
+          "bridge: cmd '{}' failed: {}", msg.name, result.data.value("message", "unknown error")
+      ));
+      reply.payload = result.data;
+    }
+
+    rpcSend(app, reply);
   }
 
-  auto result = dispatch(name, payloadTable, target);
-  if (!result.valid()) {
-    sol::error err = result;
-    debug::warn(std::format("dispatchEventToLua('{}'): coconut._dispatch failed: {}",
-                            name, err.what()));
-  }
-}
+  // ---------------------------------------------------------------------------
+  // JS bridge helpers
+  // ---------------------------------------------------------------------------
 
-static void dispatchRpcEventToLua(coconut::App* app, const rpc::Message& msg) {
-  dispatchEventToLua(app, msg.name, msg.payload);
-}
-
-/// Route an incoming kCall RPC message to the command registry.
-/// Sends a kReturn or kError response through the transport.
-static void dispatchRpcCallToLua(coconut::App* app, const rpc::Message& msg) {
-  if (app == nullptr || app->commands == nullptr ||
-      app->lua_state == nullptr || app->lua_state->lua_state == nullptr) {
-    return;
+  void emitToJS(coconut::App* app, std::string eventName, nlohmann::json payload) {
+    // Route through the transport as an RPC event.
+    rpc::Message msg;
+    msg.type    = rpc::Type::kEvent;
+    msg.name    = std::move(eventName);
+    msg.payload = std::move(payload);
+    rpcSend(app, msg);
   }
 
-  sol::state_view lua(*app->lua_state->lua_state);
+  void callJS(coconut::App* app, std::string functionName, nlohmann::json payload) {
+    if (app == nullptr || app->window == nullptr || app->webview == nullptr) {
+      return;
+    }
 
-  core::CommandResult result = core::execCommand(
-      lua, app->commands->handlers, msg.name, msg.payload,
-      app->lua_state->context);
+    std::string payloadStr;
+    try {
+      payloadStr = payload.dump();
+    } catch (const std::exception&) {
+      payloadStr = "{}";
+    }
+    const std::string script = std::format("globalThis['{}']({});", functionName, payloadStr);
 
-  rpc::Message reply;
-  reply.id = msg.id;
-
-  if (result.ok) {
-    reply.type = rpc::Type::kReturn;
-    reply.payload = result.data;
-  } else {
-    reply.type = rpc::Type::kError;
-    debug::warn(std::format("bridge: cmd '{}' failed: {}",
-                            msg.name,
-                            result.data.value("message", "unknown error")));
-    reply.payload = result.data;
+    webview_eval(app->webview, script.c_str());
   }
 
-  rpcSend(app, reply);
-}
+  // ---------------------------------------------------------------------------
+  // Webview transport — wraps webview_bind / webview_eval behind Transport interface
+  // ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// JS bridge helpers
-// ---------------------------------------------------------------------------
-
-void emitToJS(coconut::App *app, std::string eventName,
-               nlohmann::json payload) {
-  // Route through the transport as an RPC event.
-  rpc::Message msg;
-  msg.type    = rpc::Type::kEvent;
-  msg.name    = std::move(eventName);
-  msg.payload = std::move(payload);
-  rpcSend(app, msg);
-}
-
-void callJS(coconut::App *app, std::string functionName,
-            nlohmann::json payload) {
-  if (app == nullptr || app->window == nullptr || app->webview == nullptr) {
-    return;
+  static std::string decodeEmbed() {
+    size_t len = sizeof(coconut_js_embed);
+    if (len > 0 && coconut_js_embed[len - 1] == 0)
+      len -= 1;
+    return std::string(reinterpret_cast<const char*>(coconut_js_embed), len);
   }
 
-  std::string payloadStr;
-  try {
-    payloadStr = payload.dump();
-  } catch (const std::exception&) {
-    payloadStr = "{}";
-  }
-  const std::string script = std::format(
-      "globalThis['{}']({});", functionName, payloadStr);
+  void createTransport(coconut::App* app) {
+    if (app == nullptr || app->webview == nullptr || app->bridge_state == nullptr) {
+      return;
+    }
 
-  webview_eval(app->webview, script.c_str());
-}
+    // Decode the embedded Coconut JS runtime.
+    std::string coconut_js = decodeEmbed();
 
-// ---------------------------------------------------------------------------
-// Webview transport — wraps webview_bind / webview_eval behind Transport interface
-// ---------------------------------------------------------------------------
-
-static std::string decodeEmbed() {
-  size_t len = sizeof(coconut_js_embed);
-  if (len > 0 && coconut_js_embed[len - 1] == 0) len -= 1;
-  return std::string(
-      reinterpret_cast<const char*>(coconut_js_embed), len);
-}
-
-void createTransport(coconut::App* app) {
-  if (app == nullptr || app->webview == nullptr ||
-      app->bridge_state == nullptr) {
-    return;
-  }
-
-  // Decode the embedded Coconut JS runtime.
-  std::string coconut_js = decodeEmbed();
-
-  // Append shims for old __coconut_call / __coconut_emit names that
-  // coconut.ts still references, and auto-fire the bridge-ready signal.
-  coconut_js += R"(
+    // Append shims for old __coconut_call / __coconut_emit names that
+    // coconut.ts still references, and auto-fire the bridge-ready signal.
+    coconut_js += R"(
 // Shim: forward __coconut_call through the __coconut_rpc webview binding.
 // webview_bind creates an async function; webview_return() resolves the promise.
 globalThis.__coconut_call = async function(name, payloadJson) {
@@ -231,60 +199,43 @@ globalThis.addEventListener('unhandledrejection', function(e) {
 globalThis.__coconut_bridge_ready();
 )";
 
-  // Create the webview transport, which calls:
-  //   webview_init()  — injects Coconut JS runtime (fires on next page load)
-  //   webview_bind()  — registers __coconut_rpc for inbound messages
-  // The transport handles dispatch internally (via App* reference).
-  auto* t = new WebviewTransport(app->webview, app, coconut_js);
-  app->bridge_state->transport = t;
-}
-
-/// Signal to the frontend that the bridge is ready.
-/// With webview this is a no-op — kReady is baked into the init script
-/// passed to webview_init() in createTransport().
-void signalReady(coconut::App* app) {
-  (void)app;
-  // kReady fires automatically via webview_init script.
-}
-
-void rpcSend(coconut::App* app, const rpc::Message& msg) {
-  if (app == nullptr || app->bridge_state == nullptr ||
-      app->bridge_state->transport == nullptr) {
-    return;
-  }
-  app->bridge_state->transport->send(msg);
-}
-
-// ---------------------------------------------------------------------------
-// JSON <-> Lua conversion helpers (thin wrappers around modules/json.h)
-// ---------------------------------------------------------------------------
-
-sol::table toTable(sol::state_view lua, const nlohmann::json& json) {
-  return modules::toTable(lua, json);
-}
-
-sol::table toTable(sol::state_view lua, const std::string& jsonStr) {
-  return modules::toTable(lua, jsonStr);
-}
-
-nlohmann::json toJson(const sol::table& table) {
-  return modules::toJson(table);
-}
-
-void destroy(State *state) {
-  if (state == nullptr) {
-    return;
+    // Create the webview transport, which calls:
+    //   webview_init()  — injects Coconut JS runtime (fires on next page load)
+    //   webview_bind()  — registers __coconut_rpc for inbound messages
+    // The transport handles dispatch internally (via App* reference).
+    auto* t                      = new WebviewTransport(app->webview, app, coconut_js);
+    app->bridge_state->transport = t;
   }
 
-  // Destroy the store
-  if (state->store) {
-    store::destroy(state->store);
-    state->store = nullptr;
+  /// Signal to the frontend that the bridge is ready.
+  /// With webview this is a no-op — kReady is baked into the init script
+  /// passed to webview_init() in createTransport().
+  void signalReady(coconut::App* app) {
+    (void)app;
+    // kReady fires automatically via webview_init script.
   }
 
-  delete state->transport; // WebviewTransport
-  state->transport = nullptr;
-  delete state;
-}
+  void rpcSend(coconut::App* app, const rpc::Message& msg) {
+    if (app == nullptr || app->bridge_state == nullptr || app->bridge_state->transport == nullptr) {
+      return;
+    }
+    app->bridge_state->transport->send(msg);
+  }
 
-} // namespace coconut::bridge
+  void destroy(State* state) {
+    if (state == nullptr) {
+      return;
+    }
+
+    // Destroy the store
+    if (state->store) {
+      store::destroy(state->store);
+      state->store = nullptr;
+    }
+
+    delete state->transport;  // WebviewTransport
+    state->transport = nullptr;
+    delete state;
+  }
+
+}  // namespace coconut::bridge

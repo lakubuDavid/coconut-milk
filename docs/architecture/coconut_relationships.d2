@@ -1,0 +1,63 @@
+# Coconut architecture — component relationships
+# App is the hub. Two parallel off-main executors:
+#   • bg_thread::Context  -> uses dispatch::Outbox (bridged by dispatch::drain)
+#   • core::WorkerPool    -> uses core::MessageQueue (separate main-thread drain)
+
+App: App (hub)
+webview: webview_t
+window: window::Window
+main_runtime: "lua::Runtime (main)\n+ coconut._dispatch\n+ execCommand"
+bridge_state: "bridge::State\n(owns transport + store)"
+transport: "WebviewTransport\ntransport::Transport"
+store: store::Store
+dispatch: "coconut::dispatch\ninit / drain / notify\n+ evalJS / lifecycle / commandCall"
+app_outbox: "App.outbox\ndispatch::Outbox (by value)"
+commands: commands::Registry
+platform: platform/lifecycle.cpp
+
+bg: "bg_thread::Context (app->bg)"
+bg_inbox: "bg.inbox\ndispatch::Outbox (Main->Bg)"
+bg_outbox: "bg.outbox\ndispatch::Outbox (Bg->Main)"
+bg_lua: "bg: own sol::state +\nCoconutContext + commands"
+
+workerpool: "core::WorkerPool / Worker"
+wp_queues: "Worker Input/Output\ncore::MessageQueue"
+wp_lua: "Worker: own unique_ptr\nsol::state + App + commands"
+
+# -- App ownership --
+App -> webview: owns handle
+App -> window: owns
+App -> main_runtime: owns
+App -> bridge_state: owns
+App -> app_outbox: owns by value
+App -> bg: owns
+App -> commands: points to
+
+# -- bridge internals --
+bridge_state -> transport: owns
+bridge_state -> store: owns
+transport -> webview: wraps
+transport -> bridge_state: inbound RPC callback
+
+# -- dispatch operates on App.outbox + bg.outbox --
+dispatch -> app_outbox: "push via helpers\n+ drain reads"
+dispatch -> webview: "drain -> webview_eval\n(EvalJS)"
+dispatch -> main_runtime: "drain -> dispatchViewLifecycleEvent\n(LifecycleEvent)"
+dispatch -> bridge_state: "drain -> rpcSend\n(CommandResult)"
+dispatch -> bg_outbox: "drain reads\nCommandResult"
+
+# -- bridge <-> runtime --
+bridge_state -> main_runtime: "dispatchEventToLua ->\ncoconut._dispatch"
+bridge_state -> main_runtime: "dispatchRpcCallToLua ->\nexecCommand"
+platform -> bridge_state: dispatchEventToLua
+
+# -- bg runtime ownership --
+bg -> bg_inbox: owns
+bg -> bg_outbox: owns
+bg -> bg_lua: owns
+bg -> commands: owns
+
+# -- workerpool (parallel mechanism, no link to dispatch) --
+workerpool -> wp_queues: owns
+workerpool -> wp_lua: owns
+workerpool -> commands: owns

@@ -3,7 +3,7 @@ IndentWidth: 2
 TabWidth: 2
 UseTab: Never
 ColumnLimit: 100
-DerivePointerAlignment: Left
+DerivePointerAlignment: true
 PointerAlignment: Left
 AlignConsecutiveAssignments: Consecutive
 AlignConsecutiveDeclarations: Consecutive
@@ -19,7 +19,7 @@ NamespaceIndentation: All
 FixNamespaceComments: true
 SpaceBeforeParens: ControlStatements
 SpacesInContainerLiterals: false
-AlignTrailingComments: Always
+AlignTrailingComments: true
 # PackArguments:
 #   BinPack: OnePerLine
 #   BreakAfter: 1
