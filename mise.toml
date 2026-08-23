@@ -1,5 +1,6 @@
 [tools]
 bun = "latest"
+d2 = "latest"
 lefthook = "latest"
 opengrep = "latest"
 typos = "latest"
@@ -48,6 +49,24 @@ depends = ["//apps/coconut:build-ubsan"]
 [tasks.embeds]
 description = "Regenerate the TS→JS bridge embed (coconut_embed.h)"
 depends = ["//apps/coconut:embeds"]
+
+# ── coconut-cli (generator + scaffolder) ─────────────────────────────
+
+[tasks.cli-build]
+description = "Configure and build the coconut-cli binary (generator + scaffolder)"
+depends = ["//apps/coconut-cli:build"]
+
+[tasks.cli-generate]
+description = "Run the command-definition generator (args after -- pass through)"
+depends = ["//apps/coconut-cli:generate"]
+
+[tasks.cli-watch]
+description = "Command generator in watch mode"
+depends = ["//apps/coconut-cli:watch"]
+
+[tasks.cli-new]
+description = "Scaffold a new Coconut Milk project (args after -- pass through)"
+depends = ["//apps/coconut-cli:new"]
 
 # ── Run ──────────────────────────────────────────────────────────────
 

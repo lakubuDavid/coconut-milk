@@ -1,0 +1,25 @@
+# ─────────────────────────────────────────────────────────────────────
+# coconut-cli tasks — generator + scaffolder binary (no GUI/runtime)
+#
+#   mise run build        — configure + build coconut-cli
+#   mise run generate     — run the command generator in a project dir
+#   mise run watch        — generator in watch mode
+#
+# Root-level aliases live in /mise.toml as "//apps/coconut-cli:<task>".
+# ─────────────────────────────────────────────────────────────────────
+
+[tasks.build]
+description = "Configure and build the coconut-cli binary"
+run = "xmake f -y -c && xmake -y"
+
+[tasks.generate]
+description = "Run the command-definition generator (args: -- [dir] [--out-dir D])"
+run = "xmake run coconut-cli generate"
+
+[tasks.watch]
+description = "Run the generator in watch mode (re-runs on file changes)"
+run = "xmake run coconut-cli generate --watch"
+
+[tasks.new]
+description = "Scaffold a new Coconut Milk project (args: -- <name> [-t template] [-y])"
+run = "xmake run coconut-cli new"
