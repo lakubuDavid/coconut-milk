@@ -43,12 +43,12 @@ namespace coconut {
 
   /// Runtime context exposed to Lua as `ctx`.
   struct CoconutContext {
-    Config*             configs      = nullptr;
-    App*                app          = nullptr;
-    bridge::State*      bridge_state = nullptr;
-    commands::Registry* commands     = nullptr;
-    lua::Runtime*       lua_state    = nullptr;
-    window::Window*     window       = nullptr;
+    Config*              configs       = nullptr;
+    App*                 app           = nullptr;
+    bridge::State*       bridge_state  = nullptr;
+    commands::Registry*  commands      = nullptr;
+    lua::Runtime*        lua_state     = nullptr;
+    window::Window*      window        = nullptr;
     CoconutWindowHandle* window_handle = nullptr;
 
     /// Startup: initial window size. Chainable.
@@ -138,6 +138,12 @@ namespace coconut {
 
     /// Destroy a CoconutContext instance.
     void destroy(CoconutContext* ctx);
+
+    /// Register the "CoconutContext" usertype on the given Lua state.
+    /// Single source of truth — used by the main runtime AND background
+    /// workers so .g.lua files can call ctx:bind(...) everywhere.
+    /// Does NOT set the "ctx" global (callers decide what to expose).
+    void registerUsertype(sol::state_view lua);
 
   }  // namespace context
 

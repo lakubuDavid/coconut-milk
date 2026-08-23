@@ -79,6 +79,8 @@ namespace coconut::core {
         break;
 
       case RpcType::kCall: {
+        debug::info(std::format("bridge: call '{}' (id='{}')", msg.name, msg.id));
+
         // Main-thread-only commands answer synchronously on the spot.
         if (_SyncExecutor) {
           auto result = _SyncExecutor(msg.name, msg.payload);

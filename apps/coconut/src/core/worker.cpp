@@ -196,6 +196,9 @@ namespace coconut::core {
             if (result.ok) {
               worker->Output->push(ResolveMessage{
                   .id = req.id, .result = std::move(result.data), .RpcId = req.RpcId});
+              if (worker->NotifyMain) {
+                worker->NotifyMain();
+              }
             } else {
               // Extract error message from result.data
               std::string errMsg = "Unknown error";
@@ -205,6 +208,9 @@ namespace coconut::core {
               debug::error(std::format("[woker_loop] : command execution failed : {}", errMsg));
               worker->Output->push(RejectMessage{
                   .id = req.id, .error = std::move(errMsg), .RpcId = req.RpcId});
+              if (worker->NotifyMain) {
+                worker->NotifyMain();
+              }
             }
           },
           *message
@@ -340,6 +346,11 @@ namespace coconut::core {
     return *this;
   }
 
+  WorkerPoolBuilder &WorkerPoolBuilder::withOutputNotifier(std::function<void()> fn) {
+    OutputNotifier = std::move(fn);
+    return *this;
+  }
+
   std::expected<std::unique_ptr<WorkerPool>, coconut::Error> WorkerPoolBuilder::build() {
     // Compose all steps into one initializer that runs them in order per worker.
     auto composed = [steps = Steps](Worker *w) -> std::optional<Error> {
@@ -351,7 +362,12 @@ namespace coconut::core {
       }
       return std::nullopt;
     };
-    return createWorkerPool(Size, composed);
+    auto result = createWorkerPool(Size, composed);
+    if (result.has_value()) {
+      // Transfer the notifier so attachAll() can fan it out to each worker.
+      (*result)->OutputNotifier = std::move(OutputNotifier);
+    }
+    return result;
   }
 
   std::optional<coconut::Error> WorkerPool::attachAll() {
@@ -363,8 +379,9 @@ namespace coconut::core {
         return coconut::Error{.message = "WorkerPool: null worker"};
       }
       // Share the pool's output queue across all workers (fan-in).
-      w->Output = Output;
-      auto e    = attachWorker(w.get());
+      w->Output     = Output;
+      w->NotifyMain = OutputNotifier;
+      auto e        = attachWorker(w.get());
       if (e) {
         return e;
       }

@@ -117,6 +117,11 @@ namespace coconut::core {
 
               if constexpr (std::is_same_v<T, ResolveMessage>) {
                 if (_Transport) {
+                  debug::info(std::format(
+                      "dispatcher: resolve id='{}' (worker req {})",
+                      !o.RpcId.empty() ? o.RpcId : std::to_string(o.id),
+                      o.id
+                  ));
                   JsRPCMessage rpcMsg;
                   rpcMsg.id   = !o.RpcId.empty() ? o.RpcId : std::to_string(o.id);
                   rpcMsg.type = RpcType::kReturn;
@@ -126,6 +131,11 @@ namespace coconut::core {
                 }
               } else if constexpr (std::is_same_v<T, RejectMessage>) {
                 if (_Transport) {
+                  debug::info(std::format(
+                      "dispatcher: reject id='{}' : {}",
+                      !o.RpcId.empty() ? o.RpcId : std::to_string(o.id),
+                      o.error
+                  ));
                   JsRPCMessage rpcMsg;
                   rpcMsg.id   = !o.RpcId.empty() ? o.RpcId : std::to_string(o.id);
                   rpcMsg.type = RpcType::kError;

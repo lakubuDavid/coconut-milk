@@ -48,6 +48,11 @@ namespace {
     sol::state& lua     = *w->LuaState;
     std::string cmdRoot = cfg.command_root.empty() ? "commands" : cfg.command_root;
     std::string genDir  = "generated";
+
+    // .g.lua files call ctx:bind(...) — the CoconutContext usertype must be
+    // registered BEFORE exposing ctx (same order legacy bg_runtime used).
+    coconut::context::registerUsertype(lua);
+
     std::string pkgPath = ";" + cmdRoot + "/?.lua;" + cmdRoot + "/?/init.lua;" + genDir +
                           "/?.lua;" + genDir + "/?/init.lua";
     lua.script("package.path = package.path .. '" + pkgPath + "'");
@@ -55,8 +60,28 @@ namespace {
     // Expose ctx as a global so register(ctx) inside .g.lua works.
     lua.set("ctx", ctx);
 
-    int                      loaded = 0;
-    std::vector<std::string> dirs   = {cmdRoot, genDir};
+    int loaded = 0;
+    // Scan exactly ONE source dir for .g.lua modules — prefer generated/
+    // (build-pipeline output) when present; fall back to commands/. This
+    // avoids duplicate bindings when both dirs exist. package.path above
+    // still includes BOTH so require() resolves modules from either.
+    std::vector<std::string> dirs;
+    if (std::filesystem::is_directory(genDir)) {
+      dirs.push_back(genDir);
+    } else if (std::filesystem::is_directory(cmdRoot)) {
+      dirs.push_back(cmdRoot);
+    }
+
+    // Worker contexts have no command registry of their own (context::create
+    // leaves it null; only the main context shares App's). Expose a temporary
+    // registry for register(ctx), then copy the bound handlers into the
+    // worker's own map. The sol functions reference this worker's Lua VM,
+    // so they remain valid after the temporary registry dies.
+    coconut::commands::Registry tempRegistry{};
+    const bool                  hadRegistry = (ctx->commands != nullptr);
+    if (!hadRegistry) {
+      ctx->commands = &tempRegistry;
+    }
     for (const auto& scanDir : dirs) {
       if (!std::filesystem::is_directory(scanDir))
         continue;
@@ -98,14 +123,23 @@ namespace {
     }
 
     // Copy bound handlers into the worker's own map for execCommand lookup.
-    if (ctx->commands != nullptr) {
+    if (!hadRegistry) {
+      for (auto& [name, fn] : tempRegistry.handlers) {
+        w->Commands[name] = fn;
+      }
+      ctx->commands = nullptr;  // restore — the temporary registry dies here
+    } else if (ctx->commands != nullptr) {
       for (auto& [name, fn] : ctx->commands->handlers) {
         w->Commands[name] = fn;
       }
     }
 
     if (loaded > 0) {
-      debug::info(std::format("[worker] loaded {} background command module(s)", loaded));
+      debug::info(std::format(
+          "[worker] loaded {} background command module(s) ({} commands bound)",
+          loaded,
+          w->Commands.size()
+      ));
     }
     return std::nullopt;
   }
@@ -444,6 +478,7 @@ int main(int argc, char* argv[]) {
             .withModules(
                 coconut::modules::ModulesFlag::ThreadSafe | coconut::modules::ModulesFlag::BG_STUBS
             )
+            .withOutputNotifier([&app] { coconut::dispatch::notify(app); })
             .withInitializer([&](coconut::core::Worker* w) -> std::optional<coconut::Error> {
               size_t i = nextWorkerCtx++;
               if (i >= app->worker_contexts.size()) {
@@ -509,11 +544,13 @@ int main(int argc, char* argv[]) {
           debug::warn("core wiring: bridge build failed: " + bridgeResult.error().message);
         } else {
           auto* dispatcherPtr = app->dispatcher.get();
-          bridgeResult.value()->setCommandCallHandler(
-              [dispatcherPtr](coconut::core::CommandCallMessage msg) {
-                dispatcherPtr->queue(coconut::core::DispatchMessage{std::move(msg)});
-              }
-          );
+          bridgeResult.value()->setCommandCallHandler([dispatcherPtr,
+                                                       app](coconut::core::CommandCallMessage msg) {
+            dispatcherPtr->queue(coconut::core::DispatchMessage{std::move(msg)});
+            // Wake the main run loop so the queued call flushes promptly
+            // (worker results wake it separately via withOutputNotifier).
+            coconut::dispatch::notify(app);
+          });
           app->core_bridge = std::move(bridgeResult.value());
 
           // ── Inbound cutover (Phase 2) ──
@@ -595,6 +632,31 @@ int main(int argc, char* argv[]) {
         app->bridge_state->transport->eval(js);
       }
       debug::info("coconut.args injected into JS");
+    }
+  }
+
+  // ── Framework builtins ─────────────────────────────────────────
+  // _js_log: JS error forwarding from coconut.ts (window.onerror /
+  // unhandledrejection). Registered here so every app surfaces uncaught
+  // JS errors on stderr even without user-defined handlers.
+  {
+    sol::state_view builtinLua(*lua_runtime->lua_state);
+    builtinLua.set_function("_coconut_framework_js_log", [](sol::table params) {
+      std::string level   = params["level"].get_or(std::string("error"));
+      std::string message = params["message"].get_or(std::string("(no message)"));
+      std::string stack   = params["stack"].get_or(std::string(""));
+      if (level == "error") {
+        debug::error("[js] " + message + (stack.empty() ? "" : "\n    at " + stack));
+      } else {
+        debug::warn("[js] " + message);
+      }
+    });
+    auto bindResult = builtinLua.safe_script(
+        "ctx:bind('_js_log', function(params) _coconut_framework_js_log(params); return true end)"
+    );
+    if (!bindResult.valid()) {
+      sol::error e = bindResult;
+      debug::warn(std::format("failed to bind _js_log builtin: {}", e.what()));
     }
   }
 

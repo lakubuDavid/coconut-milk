@@ -392,4 +392,91 @@ namespace coconut {
 
   }  // anonymous namespace
 
+  // Defined at namespace-coconut scope; qualified name targets
+  // coconut::context so it satisfies the header declaration.
+  void context::registerUsertype(sol::state_view lua) {
+    // Table-taking setters are bound as lambdas — sol2 v3.3 can't auto-
+    // convert plain structs (CoconutWindowSize etc.) from Lua tables.
+    auto setWindowSize = [](CoconutContext* ctx, sol::table t) -> CoconutContext* {
+      if (ctx != nullptr && ctx->configs != nullptr) {
+        ctx->configs->window_width  = t["w"].get_or(1280);
+        ctx->configs->window_height = t["h"].get_or(640);
+      }
+      return ctx;
+    };
+    auto setMinimumWindowSize = [](CoconutContext* ctx, sol::table t) -> CoconutContext* {
+      if (ctx != nullptr && ctx->configs != nullptr) {
+        ctx->configs->window_min_width  = t["w"].get_or(0);
+        ctx->configs->window_min_height = t["h"].get_or(0);
+      }
+      return ctx;
+    };
+    auto setMaximumWindowSize = [](CoconutContext* ctx, sol::table t) -> CoconutContext* {
+      if (ctx != nullptr && ctx->configs != nullptr) {
+        ctx->configs->window_max_width  = t["w"].get_or(0);
+        ctx->configs->window_max_height = t["h"].get_or(0);
+      }
+      return ctx;
+    };
+
+    // Window handle getter — sol::readonly would not work here because the
+    // handle pointer may be null during registration.
+    lua.new_usertype<CoconutContext>(
+        "CoconutContext",
+        "window",
+        sol::property(
+            [](CoconutContext* ctx) -> CoconutWindowHandle* {
+              return ctx ? ctx->window_handle : nullptr;
+            },
+            [](CoconutContext* ctx, CoconutWindowHandle* h) {
+              if (ctx)
+                ctx->window_handle = h;
+            }
+        ),
+        "setWindowSize",
+        std::move(setWindowSize),
+        "setMinimumWindowSize",
+        std::move(setMinimumWindowSize),
+        "setMaximumWindowSize",
+        std::move(setMaximumWindowSize),
+        "setMinimumWindowWidth",
+        &CoconutContext::setMinimumWindowWidth,
+        "setMinimumWindowHeight",
+        &CoconutContext::setMinimumWindowHeight,
+        "setMaximumWindowWidth",
+        &CoconutContext::setMaximumWindowWidth,
+        "setMaximumWindowHeight",
+        &CoconutContext::setMaximumWindowHeight,
+        "setTitle",
+        &CoconutContext::setTitle,
+        "setResizable",
+        &CoconutContext::setResizable,
+        "setFrameless",
+        &CoconutContext::setFrameless,
+        "setTransparent",
+        &CoconutContext::setTransparent,
+        "setInitialView",
+        &CoconutContext::setInitialView,
+        "show",
+        &CoconutContext::show,
+        "reload",
+        &CoconutContext::reload,
+        "close",
+        &CoconutContext::close,
+        "bind",
+        &CoconutContext::bind,
+        "bind_mt",
+        &CoconutContext::bind_mt,
+        "rebind",
+        &CoconutContext::rebind,
+        "emit",
+        &CoconutContext::emit,
+        "emit_sync",
+        &CoconutContext::emit_sync
+    );
+
+    // Note: the "ctx" global is intentionally NOT set here — each host
+    // (main runtime, worker loader) exposes its own context instance.
+  }
+
 }  // namespace coconut

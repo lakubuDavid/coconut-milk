@@ -62,6 +62,10 @@ namespace coconut::core {
 
     std::unordered_map<std::string, sol::protected_function> Commands;
 
+    /// Invoked on the worker thread after each Output push — used to wake
+    /// the main run loop so the Dispatcher can flush the result to JS.
+    std::function<void()> NotifyMain;
+
     /// Push a command request onto the Input queue (thread-safe, called by main
     /// thread). rpcId echoes through to the Resolve/Reject output messages.
     void exec(RequestId id, std::string command, nlohmann::json args, std::string rpcId = {});
@@ -112,6 +116,7 @@ namespace coconut::core {
   struct WorkerPoolBuilder {
     int                            Size{0};
     std::vector<WorkerInitializer> Steps;
+    std::function<void()>          OutputNotifier;  ///< copied onto each Worker
 
     /// Bind the given Lua modules on every worker.
     WorkerPoolBuilder &withModules(coconut::modules::ModulesFlag modules);
@@ -119,6 +124,9 @@ namespace coconut::core {
     WorkerPoolBuilder &withCommands(WorkerInitializer loader);
     /// Run an arbitrary initializer on every worker.
     WorkerPoolBuilder &withInitializer(WorkerInitializer init);
+    /// Register a callback (invoked on a worker thread) fired whenever a
+    /// worker pushes a result — use it to wake the main run loop.
+    WorkerPoolBuilder &withOutputNotifier(std::function<void()> fn);
     /// Build the pool, applying all steps to each worker.
     std::expected<std::unique_ptr<WorkerPool>, coconut::Error> build();
   };
@@ -126,6 +134,7 @@ namespace coconut::core {
   struct WorkerPool {
     std::vector<WorkerPtr>                      Workers;
     std::shared_ptr<MessageQueue<WorkerOutput>> Output;
+    std::function<void()>                       OutputNotifier;  ///< fan-out to workers
     std::atomic<size_t>                         _next{0};
     std::atomic<RequestId>                      _nextId{1};
 
