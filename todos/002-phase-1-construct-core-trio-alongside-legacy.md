@@ -1,9 +1,9 @@
 ---
 id: "002"
 title: "Phase 1: construct core trio alongside legacy"
-status: pending
+status: done
 created_at: 2026-08-23T08:31:12
-last_modified: 2026-08-23T08:31:12
+last_modified: 2026-08-23T09:46:27
 ---
 
 # 002: Phase 1: construct core trio alongside legacy

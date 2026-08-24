@@ -1,9 +1,9 @@
 ---
 id: "004"
 title: "Phase 3: retire legacy path"
-status: pending
+status: done
 created_at: 2026-08-23T08:31:12
-last_modified: 2026-08-23T08:31:12
+last_modified: 2026-08-23T16:08:09
 ---
 
 # 004: Phase 3: retire legacy path

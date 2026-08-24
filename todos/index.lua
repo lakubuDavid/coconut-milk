@@ -2,10 +2,10 @@
 return {
   last_id = 5,
   tasks = {
-    { id = "001", title = "Phase 0: prerequisites for wiring", status = "pending", created_at = "2026-08-23T08:31:12", last_modified = "2026-08-23T08:31:12", file = "001-phase-0-prerequisites-for-wiring.md" },
-    { id = "002", title = "Phase 1: construct core trio alongside legacy", status = "pending", created_at = "2026-08-23T08:31:12", last_modified = "2026-08-23T08:31:12", file = "002-phase-1-construct-core-trio-alongside-legacy.md" },
-    { id = "003", title = "Phase 2: inbound cutover", status = "pending", created_at = "2026-08-23T08:31:12", last_modified = "2026-08-23T08:31:12", file = "003-phase-2-inbound-cutover.md" },
-    { id = "004", title = "Phase 3: retire legacy path", status = "pending", created_at = "2026-08-23T08:31:12", last_modified = "2026-08-23T08:31:12", file = "004-phase-3-retire-legacy-path.md" },
+    { id = "001", title = "Phase 0: prerequisites for wiring", status = "done", created_at = "2026-08-23T08:31:12", last_modified = "2026-08-23T09:27:10", file = "001-phase-0-prerequisites-for-wiring.md" },
+    { id = "002", title = "Phase 1: construct core trio alongside legacy", status = "done", created_at = "2026-08-23T08:31:12", last_modified = "2026-08-23T09:46:27", file = "002-phase-1-construct-core-trio-alongside-legacy.md" },
+    { id = "003", title = "Phase 2: inbound cutover", status = "done", created_at = "2026-08-23T08:31:12", last_modified = "2026-08-23T10:33:30", file = "003-phase-2-inbound-cutover.md" },
+    { id = "004", title = "Phase 3: retire legacy path", status = "done", created_at = "2026-08-23T08:31:12", last_modified = "2026-08-23T16:08:09", file = "004-phase-3-retire-legacy-path.md" },
     { id = "005", title = "Prep: core unit tests + JsRPCMessage wire-type consolidation", status = "done", created_at = "2026-08-23T09:14:23", last_modified = "2026-08-23T09:14:23", file = "005-prep-core-unit-tests-jsrpcmessage-wire-type-consolidation.md" },
   },
 }

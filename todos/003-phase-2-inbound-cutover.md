@@ -1,9 +1,9 @@
 ---
 id: "003"
 title: "Phase 2: inbound cutover"
-status: pending
+status: done
 created_at: 2026-08-23T08:31:12
-last_modified: 2026-08-23T08:31:12
+last_modified: 2026-08-23T10:33:30
 ---
 
 # 003: Phase 2: inbound cutover

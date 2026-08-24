@@ -1,9 +1,9 @@
 ---
 id: "001"
 title: "Phase 0: prerequisites for wiring"
-status: pending
+status: done
 created_at: 2026-08-23T08:31:12
-last_modified: 2026-08-23T08:31:12
+last_modified: 2026-08-23T09:27:10
 ---
 
 # 001: Phase 0: prerequisites for wiring
