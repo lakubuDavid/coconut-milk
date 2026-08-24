@@ -1,9 +1,19 @@
+monorepo_root = true
+
+[monorepo]
+config_roots = [
+  "apps/coconut",
+  "apps/coconut-cli",
+]
+
 [tools]
 bun = "latest"
+clang = "latest"
 d2 = "latest"
 lefthook = "latest"
 opengrep = "latest"
 typos = "latest"
+clang-format = "latest"
 
 # ─────────────────────────────────────────────────────────────────────
 # Workspace-level tasks — delegates to app-level mise.toml configs.
@@ -51,22 +61,18 @@ description = "Regenerate the TS→JS bridge embed (coconut_embed.h)"
 depends = ["//apps/coconut:embeds"]
 
 # ── coconut-cli (generator + scaffolder) ─────────────────────────────
-
-[tasks.cli-build]
-description = "Configure and build the coconut-cli binary (generator + scaffolder)"
-depends = ["//apps/coconut-cli:build"]
-
-[tasks.cli-generate]
-description = "Run the command-definition generator (args after -- pass through)"
-depends = ["//apps/coconut-cli:generate"]
-
-[tasks.cli-watch]
-description = "Command generator in watch mode"
-depends = ["//apps/coconut-cli:watch"]
-
-[tasks.cli-new]
-description = "Scaffold a new Coconut Milk project (args after -- pass through)"
-depends = ["//apps/coconut-cli:new"]
+# Plain task names live in apps/coconut-cli/mise.toml.
+#
+#   mise run //apps/coconut-cli:build
+#   mise run //apps/coconut-cli:generate [cmdRoot] [--out-dir D] [--watch]
+#   mise run //apps/coconut-cli:new [-y]
+#
+# The task executes inside apps/coconut-cli, so when generating for
+# another project pass absolute paths:
+#
+#   mise run //apps/coconut-cli:generate \
+#       /abs/path/to/project/commands --out-dir /abs/path/to/project/generated
+# ─────────────────────────────────────────────────────────────────────
 
 # ── Run ──────────────────────────────────────────────────────────────
 

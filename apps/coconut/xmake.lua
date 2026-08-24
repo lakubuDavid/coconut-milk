@@ -29,7 +29,7 @@ add_defines("COCONUT_VERSION=\"0.1.1\"")
 
 task("bridge_embeds")
     set_menu {
-        usage = "xmake coconut_bridge_embeds",
+        usage = "xmake bridge_embeds",
         description = "Build coconut bridge TS->JS + .d.ts and generate embed .h header"
     }
     set_category("build")
@@ -73,7 +73,7 @@ target("coconut")
     add_includedirs("src","src/core", "thirdparty/webview/core/include")
     before_build(function ()
         if not os.isfile("src/embeds/coconut_embed.h") then
-            os.run("xmake coconut_bridge_embeds")
+            os.run("xmake bridge_embeds")
         end
     end)
     if is_plat("macosx") then
