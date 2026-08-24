@@ -123,6 +123,11 @@ target("coconut")
 
 target("tests")
     set_kind("binary")
+    if is_plat("macosx") then
+        -- Pin to Apple's toolchain: PATH-first LLVM clang mis-compiles
+        -- .mm sources here (drops the -std flag for ObjC++).
+        set_toolchains("xcode")
+    end
     add_includedirs("src", "src/core", "tests", "thirdparty/webview/core/include")
     add_includedirs("thirdparty")
     if is_plat("macosx") then
