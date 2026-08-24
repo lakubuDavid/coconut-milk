@@ -21,9 +21,13 @@ between C++ and Lua (via LuaJIT in this project).
 
 ## How we use it here
 - `lua::Runtime` owns the main-thread `sol::state`
-- `bg_thread::Context` owns a separate background `sol::state`
-- `CoconutContext` is registered as a usertype with methods
-  (`setWindowSize`, `bind`, `emit`, `show`, …)
+- Each `core::Worker` owns its own background `sol::state`
+- `CoconutContext` is registered as a usertype via
+  `context::registerUsertype` (single source of truth, used by the main
+  runtime and every worker) with methods (`setWindowSize`, `bind`,
+  `bind_mt`, `emit`, `show`, `setPosition`, …)
+- `CoconutWindowHandle` is a separate usertype including live mutations
+  (`setTitle`, `setMinimumSize`, `getPosition`, …)
 - Command handlers are stored as `sol::protected_function` in
   `commands::Registry::handlers`
 - JSON ↔ Lua table conversion uses `sol::state_view` + `sol::table`

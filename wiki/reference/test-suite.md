@@ -486,16 +486,19 @@ Use fake or temporary runtime roots to isolate tests from the repo layout.
 
 ### Transport interface conformance
 
-Both transports must satisfy transport::Transport:
+### Transport interface conformance
 
-- send(rpc::Message) delivers the correct JS to the page
-  - Type::kEvent → __coconut_dispatch_event(name, payloadJson)
-  - Type::kReturn → __coconut_rpc_receive(json)
-  - Type::kError  → __coconut_rpc_receive(json)
-  - Type::kCall   → globalThis[name](json)
-  - Type::kReady  → __coconut_bridge_ready()
-- setMessageCallback registers a callback that fires on inbound messages
-- Inbound messages are deserialised into rpc::Message
+All transports satisfy transport::Transport:
+
+- send(core::JsRPCMessage) delivers the correct JS to the page
+  - RpcType::kEvent  → __coconut_dispatch_event(name, payloadJson)
+  - RpcType::kReturn → __coconut_rpc_receive(json)
+  - RpcType::kError  → __coconut_rpc_receive(json)
+- eval(js) evaluates raw JS (page-level actions, not RPC)
+- setMessageCallback registers the callback fired on inbound messages;
+  with the core Bridge registered this routes to onInbound (the legacy
+  inline handleCall/handleEvent path was retired in Phase 3)
+- Inbound messages are deserialised into core::JsRPCMessage
 
 ## Phase 5: bridge
 

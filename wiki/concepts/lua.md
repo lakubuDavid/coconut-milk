@@ -26,10 +26,10 @@ executed in an embedded `lua_State` per thread.
 ## How we use it here
 - `lua::Runtime` creates the main-thread state, opens standard libraries, and
   installs the `coconut` global table
-- `bg_thread::Context` creates a separate background state for offloaded
-  command execution
-- `.g.lua` files are loaded into the bg state at startup (via
-  `loadBackgroundCommands`)
+- `core::WorkerPool` creates one background `sol::state` per worker
+  (`apps/coconut/src/main.cpp`, trio wiring)
+- `.g.lua` files are loaded into each worker state at startup by the pool's
+  command initializer (`loadWorkerCommands`)
 - The `ctx` global is set to `CoconutContext*` so generated files can call
   `ctx:bind`
 

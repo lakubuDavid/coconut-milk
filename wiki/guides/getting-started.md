@@ -56,7 +56,7 @@ git clone https://github.com/lakubuDavid/coconut-milk.git
 cd coconut-milk
 
 # Build the core binary (coconut, webview, tests)
-xmake build coconut
+mise run build
 ```
 
 This produces:
