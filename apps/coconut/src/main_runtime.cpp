@@ -16,20 +16,14 @@
 #include "modules/thread_kind.h"
 #include "modules/window.h"
 
-#include "app.h"
-#include "debug.h"
-#include "packages/clipboard.h"
-#include "packages/env.h"
-#include "packages/notify.h"
-#include "packages/open_url.h"
-
 #include <sol/state.hpp>
 #include <sol/table.hpp>
+#include "app.h"
+#include "debug.h"
 
 #include <filesystem>
 #include <format>
 #include <fstream>
-#include <iostream>
 
 // Some system headers (ObjC runtime transitives) define `nil` as a macro
 // which clashes with sol::type::nil and other uses. Undefine it here.
@@ -40,7 +34,7 @@
 namespace coconut::lua {
 
   std::expected<Runtime*, Error> create(Config* cfg, CoconutContext* ctx) {
-    auto runtime = new Runtime{.configs = cfg, .context = ctx, .lua_state = nullptr};
+    auto* runtime = new Runtime{.configs = cfg, .context = ctx, .lua_state = nullptr};
 
     runtime->lua_state = new sol::state();
     runtime->lua_state->open_libraries(
@@ -725,8 +719,8 @@ namespace coconut::lua {
             if (!std::filesystem::is_directory(scanDir))
               continue;
 
-            for (auto& entry : std::filesystem::directory_iterator(scanDir)) {
-              auto path = entry.path();
+            for (const auto& entry : std::filesystem::directory_iterator(scanDir)) {
+              const auto& path = entry.path();
               if (path.extension() != ".lua")
                 continue;
               auto stem = path.stem().string();

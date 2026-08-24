@@ -103,8 +103,8 @@ namespace {
     for (const auto& scanDir : dirs) {
       if (!std::filesystem::is_directory(scanDir))
         continue;
-      for (auto& entry : std::filesystem::directory_iterator(scanDir)) {
-        auto path = entry.path();
+      for (const auto& entry : std::filesystem::directory_iterator(scanDir)) {
+        const auto& path = entry.path();
         if (path.extension() != ".lua")
           continue;
         auto stem = path.stem().string();
@@ -501,10 +501,10 @@ int main(int argc, char* argv[]) {
     auto   poolResult =
         coconut::core::WorkerPool::builder(kWorkerCount)
             .withModules(
-                coconut::modules::ModulesFlag::ThreadSafe |
-                coconut::modules::ModulesFlag::BG_STUBS | coconut::modules::ModulesFlag::WINDOW |
-                coconut::modules::ModulesFlag::CLIPBOARD | coconut::modules::ModulesFlag::NOTIFY |
-                coconut::modules::ModulesFlag::OPENURL | coconut::modules::ModulesFlag::DIALOG
+                coconut::modules::ModulesFlag::ThreadSafe | coconut::modules::ModulesFlag::BgStubs |
+                coconut::modules::ModulesFlag::Window | coconut::modules::ModulesFlag::Clipboard |
+                coconut::modules::ModulesFlag::Notify | coconut::modules::ModulesFlag::OpenUrl |
+                coconut::modules::ModulesFlag::Dialog
             )
             .withOutputNotifier([&app] { coconut::dispatch::notify(app); })
             .withInitializer([&](coconut::core::Worker* w) -> std::optional<coconut::Error> {

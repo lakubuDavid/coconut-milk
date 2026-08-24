@@ -16,53 +16,53 @@ namespace coconut {
       None = 0,
 
       /// Core serialisation / logging — safe on any thread.
-      JSON = 1 << 0,
-      LOG  = 1 << 1,
+      Json = 1 << 0,
+      Log  = 1 << 1,
 
       /// File system — safe on any thread.
-      FS = 1 << 2,
+      Fs = 1 << 2,
 
       /// Environment variables — safe on any thread.
-      ENV = 1 << 3,
+      Env = 1 << 3,
 
       /// Key-value store — safe on any thread.
-      STORE = 1 << 4,
+      Store = 1 << 4,
 
       /// Open URL in system browser — safe on any thread.
-      OPENURL = 1 << 5,
+      OpenUrl = 1 << 5,
 
       /// Keyboard shortcut handling — main-thread only.
-      KEYBIND = 1 << 6,
+      Keybind = 1 << 6,
 
       /// Native file dialogs — main-thread only.
-      DIALOG = 1 << 7,
+      Dialog = 1 << 7,
 
       /// System notifications — main-thread only.
-      NOTIFY = 1 << 8,
+      Notify = 1 << 8,
 
       /// Clipboard read/write — main-thread only.
-      CLIPBOARD = 1 << 9,
+      Clipboard = 1 << 9,
 
       /// Hot module reload (coconut.hotreload) — main-thread only.
-      HOTRELOAD = 1 << 10,
+      Hotreload = 1 << 10,
 
       /// Bridge event emission (coconut._emit_to_js) — main-thread only.
-      BRIDGE_EMIT = 1 << 11,
+      BridgeEmit = 1 << 11,
 
       /// Main-thread stubs (placeholder registrations for mt-only APIs).
-      STUBS = 1 << 12,
+      Stubs = 1 << 12,
 
       /// Background-thread stubs (warnings for mt-only APIs on bg).
-      BG_STUBS = 1 << 13,
+      BgStubs = 1 << 13,
 
       /// Live window mutations (main: direct; bg: marshalled via dispatch::post).
-      WINDOW = 1 << 14,
+      Window = 1 << 14,
 
       /// Convenience: all thread-safe modules (bg-thread safe subset).
-      ThreadSafe = JSON | LOG | FS | ENV | STORE | OPENURL,
+      ThreadSafe = Json | Log | Fs | Env | Store | OpenUrl,
 
       /// Convenience: all main-thread-only modules.
-      MainOnly = KEYBIND | DIALOG | NOTIFY | CLIPBOARD | HOTRELOAD | BRIDGE_EMIT | STUBS | BG_STUBS,
+      MainOnly = Keybind | Dialog | Notify | Clipboard | Hotreload | BridgeEmit | Stubs | BgStubs,
 
       /// Convenience: every module flag combined.
       ALL = ThreadSafe | MainOnly,

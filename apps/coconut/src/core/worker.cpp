@@ -106,35 +106,35 @@ namespace coconut::core {
 
     using F = modules::ModulesFlag;
 
-    if (has(modules, F::JSON))
+    if (has(modules, F::Json))
       modules::init_json(lua, modules::ThreadKind::Background);
-    if (has(modules, F::LOG))
+    if (has(modules, F::Log))
       modules::init_log(lua, modules::ThreadKind::Background);
-    if (has(modules, F::FS))
+    if (has(modules, F::Fs))
       modules::init_fs(lua, modules::ThreadKind::Background);
-    if (has(modules, F::ENV))
+    if (has(modules, F::Env))
       modules::init_env(lua, modules::ThreadKind::Background);
-    if (has(modules, F::STORE))
+    if (has(modules, F::Store))
       modules::init_store(lua, modules::ThreadKind::Background);
-    if (has(modules, F::OPENURL))
+    if (has(modules, F::OpenUrl))
       modules::init_openurl(lua, modules::ThreadKind::Background);
-    if (has(modules, F::KEYBIND))
+    if (has(modules, F::Keybind))
       modules::init_keybind(lua, modules::ThreadKind::Background);
-    if (has(modules, F::DIALOG))
+    if (has(modules, F::Dialog))
       modules::init_dialog(lua, modules::ThreadKind::Background);
-    if (has(modules, F::NOTIFY))
+    if (has(modules, F::Notify))
       modules::init_notify(lua, modules::ThreadKind::Background);
-    if (has(modules, F::CLIPBOARD))
+    if (has(modules, F::Clipboard))
       modules::init_clipboard(lua, modules::ThreadKind::Background);
-    if (has(modules, F::HOTRELOAD))
+    if (has(modules, F::Hotreload))
       modules::init_hotreload(lua, modules::ThreadKind::Background);
-    if (has(modules, F::BRIDGE_EMIT))
+    if (has(modules, F::BridgeEmit))
       modules::init_bridge_emit(lua, modules::ThreadKind::Background);
-    if (has(modules, F::STUBS))
+    if (has(modules, F::Stubs))
       modules::init_stubs(lua, modules::ThreadKind::Background);
-    if (has(modules, F::BG_STUBS))
+    if (has(modules, F::BgStubs))
       modules::init_bg_stubs(lua, modules::ThreadKind::Background);
-    if (has(modules, F::WINDOW))
+    if (has(modules, F::Window))
       modules::init_window(lua, modules::ThreadKind::Background);
 
     return std::nullopt;

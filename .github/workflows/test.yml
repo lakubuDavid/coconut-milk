@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   test-macos:
-    runs-on: macos-14  # Apple Silicon
+    runs-on: macos-15  # Xcode 16: -std=c++26 supported (matches dev machines)
     timeout-minutes: 30
     strategy:
       fail-fast: false

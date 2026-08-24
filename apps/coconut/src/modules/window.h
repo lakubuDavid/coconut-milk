@@ -1,9 +1,9 @@
 #ifndef COCONUT_MODULES_WINDOW_H
 #define COCONUT_MODULES_WINDOW_H
 
+#include <webview/api.h>  // webview_t
 #include <sol/sol.hpp>
 #include "thread_kind.h"
-#include "webview/api.h"  // webview_t
 
 namespace coconut::modules {
 

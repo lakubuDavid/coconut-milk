@@ -1,7 +1,8 @@
 #include "window.h"
 
 #include "../dispatch.h"
-#include "../platform/darwin/window_handle.h"
+// #include "../platform/darwin/window_handle.h"
+#include "../platform/window_native.h"
 #include "modules/thread_kind.h"
 #include "webview/api.h"
 #include "webview/types.h"

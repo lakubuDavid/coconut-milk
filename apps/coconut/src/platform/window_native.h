@@ -11,7 +11,7 @@
 ///
 /// ALL of these must be called on the MAIN thread (AppKit/GTK requirement).
 
-#include "webview/api.h"  // webview_t
+#include <webview/api.h>  // webview_t
 
 #include <string>
 
