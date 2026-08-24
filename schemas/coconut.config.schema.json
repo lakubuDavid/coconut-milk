@@ -5,11 +5,6 @@
   "description": "Startup configuration for Coconut Milk desktop applications",
   "type": "object",
   "properties": {
-    "browser": {
-      "description": "Browser backend for WebUI",
-      "type": "string",
-      "default": "auto"
-    },
     "window_width": {
       "description": "Initial window width in pixels",
       "type": "integer",

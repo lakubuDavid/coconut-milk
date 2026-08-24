@@ -595,7 +595,7 @@ namespace coconut::lua {
 
       // If the callback returned a table, merge additional fields.
       // The ctx setters already mutated the Config in-place for
-      // setBrowser / setWindowSize / setInitialView calls.
+      // setWindowSize / setInitialView calls.
       sol::object ret = result;
       if (ret.is<sol::table>() && cfg != nullptr) {
         sol::table t = ret.as<sol::table>();

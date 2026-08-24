@@ -278,7 +278,6 @@ function GENERATORS.coconut_config(project_name, template, framework)
       'local dev = os.getenv("COCONUT_DEV") == "1',
       "",
       'return {',
-      '  browser = "webview",',
       '  initial_view = dev and "dev" or "app",',
       '  view_root = "views",',
       '  command_root = "commands",',
@@ -294,7 +293,6 @@ function GENERATORS.coconut_config(project_name, template, framework)
   else
     extra = {
       'return {',
-      '  browser = "webview",',
       '  initial_view = "app",',
       '  view_root = "views",',
       '  command_root = "commands",',

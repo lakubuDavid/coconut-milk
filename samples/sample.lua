@@ -24,7 +24,6 @@ end
 
 function coconut.config(ctx)
   ctx
-      :setBrowser("auto")
       :setWindowSize({
         w = 1280,
         h = 640

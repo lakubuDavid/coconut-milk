@@ -1,5 +1,4 @@
 return {
-  browser = "webview",
   initial_view = "app",
   view_root = "views",
   command_root = "commands",

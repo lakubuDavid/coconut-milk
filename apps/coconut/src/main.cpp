@@ -693,7 +693,7 @@ int main(int argc, char* argv[]) {
   //   • loading main.lua
   //   • calling coconut.config(ctx) if it exists
   //   • merging returned config fields (table) into cfg
-  // The ctx setters (setBrowser, setWindowSize, setInitialView) mutate the
+  // The ctx setters (setWindowSize, setInitialView) mutate the
   // shared Config in-place — merging app-level overrides on top of the
   // config-file defaults.
   debug::info("main: loading entry point...");
