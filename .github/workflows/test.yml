@@ -29,6 +29,11 @@ jobs:
         with:
           install: true
 
+      - name: Install xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+
       # Runs from apps/coconut (task config_root): configure + build +
       # execute the suite with the mode-appropriate task.
       - name: Test (${{ matrix.mode }})
@@ -50,6 +55,11 @@ jobs:
       - uses: jdx/mise-action@v2
         with:
           install: true
+
+      - name: Install xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
 
       - name: Install system dependencies
         run: |
