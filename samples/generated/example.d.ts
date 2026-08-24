@@ -5,8 +5,4 @@
 /**
 @description 
 */
-declare function hello(params:{name?: string},) : Promise<[string]>;
-/**
-@description 
-*/
 declare function goodbye(params:{name?: string},) : Promise<[string]>;

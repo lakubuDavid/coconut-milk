@@ -36,10 +36,12 @@ namespace coconut::modules {
     // marshal it onto the main run loop (fire-and-forget). Returns an
     // {ok=true} table, or {ok=false,error=...} when no target is set.
 
-    auto apply = [wv,
-                  thisKind](std::function<void(webview_t)> op, sol::this_state s) -> sol::table {
+    auto apply = [thisKind](std::function<void(webview_t)> op, sol::this_state s) -> sol::table {
       sol::state_view lv(s);
       sol::table      t = lv.create_table();
+      // g_target_webview is read at CALL time, not registration time —
+      // init_window may run before setWindowTarget() during startup.
+      webview_t wv = g_target_webview;
       if (wv == nullptr) {
         t["ok"]    = false;
         t["error"] = "no window target (setWindowTarget not called)";
@@ -96,7 +98,8 @@ namespace coconut::modules {
 
     // ── Queries (synchronous round-trip from workers) ──────────────────
 
-    win.set_function("getPosition", [wv, thisKind](sol::this_state s) -> sol::table {
+    win.set_function("getPosition", [thisKind](sol::this_state s) -> sol::table {
+      webview_t       wv = g_target_webview;  // lazy lookup (see apply note)
       sol::state_view lv(s);
       sol::table      t = lv.create_table();
       int             x = 0, y = 0;

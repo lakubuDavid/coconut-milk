@@ -3,19 +3,21 @@
 // Plain JS with JSDoc — no build step required.
 // @ts-check
 
-/**
- * @param {{name?: string}} params
- * @returns {Promise<string>}
- */
-export async function hello(params) {
-  return coconut.call("hello", {params});
-}
+(function () {
+  'use strict';
 
-/**
- * @param {{name?: string}} params
- * @returns {Promise<string>}
- */
-export async function goodbye(params) {
-  return coconut.call("goodbye", {params});
-}
+  /**
+   * @param {{name?: string}} params
+   * @returns {Promise<string>}
+   */
+  async function goodbye(params) {
+    return coconut.call("goodbye", params);
+  }
 
+  // Expose to window for non-module scripts
+  window.goodbye = goodbye;
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { goodbye };
+  }
+})();
