@@ -1,15 +1,17 @@
 #include "window.h"
 
-#include "../debug.h"
 #include "../dispatch.h"
 #include "../platform/darwin/window_handle.h"
-
-#include <webview/webview.h>
+#include "modules/thread_kind.h"
+#include "webview/api.h"
+#include "webview/types.h"
 
 #include <functional>
 #include <future>
-#include <tuple>
-#include <utility>
+#include <sol/state.hpp>
+#include <sol/table.hpp>
+#include <sol/types.hpp>
+#include <string>
 
 namespace coconut::modules {
 

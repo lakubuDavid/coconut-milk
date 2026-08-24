@@ -1,7 +1,10 @@
 #include "notify.h"
+#include <sol/state.hpp>
+#include <sol/table.hpp>
+#include <string>
 #include "../packages/notify.h"  // C++ notify namespace
-#include "debug.h"
 #include "forward.h"
+#include "modules/thread_kind.h"
 
 namespace coconut::modules {
 

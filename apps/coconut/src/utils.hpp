@@ -1,16 +1,15 @@
 #pragma once
 
 #include <cstring>
-#include <iostream>
 #include <string>
 #include <vector>
 
 const std::string WHITESPACE = " \n\r\t\f\v";
 
-bool isWhitespace(std::string c){
+bool isWhitespace(std::string c) {
   return WHITESPACE.contains(c);
 }
-bool isWhitespace(char c){
+bool isWhitespace(char c) {
   return WHITESPACE.contains(c);
 }
 // Trim from the start (left)
@@ -26,5 +25,6 @@ std::string rtrim(std::string s) {
 }
 
 // Trim from both ends
-std::string trim(std::string s) { return rtrim(ltrim(s)); }
-
+std::string trim(std::string s) {
+  return rtrim(ltrim(s));
+}

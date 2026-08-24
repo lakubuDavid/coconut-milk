@@ -1,9 +1,22 @@
 #include "store.h"
+#include <cstddef>
+#include <format>
+#include <nlohmann/json_fwd.hpp>
+#include <optional>
+#include <sol/forward.hpp>
+#include <sol/object.hpp>
+#include <sol/state.hpp>
+#include <sol/state_view.hpp>
+#include <sol/table.hpp>
+#include <sol/types.hpp>
+#include <string>
+#include <vector>
 #include "../store.h"  // C++ store namespace (coconut::store)
 #include "app.h"
 #include "bridge.h"
 #include "debug.h"
 #include "forward.h"
+#include "modules/thread_kind.h"
 
 namespace coconut::modules {
 

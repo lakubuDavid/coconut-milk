@@ -1,7 +1,13 @@
 #include "dialog.h"
+#include <cstddef>
+#include <sol/state.hpp>
+#include <sol/table.hpp>
+#include <sol/variadic_args.hpp>
+#include <string>
+#include <vector>
 #include "../dialog.h"  // C++ dialog namespace
-#include "debug.h"
 #include "forward.h"
+#include "modules/thread_kind.h"
 
 namespace coconut::modules {
 

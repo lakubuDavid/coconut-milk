@@ -17,59 +17,59 @@
 ///   coconut::println(stderr, "error: {}", msg);   // FILE* also works
 ///   auto s = coconut::format("{} + {} = {}", a, b, a + b);
 
-#include <format>
 #include <cstdio>
-#include <iostream>
+#include <format>
+#include <ostream>
 #include <string>
 
 // ── Feature detection ─────────────────────────────────────────────────
 // std::println / std::print are in <print> (C++23, P2093).
 // libc++ 17+ and libstdc++ 14+ provide it.
 #if __has_include(<print>)
-#  include <print>
-#  define COCONUT_HAS_PRINTLN 1
+#include <print>
+#define COCONUT_HAS_PRINTLN 1
 #endif
 
 namespace coconut {
 
-// ── println ───────────────────────────────────────────────────────────
+  // ── println ───────────────────────────────────────────────────────────
 
-/// Print a formatted line to an arbitrary FILE* (stderr, stdout, …).
-template<typename... Args>
-void println(std::FILE* stream, std::format_string<Args...> fmt, Args&&... args) {
+  /// Print a formatted line to an arbitrary FILE* (stderr, stdout, …).
+  template <typename... Args>
+  void println(std::FILE* stream, std::format_string<Args...> fmt, Args&&... args) {
 #if COCONUT_HAS_PRINTLN
-  std::println(stream, fmt, std::forward<Args>(args)...);
+    std::println(stream, fmt, std::forward<Args>(args)...);
 #else
-  std::string s = std::format(fmt, std::forward<Args>(args)...) + '\n';
-  std::fwrite(s.data(), 1, s.size(), stream);
+    std::string s = std::format(fmt, std::forward<Args>(args)...) + '\n';
+    std::fwrite(s.data(), 1, s.size(), stream);
 #endif
-}
+  }
 
-/// Print a formatted line to an arbitrary output stream.
-template<typename... Args>
-void println(std::ostream& os, std::format_string<Args...> fmt, Args&&... args) {
+  /// Print a formatted line to an arbitrary output stream.
+  template <typename... Args>
+  void println(std::ostream& os, std::format_string<Args...> fmt, Args&&... args) {
 #if COCONUT_HAS_PRINTLN
-  std::println(os, fmt, std::forward<Args>(args)...);
+    std::println(os, fmt, std::forward<Args>(args)...);
 #else
-  os << std::format(fmt, std::forward<Args>(args)...) << std::endl;
+    os << std::format(fmt, std::forward<Args>(args)...) << std::endl;
 #endif
-}
+  }
 
-/// Print a formatted line to stdout.
-template<typename... Args>
-void println(std::format_string<Args...> fmt, Args&&... args) {
+  /// Print a formatted line to stdout.
+  template <typename... Args>
+  void println(std::format_string<Args...> fmt, Args&&... args) {
 #if COCONUT_HAS_PRINTLN
-  std::println(fmt, std::forward<Args>(args)...);
+    std::println(fmt, std::forward<Args>(args)...);
 #else
-  std::cout << std::format(fmt, std::forward<Args>(args)...) << std::endl;
+    println(stdout, fmt, std::forward<Args>(args)...);
 #endif
-}
+  }
 
-// ── format ────────────────────────────────────────────────────────────
-// std::format is available on all our target platforms (C++23 mode).
-// We just re-export it for convenience / single-include.
-using std::format;
+  // ── format ────────────────────────────────────────────────────────────
+  // std::format is available on all our target platforms (C++23 mode).
+  // We just re-export it for convenience / single-include.
+  using std::format;
 
-} // namespace coconut
+}  // namespace coconut
 
-#endif // COCONUT_PRINT_H
+#endif  // COCONUT_PRINT_H

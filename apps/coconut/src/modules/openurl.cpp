@@ -1,7 +1,10 @@
 #include "openurl.h"
-#include "../packages/open_url.h"  // C++ open_url namespace
-#include "debug.h"
+#include <sol/state.hpp>
+#include <sol/table.hpp>
+#include <string>
 #include "forward.h"
+#include "modules/thread_kind.h"
+#include "platform/darwin/open_url.h"
 
 namespace coconut::modules {
 

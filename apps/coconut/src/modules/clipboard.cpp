@@ -1,7 +1,10 @@
 #include "clipboard.h"
+#include <sol/state.hpp>
+#include <sol/table.hpp>
+#include <string>
 #include "../packages/clipboard.h"  // C++ clipboard namespace
-#include "debug.h"
 #include "forward.h"
+#include "modules/thread_kind.h"
 
 namespace coconut::modules {
 
