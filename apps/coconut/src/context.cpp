@@ -12,64 +12,14 @@
 #include <format>
 
 // Platform dispatch for native window handle operations
-#if defined(__APPLE__)
-#include "platform/darwin/window_handle.h"
-#elif defined(_WIN32)
-// Win32 stubs for window handle ops (inline nops)
-namespace coconut::window {
-  inline void platformMoveWindow(webview_t, int, int) {
-  }
-  inline void platformSetWindowPosition(webview_t, int, int) {
-  }
-  inline void platformGetWindowPosition(webview_t, int& x, int& y) {
-    x = y = 0;
-  }
-  inline void platformMinimizeWindow(webview_t) {
-  }
-  inline void platformMaximizeWindow(webview_t) {
-  }
-  inline void platformToggleFullscreen(webview_t) {
-  }
-  inline void platformSetFullscreen(webview_t, bool) {
-  }
-  inline void platformSetMovableByBackground(webview_t, bool) {
-  }
-  inline void platformSetWindowBackgroundColor(webview_t, float, float, float, float) {
-  }
-}  // namespace coconut::window
-#elif defined(__linux__)
-// Linux stubs
-namespace coconut::window {
-  inline void platformMoveWindow(webview_t, int, int) {
-  }
-  inline void platformSetWindowPosition(webview_t, int, int) {
-  }
-  inline void platformGetWindowPosition(webview_t, int& x, int& y) {
-    x = y = 0;
-  }
-  inline void platformMinimizeWindow(webview_t) {
-  }
-  inline void platformMaximizeWindow(webview_t) {
-  }
-  inline void platformToggleFullscreen(webview_t) {
-  }
-  inline void platformSetFullscreen(webview_t, bool) {
-  }
-  inline void platformSetMovableByBackground(webview_t, bool) {
-  }
-  inline void platformSetWindowBackgroundColor(webview_t, float, float, float, float) {
-  }
-}  // namespace coconut::window
-#else
-#error "Unsupported platform"
-#endif
+#include "platform/window_native.h"  // portable platform window ops
 
 namespace coconut {
 
   namespace context {
 
     std::expected<CoconutContext*, Error> create(Config* config) {
-      auto ctx = new CoconutContext{
+      CoconutContext* ctx = new CoconutContext{
           .configs       = config,
           .app           = nullptr,
           .bridge_state  = nullptr,

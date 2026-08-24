@@ -13,6 +13,9 @@
 [tools]
 bun = "latest"
 typos = "latest"
+# Inherit root tools EXCEPT clang: the app builds with Apple/Xcode clang;
+# mise's LLVM shims on PATH change xmake's detection and break ObjC++ std flags.
+clang = false
 
 [tasks.default]
 description = "List available tasks"
