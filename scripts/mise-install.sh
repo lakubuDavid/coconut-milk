@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 # mise-install.sh — symlink the built coconut binary + create-coconut-app
-# into ~/tools. Called by `mise run install` / `mise run install-release`
-# (the mode was configured by the task's depends, so `xmake show`
-# reports the right targetfile).
-#
-# Mirror of the Justfile `install` target.
+# into ~/.local/bin (override with COCONUT_INSTALL_DIR). Called by
+# `mise run install` / `mise run install-release` (the mode was configured
+# by the task's depends, so `xmake show` reports the right targetfile).
 
 set -euo pipefail
 
-INSTALL_DIR="${HOME}/tools"
+INSTALL_DIR="${COCONUT_INSTALL_DIR:-${HOME}/.local/bin}"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 mkdir -p "${INSTALL_DIR}"

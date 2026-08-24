@@ -34,7 +34,7 @@ Coding standards and conventions for Coconut Milk.
 - `g_` prefix for module-level globals (e.g. `g_dispatch_app`, `g_runloop_source`)
 
 ### Namespaces
-- `coconut::` top-level, then nested: `coconut::bridge::`, `coconut::dispatch::`, `coconut::lua::`, `coconut::window::`, `coconut::modules::`, `coconut::bg_thread::`
+- `coconut::` top-level, then nested: `coconut::bridge::`, `coconut::dispatch::`, `coconut::lua::`, `coconut::window::`, `coconut::modules::`, `coconut::core::`
 
 ## Module & API Usage
 

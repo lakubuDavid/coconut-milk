@@ -395,7 +395,7 @@ The project includes a `Justfile` with common development tasks.
 
 ```bash
 just install
-# Symlinks coconut and create-coconut-app to ~/tools/
+# Symlinks coconut and create-coconut-app to ~/.local/bin/
 ```
 
 ### Running Examples

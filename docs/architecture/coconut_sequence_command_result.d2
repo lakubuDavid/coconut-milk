@@ -1,0 +1,37 @@
+# Coconut Milk — command lifecycle (worker path with RpcId correlation)
+#
+# Uniform async reply protocol: JS promises resolve exclusively via
+# __coconut_rpc_receive(id). webview_return is never used for commands.
+
+direction: right
+
+js: "JS\ncoconut.call(name, params)"
+bind: "__coconut_rpc binding\n(WKWebView, main thread)"
+transport: "WebviewTransport"
+bridge: "core::Bridge.onInbound"
+sync: "sync executor\nmt_handlers / main registry"
+disp: "Dispatcher.flush\n(main run loop)"
+worker: "Worker thread\nLua VM + Commands"
+native: "coconut.window.*\n→ dispatch::post → main"
+
+js -> bind: "msg = {type:'call', id:'rpc-N', name, payload}"
+bind -> transport: "static_on_rpc → onInbound"
+
+bridge.sync: "known mt/main command?"
+bridge.transport: "reply envelope"
+
+step1: "1 · sync route"
+js.expose: js
+
+# — sync path —
+bridge -> transport: "{ok:true,data} as kReturn(id)"
+transport -> js: "__coconut_rpc_receive(id) resolves"
+
+# — worker path —
+bridge -> disp: "queue CommandCallMessage{RpcId=id} + notify"
+disp -> worker: "flush → queueMessage(cmd,args,RpcId)"
+worker -> worker: "execCommand(sandboxed)"
+worker -> native: "window/dialog/clipboard ops\nmarshal via dispatch::post"
+worker -> disp: "Resolve/Reject{result,RpcId} + NotifyMain"
+disp -> transport: "kReturn {ok,data} / kError {ok,error}\nid = RpcId"
+transport -> js: "__coconut_rpc_receive(id)\n→ promise settles"

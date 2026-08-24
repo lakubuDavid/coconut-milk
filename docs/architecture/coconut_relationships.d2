@@ -1,63 +1,72 @@
-# Coconut architecture — component relationships
-# App is the hub. Two parallel off-main executors:
-#   • bg_thread::Context  -> uses dispatch::Outbox (bridged by dispatch::drain)
-#   • core::WorkerPool    -> uses core::MessageQueue (separate main-thread drain)
+# Coconut Milk — component relationships (current architecture)
+#
+# Core message path:  JS <-> WebviewTransport <-> core::Bridge -> Dispatcher -> WorkerPool
+# The dispatch pump (CFRunLoopSource + task queue) is the only bridge back to the main thread.
 
-App: App (hub)
-webview: webview_t
-window: window::Window
-main_runtime: "lua::Runtime (main)\n+ coconut._dispatch\n+ execCommand"
-bridge_state: "bridge::State\n(owns transport + store)"
-transport: "WebviewTransport\ntransport::Transport"
-store: store::Store
-dispatch: "coconut::dispatch\ninit / drain / notify\n+ evalJS / lifecycle / commandCall"
-app_outbox: "App.outbox\ndispatch::Outbox (by value)"
-commands: commands::Registry
-platform: platform/lifecycle.cpp
+direction: right
+vars: {
+  d2-config: { layout-engine: elk }
+}
 
-bg: "bg_thread::Context (app->bg)"
-bg_inbox: "bg.inbox\ndispatch::Outbox (Main->Bg)"
-bg_outbox: "bg.outbox\ndispatch::Outbox (Bg->Main)"
-bg_lua: "bg: own sol::state +\nCoconutContext + commands"
+app: "coconut::App\n(hub; owns webview, window,\nruntime, dispatcher, core_bridge)"
 
-workerpool: "core::WorkerPool / Worker"
-wp_queues: "Worker Input/Output\ncore::MessageQueue"
-wp_lua: "Worker: own unique_ptr\nsol::state + App + commands"
+webview: "webview_t\n(WKWebView)"
+window: "window::Window\nviews / navigation"
 
-# -- App ownership --
-App -> webview: owns handle
-App -> window: owns
-App -> main_runtime: owns
-App -> bridge_state: owns
-App -> app_outbox: owns by value
-App -> bg: owns
-App -> commands: points to
+runtime: "lua::Runtime (main)\ncoconut._dispatch\ncommands registry"
+ctx: "CoconutContext\n(main) — window handle,\nconfigs, bind/bind_mt"
 
-# -- bridge internals --
-bridge_state -> transport: owns
-bridge_state -> store: owns
-transport -> webview: wraps
-transport -> bridge_state: inbound RPC callback
+transport: {
+  label: "WebviewTransport\n(transport::Transport)\nshared_ptr"
+}
 
-# -- dispatch operates on App.outbox + bg.outbox --
-dispatch -> app_outbox: "push via helpers\n+ drain reads"
-dispatch -> webview: "drain -> webview_eval\n(EvalJS)"
-dispatch -> main_runtime: "drain -> dispatchViewLifecycleEvent\n(LifecycleEvent)"
-dispatch -> bridge_state: "drain -> rpcSend\n(CommandResult)"
-dispatch -> bg_outbox: "drain reads\nCommandResult"
+bridge: {
+  label: "core::Bridge\nonInbound routing\nsync executor (mt/main)"
+}
 
-# -- bridge <-> runtime --
-bridge_state -> main_runtime: "dispatchEventToLua ->\ncoconut._dispatch"
-bridge_state -> main_runtime: "dispatchRpcCallToLua ->\nexecCommand"
-platform -> bridge_state: dispatchEventToLua
+dispatcher: {
+  label: "core::Dispatcher\nqueue + flush\nowns WorkerPool"
+}
 
-# -- bg runtime ownership --
-bg -> bg_inbox: owns
-bg -> bg_outbox: owns
-bg -> bg_lua: owns
-bg -> commands: owns
+pool: {
+  label: "core::WorkerPool\nN workers, round-robin"
+  w1: "Worker (Lua VM,\nctx, Commands map)"
+  w2: "Worker (Lua VM,\nctx, Commands map)"
+}
 
-# -- workerpool (parallel mechanism, no link to dispatch) --
-workerpool -> wp_queues: owns
-workerpool -> wp_lua: owns
-workerpool -> commands: owns
+pump: {
+  label: "dispatch (main-thread pump)\nCFRunLoopSource via\nplatform::runloop port"
+  tasks: "task queue\ndispatch::post(fn)"
+}
+
+platform: "platform/* adapters\nwindow_native.h · runloop.h"
+
+# ── ownership ─────────────────────────────────────────────
+app -> webview: owns
+app -> window: owns
+app -> runtime: owns
+app -> ctx: owns
+app -> dispatcher: unique_ptr
+app -> bridge: unique_ptr
+
+dispatcher.pool <- pool: owns
+
+# ── shared / borrowed ─────────────────────────────────────
+transport -> app: borrowed App*
+bridge.transport <- transport: shared_ptr
+dispatcher.transport <- transport: shared_ptr
+dispatcher.runtime <- runtime: raw borrow
+bridge.lua <- runtime: sol state_view borrow
+
+# ── message flow ──────────────────────────────────────────
+webview -> transport: __coconut_rpc(id,name,payload)
+transport -> bridge: setMessageCallback → onInbound(msg)
+bridge -> dispatcher: kCall unknown cmd\nCommandCallMessage with RpcId
+bridge -> transport: sync reply\nkReturn/kError envelope
+dispatcher -> pool: queueMessage\n(cmd,args,RpcId)
+pool -> transport: Resolve/Reject\n→ kReturn/kError envelope
+
+pump -> dispatcher: drain() → flush()
+pump.tasks -> pump: run on main\n(window/native ops)
+
+transport -> webview: __coconut_rpc_receive(envelope)\n__coconut_dispatch_event(name,payload)

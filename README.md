@@ -1,6 +1,6 @@
 <div align="center">
   <br>
-  <h1 align="center">🥥 Coconut Milk</h1>
+  <h1 align="center">Coconut Milk</h1>
   <p align="center">
     <strong>Lua-first, cross-platform desktop UI framework</strong>
     <br>
@@ -36,7 +36,7 @@ xmake build coconut && xmake run coconut</code></pre>
 
 ---
 
-## 📱 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -49,19 +49,19 @@ xmake build coconut && xmake run coconut</code></pre>
 
 ### Build & Run
 
-```bash
-# Build the core binary
-xmake build coconut
+All build/run/test flows go through mise (which also pins tool versions):
 
-# Run with the calculator-vue example
-just build-vue    # builds the Vue app first
-just run-vue-prod # runs with pre-built production assets
+```bash
+mise run build        # configure (debug) + build the coconut binary
+mise run run          # build + run the app
+mise run test         # build + run the 346-test suite
+mise run build-asan   # AddressSanitizer build
 ```
 
 ### Install globally
 
 ```bash
-just install
+mise run install
 ```
 
 This symlinks `coconut` and `create-coconut-app` to `$HOME/tools/` (configurable).
@@ -77,7 +77,7 @@ create-coconut-app my-app --template vite --framework vue
 
 ---
 
-## ✨ Features
+## Features
 
 <div class="features-grid">
   <div class="feature-card">
@@ -85,7 +85,7 @@ create-coconut-app my-app --template vite --framework vue
     <p>Sol2 bindings, full <code>ctx</code> API for window control, events, and commands. LuaJIT boots in milliseconds.</p>
   </div>
   <div class="feature-card">
-    <h3>🖥️ Native macOS Windows</h3>
+    <h3>Native macOS Windows</h3>
     <p>Frameless, transparent windows powered by WKWebView with custom <code>coconut://</code> URL scheme support.</p>
   </div>
   <div class="feature-card">
@@ -93,7 +93,7 @@ create-coconut-app my-app --template vite --framework vue
     <p>Seamless RPC between JS and Lua: <code>coconut.call()</code>, <code>coconut.emit()</code>, <code>coconut.on()</code>.</p>
   </div>
   <div class="feature-card">
-    <h3>⚡ Command Generation</h3>
+    <h3>Command Generation</h3>
     <p>Annotate Lua functions with <code>---@command</code> and get typed <code>.g.js</code> wrappers auto-generated.</p>
   </div>
   <div class="feature-card">
@@ -101,68 +101,92 @@ create-coconut-app my-app --template vite --framework vue
     <p>No Chromium, no Node.js. The entire runtime is a ~2–5 MB binary. Your app is just Lua + HTML.</p>
   </div>
   <div class="feature-card">
-    <h3>🏗️ Scaffolding CLI</h3>
+    <h3>Scaffolding CLI</h3>
     <p><code>create-coconut-app</code> with bare, bare-ts, and Vite (Vue/React/Solid) templates.</p>
   </div>
 </div>
 
 ---
 
-## 🏗️ Architecture
+## Architecture
+
+Rendered diagrams: [`coconut_relationships.svg`](docs/architecture/coconut_relationships.svg) ·
+[`coconut_sequence_command_result.svg`](docs/architecture/coconut_sequence_command_result.svg)
+(sources: `docs/architecture/*.d2`, regenerate with `mise x -- d2 <file>.d2 <file>.svg`)
 
 ```
-┌─────────────────────────────────────────────────┐
-│              Frontend (HTML/CSS/JS)              │
-│  coconut.call() │ coconut.emit() │ coconut.on() │
-└──────────────────────┬──────────────────────────┘
-                       │  RPC Bridge
-                       ▼
-┌─────────────────────────────────────────────────┐
-│         Platform WebView (WKWebView/WebView2)    │
-│  Render HTML  │  Inject JS API  │  coconut://   │
-└──────────────────────┬──────────────────────────┘
-                       │  Message Transport
-                       ▼
-┌─────────────────────────────────────────────────┐
-│              Lua Runtime (LuaJIT)                │
-│  Commands  │  Events  │  Views  │  Config       │
-└──────────────────────┬──────────────────────────┘
-                       │  Native Bindings
-                       ▼
-┌─────────────────────────────────────────────────┐
-│           Native Platform APIs                  │
-│  Filesystem  │  Dialogs  │  Window  │  Clipboard│
-└─────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│                Frontend (HTML/CSS/JS)                 │
+│  coconut.call() ─ __coconut_rpc(id,name,payload)      │
+│  replies via __coconut_rpc_receive({id,type,payload}) │
+└───────────────────────┬─────────────────────────────┘
+                        │  WKScriptMessageHandler
+                        ▼
+┌──────────────────────────────────────────────────────┐
+│  WebviewTransport ──► core::Bridge.onInbound          │
+│     kEvent → emitToLua (coconut._dispatch)            │
+│     kCall  → sync executor (mt/main registries)       │
+│            → else Dispatcher → WorkerPool             │
+└───────────────────────┬─────────────────────────────┘
+                        │  uniformly async envelopes
+                        ▼
+┌──────────────────────────────────────────────────────┐
+│   Main thread: dispatch pump (CFRunLoopSource)        │
+│   flush() + task queue (dispatch::post from workers)  │
+└───────────────────────┬─────────────────────────────┘
+                        ▼
+┌──────────────────────────────────────────────────────┐
+│  Workers (Lua VM each) · platform/* native ops        │
+└──────────────────────────────────────────────────────┘
 ```
 
-### Data Flow
+### Data Flow (worker command with correlation)
 
-1. **User interacts with UI** → frontend JS calls `coconut.call("cmd", payload)`
-2. **WebView serializes** the call as JSON and sends it to the Lua runtime
-3. **Lua handler executes** the command and returns a value (or emits events)
-4. **Runtime serializes** the result back to JSON
-5. **WebView delivers** the response → frontend Promise resolves
+1. **JS** calls `coconut.call("cmd", params)` — the shim generates a unique id and parks a promise
+2. **Bridge::onInbound** — main-thread-only commands answer instantly; others queue to the Dispatcher carrying the id as `RpcId`
+3. **Worker executes** the Lua handler in its own VM (sandboxed); results come back as `Resolve/Reject{RpcId}`
+4. **Dispatcher flush** turns them into `kReturn {ok,data}` / `kError {ok,error}` envelopes
+5. **`__coconut_rpc_receive(id)`** resolves the parked promise — one reply mechanism for everything
 
 ### Modules
 
 | Module | Role |
 |---|---|
-| `coconut::app` | Window + webview lifecycle |
-| `coconut::lua` | Lua runtime, sol2 bindings, command dispatch |
-| `coconut::bridge` | RPC transport, JS ↔ C++ message routing |
-| `coconut::commands` | Named command registry |
-| `coconut::window` | View system, navigation, window style |
+| `coconut::app` | Window + webview lifecycle, owns the core trio |
+| `coconut::lua` (main_runtime) | Lua runtime, sol2 bindings, builtin `bind_mt` commands |
+| `core::Bridge` | Inbound routing (`onInbound`), sync executor, envelope replies |
+| `core::Dispatcher` | Typed message queue → WorkerPool; flushes on main |
+| `core::WorkerPool` | Background Lua workers (one VM each, per-worker registries) |
+| `dispatch` | Main-thread pump: CFRunLoopSource, `post()`, task queue |
+| `WebviewTransport` | `__coconut_rpc` binding + envelope send/eval |
+| `coconut::window` (module) | Thread-aware window API — direct on main, marshalled from workers |
+| `coconut::commands` | Named command registry (`handlers` + `mt_handlers`) |
+| `coconut::window` / `view_events` | View system, navigation, lifecycle events |
 | `coconut::config` | Config loading (Lua/JSON), CLI merge |
-| `coconut::fs` | File I/O |
-| `coconut::dialog` | Native dialogs (open/save/message) |
-| `coconut::debug` | Structured logging |
-| `coconut::error` | Error codes and result types |
-| `coconut::lifecycle` | Window event observers |
-| `coconut::platform` | Platform-specific adapters |
+| `coconut::fs` · `dialog` · `debug` · `error` · `lifecycle` | Core services |
+| `coconut::platform` | Per-OS adapters behind `platform/window_native.h`, `platform/runloop.h` |
 
 ---
 
-## 📂 Project Layout
+## Project Layout (monorepo)
+
+```
+├── apps/
+│   ├── coconut/               # GUI runtime binary
+│   │   ├── src/               #   C++ source (core/, modules/, platform/)
+│   │   ├── tests/             #   346-test suite + e2e
+│   │   └── xmake.lua
+│   └── coconut-cli/           # generator + scaffolder CLI (std-only, LLVM 22)
+├── samples/                   # canonical sample app (commands/, views/, generated/)
+├── examples/                  # calculator-vue, playground, code-editor, …
+├── schemas/                   # config schema + TS declarations
+├── scripts/                   # create-coconut-app, install helpers
+├── docs/architecture/         # rendered .svg diagrams (.d2 sources)
+├── wiki/                      # guides / concepts / reference / specs
+└── mise.toml                  # monorepo root: monorepo_root=true, config_roots
+```
+
+Inside a project directory (`samples/`, your app):
 
 ```
 ├── main.lua              # App entry point
@@ -170,14 +194,12 @@ create-coconut-app my-app --template vite --framework vue
 ├── views/                # HTML view assets
 ├── commands/             # Lua command modules
 │   └── *.lua             #   with ---@command annotations
-├── assets/               # Static framework assets
 ├── generated/            # Build output:
-│   ├── *.g.lua           #   Lua registration glue
+│   ├── *.g.lua           #   worker-thread registration glue
+│   ├── *.g_mt.lua        #   main-thread registration glue
 │   ├── *.d.ts            #   TypeScript declarations
 │   └── *.g.js            #   JS wrappers with JSDoc
-├── wiki/                 # Documentation site
-├── src/                  # C++ source code
-└── tests/                # Test suite
+└── assets/               # Static assets (coconut://assets/…)
 ```
 
 ### Build Pipeline
@@ -193,23 +215,23 @@ commands/notes.lua
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 | Section | Description |
 |---|---|
 | [📖 Getting Started](wiki/getting-started.md) | Installation, first app, templates |
 | [🧠 Concepts](wiki/explanation/concepts.md) | Architecture, view system, bridge protocol |
 | [📘 Lua Backend Guide](wiki/reference/lua-guide.md) | Commands, events, views, best practices |
-| [🔧 Bridge Reference](wiki/reference/bridge.md) | RPC protocol, message flow, transport |
+| [Bridge Reference](wiki/reference/bridge.md) | RPC protocol, message flow, transport |
 | [📋 API Reference](wiki/reference/api-reference.md) | All Lua and JS APIs with signatures |
 | [💻 CLI Reference](wiki/reference/cli.md) | coconut, generate, create-coconut-app |
 | [📐 Specs](wiki/reference/specs/specs.md) | Full specification documents |
 | [🧪 Test Suite](wiki/reference/test-suite.md) | Test plan and coverage |
-| [🗺️ Roadmap](wiki/explanation/roadmap.md) | Implementation plan and phases |
+| [Roadmap](wiki/explanation/roadmap.md) | Implementation plan and phases |
 
 ---
 
-## 🖥️ Platform Support
+## Platform Support
 
 | Feature | macOS | Windows | Linux |
 |---|---|---|---|
@@ -226,7 +248,7 @@ commands/notes.lua
 
 ---
 
-## 🚀 Examples
+## Examples
 
 | Example | Stack | Features |
 |---|---|---|
@@ -237,7 +259,7 @@ commands/notes.lua
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please see our [Roadmap](wiki/explanation/roadmap.md) for planned work and the [Specification](wiki/reference/specs/specs.md) for architecture details.
 
@@ -249,7 +271,7 @@ Contributions are welcome! Please see our [Roadmap](wiki/explanation/roadmap.md)
 
 ---
 
-## 📄 License
+## License
 
 Distributed under the MIT License. See [`LICENSE`](LICENSE) for more information.
 
@@ -257,12 +279,12 @@ Distributed under the MIT License. See [`LICENSE`](LICENSE) for more information
 
 <div align="center">
   <p>
-    <strong>🥥 Coconut Milk</strong> —
+    <strong>Coconut Milk</strong> —
     <a href="https://github.com/lakubuDavid/coconut-milk">GitHub</a> •
     <a href="wiki/">Documentation</a> •
     <a href="wiki/explanation/roadmap.md">Roadmap</a>
   </p>
   <p>
-    <sub>Built with ❤️ using C++20, LuaJIT, and WKWebView</sub>
+    <sub>Built with using C++20, LuaJIT, and WKWebView</sub>
   </p>
 </div>

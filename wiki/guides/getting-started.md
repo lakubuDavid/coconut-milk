@@ -71,14 +71,14 @@ build/macosx/x86_64/debug/coconut   # The main binary
 just install
 ```
 
-This symlinks two tools into `~/tools/`:
+This symlinks two tools into `~/.local/bin/`:
 
 ```
-~/tools/coconut             → coconut runtime binary
-~/tools/create-coconut-app  → project scaffolding script
+~/.local/bin/coconut             → coconut runtime binary
+~/.local/bin/create-coconut-app  → project scaffolding script
 ```
 
-Add `~/tools` to your `PATH` for global access:
+Add `~/.local/bin` to your `PATH` (on most setups it already is):
 
 ```bash
 # Add to ~/.zshrc or ~/.bashrc
