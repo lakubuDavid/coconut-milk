@@ -16,53 +16,54 @@ namespace coconut {
       None = 0,
 
       /// Core serialisation / logging — safe on any thread.
-      Json = 1 << 0,
-      Log  = 1 << 1,
+      kJson = 1 << 0,
+      kLog  = 1 << 1,
 
       /// File system — safe on any thread.
-      Fs = 1 << 2,
+      kFs = 1 << 2,
 
       /// Environment variables — safe on any thread.
-      Env = 1 << 3,
+      kEnv = 1 << 3,
 
       /// Key-value store — safe on any thread.
-      Store = 1 << 4,
+      kStore = 1 << 4,
 
       /// Open URL in system browser — safe on any thread.
-      OpenUrl = 1 << 5,
+      kOpenUrl = 1 << 5,
 
       /// Keyboard shortcut handling — main-thread only.
-      Keybind = 1 << 6,
+      kKeybind = 1 << 6,
 
       /// Native file dialogs — main-thread only.
-      Dialog = 1 << 7,
+      kDialog = 1 << 7,
 
       /// System notifications — main-thread only.
-      Notify = 1 << 8,
+      kNotify = 1 << 8,
 
       /// Clipboard read/write — main-thread only.
-      Clipboard = 1 << 9,
+      kClipboard = 1 << 9,
 
       /// Hot module reload (coconut.hotreload) — main-thread only.
-      Hotreload = 1 << 10,
+      kHotreload = 1 << 10,
 
       /// Bridge event emission (coconut._emit_to_js) — main-thread only.
-      BridgeEmit = 1 << 11,
+      kBridgeEmit = 1 << 11,
 
       /// Main-thread stubs (placeholder registrations for mt-only APIs).
-      Stubs = 1 << 12,
+      kStubs = 1 << 12,
 
       /// Background-thread stubs (warnings for mt-only APIs on bg).
-      BgStubs = 1 << 13,
+      kBgStubs = 1 << 13,
 
       /// Live window mutations (main: direct; bg: marshalled via dispatch::post).
-      Window = 1 << 14,
+      kWindow = 1 << 14,
 
       /// Convenience: all thread-safe modules (bg-thread safe subset).
-      ThreadSafe = Json | Log | Fs | Env | Store | OpenUrl,
+      ThreadSafe = kJson | kLog | kFs | kEnv | kStore | kOpenUrl,
 
       /// Convenience: all main-thread-only modules.
-      MainOnly = Keybind | Dialog | Notify | Clipboard | Hotreload | BridgeEmit | Stubs | BgStubs,
+      MainOnly =
+          kKeybind | kDialog | kNotify | kClipboard | kHotreload | kBridgeEmit | kStubs | kBgStubs,
 
       /// Convenience: every module flag combined.
       ALL = ThreadSafe | MainOnly,

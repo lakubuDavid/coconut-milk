@@ -501,10 +501,10 @@ int main(int argc, char* argv[]) {
     auto   poolResult =
         coconut::core::WorkerPool::builder(kWorkerCount)
             .withModules(
-                coconut::modules::ModulesFlag::ThreadSafe | coconut::modules::ModulesFlag::BgStubs |
-                coconut::modules::ModulesFlag::Window | coconut::modules::ModulesFlag::Clipboard |
-                coconut::modules::ModulesFlag::Notify | coconut::modules::ModulesFlag::OpenUrl |
-                coconut::modules::ModulesFlag::Dialog
+                coconut::modules::ModulesFlag::ThreadSafe |
+                coconut::modules::ModulesFlag::kBgStubs | coconut::modules::ModulesFlag::kWindow |
+                coconut::modules::ModulesFlag::kClipboard | coconut::modules::ModulesFlag::kNotify |
+                coconut::modules::ModulesFlag::kOpenUrl | coconut::modules::ModulesFlag::kDialog
             )
             .withOutputNotifier([&app] { coconut::dispatch::notify(app); })
             .withInitializer([&](coconut::core::Worker* w) -> std::optional<coconut::Error> {
