@@ -89,4 +89,8 @@ jobs:
 
       - name: Run tests
         working-directory: apps/coconut
+        env:
+          # LeakSanitizer is on by default for Linux asan builds; the suite
+          # has known intentional/untracked allocations (tracked separately).
+          ASAN_OPTIONS: detect_leaks=0
         run: ./build/linux/$(uname -m)/${{ matrix.mode }}/tests
