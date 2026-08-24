@@ -32,7 +32,7 @@ jobs:
 
       - name: Apply webview patch (on_configure_config)
         run: |
-          cd thirdparty/webview
+          cd apps/coconut/thirdparty/webview
           if git apply --check "$GITHUB_WORKSPACE/$WEBVIEW_PATCH" 2>/dev/null; then
             git apply "$GITHUB_WORKSPACE/$WEBVIEW_PATCH"
             echo "  ✓ webview patch applied"
@@ -46,12 +46,15 @@ jobs:
           xmake-version: latest
 
       - name: Configure (download deps)
+        working-directory: apps/coconut
         run: xmake f -m release -p macosx -a ${{ matrix.arch }} -y
 
       - name: Build coconut binary
+        working-directory: apps/coconut
         run: xmake build -v coconut
 
       - name: Build and run tests
+        working-directory: apps/coconut
         run: |
           xmake build -v tests
           xmake run tests
@@ -60,7 +63,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coconut-macos-${{ matrix.arch }}
-          path: build/macosx/${{ matrix.arch }}/release/coconut
+          path: apps/coconut/build/macosx/${{ matrix.arch }}/release/coconut
 
   build-linux:
     runs-on: ubuntu-latest
@@ -81,7 +84,7 @@ jobs:
 
       - name: Apply webview patch
         run: |
-          cd thirdparty/webview
+          cd apps/coconut/thirdparty/webview
           if git apply --check "$GITHUB_WORKSPACE/$WEBVIEW_PATCH" 2>/dev/null; then
             git apply "$GITHUB_WORKSPACE/$WEBVIEW_PATCH"
             echo "  ✓ webview patch applied"
@@ -95,12 +98,15 @@ jobs:
           xmake-version: latest
 
       - name: Configure (download deps)
+        working-directory: apps/coconut
         run: xmake f -m release -p linux -a x86_64 -y
 
       - name: Build coconut binary
+        working-directory: apps/coconut
         run: xmake build -v coconut
 
       - name: Build tests
+        working-directory: apps/coconut
         run: xmake build -v tests
 
       - name: Run tests (headless via xvfb)
@@ -110,7 +116,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coconut-linux-x86_64
-          path: build/linux/x86_64/release/coconut
+          path: apps/coconut/build/linux/x86_64/release/coconut
 
   build-windows:
     runs-on: windows-latest
@@ -134,14 +140,17 @@ jobs:
           xmake-version: latest
 
       - name: Configure (download deps)
+        working-directory: apps/coconut
         # Use x64 (not x86_64) which matches MSVC's toolchain naming
         # WEBVIEW2_INCLUDE points to the NuGet WebView2 SDK headers
         run: xmake f -m release -p windows -a x64 --cxflags="-I$env:WEBVIEW2_INCLUDE" -y
 
       - name: Build coconut binary
+        working-directory: apps/coconut
         run: xmake build -v coconut
 
       - name: Build tests
+        working-directory: apps/coconut
         run: xmake build -v tests
 
       - name: Run tests
@@ -152,7 +161,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coconut-windows-x86_64
-          path: build/windows/x64/release/coconut.exe
+          path: apps/coconut/build/windows/x64/release/coconut.exe
 
   build-vite-package:
     runs-on: ubuntu-latest
