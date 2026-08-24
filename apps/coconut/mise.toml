@@ -11,6 +11,7 @@
 # ─────────────────────────────────────────────────────────────────────
 
 [tools]
+"github:xmake-io/xmake" = "v3.1.0"
 bun = "latest"
 typos = "latest"
 
@@ -22,59 +23,59 @@ run = "mise tasks ls"
 
 [tasks.build]
 description = "Configure (debug) and build the coconut binary"
-run = ["mise x -- xmake f -m debug -y", "xmake build coconut"]
+run = ["xmake f -m debug -y", "xmake build coconut"]
 
 [tasks.build-release]
 description = "Configure (release) and build the coconut binary"
-run = ["mise x -- xmake f -m release -y", "xmake build coconut"]
+run = ["xmake f -m release -y", "xmake build coconut"]
 
 [tasks.build-asan]
 description = "Configure and build with AddressSanitizer"
-run = ["mise x -- xmake f -m asan -y", "xmake build coconut"]
+run = ["xmake f -m asan -y", "xmake build coconut"]
 
 [tasks.build-tsan]
 description = "Configure and build with ThreadSanitizer"
-run = ["mise x -- xmake f -m tsan -y", "xmake build coconut"]
+run = ["xmake f -m tsan -y", "xmake build coconut"]
 
 [tasks.build-ubsan]
 description = "Configure and build with UndefinedBehaviorSanitizer"
-run = ["mise x -- xmake f -m ubsan -y", "xmake build coconut"]
+run = ["xmake f -m ubsan -y", "xmake build coconut"]
 
 [tasks.embeds]
 description = "Regenerate the TS→JS bridge embed (coconut_embed.h)"
-run = "mise x -- xmake bridge_embeds"
+run = "xmake bridge_embeds"
 
 # ── Run ──────────────────────────────────────────────────────────────
 
 [tasks.run]
 description = "Build (debug) and run the coconut app"
 depends = ["build"]
-run = "mise x -- xmake run coconut"
+run = "xmake run coconut"
 
 [tasks.run-release]
 description = "Build (release) and run the coconut app"
 depends = ["build-release"]
-run = "mise x -- xmake run coconut"
+run = "xmake run coconut"
 
 # ── Tests ────────────────────────────────────────────────────────────
 
 [tasks.test]
 description = "Configure (debug), build, and run the test suite"
-run = ["mise x -- xmake f -m debug -y", "xmake build tests", "xmake run tests"]
+run = ["xmake f -m debug -y", "xmake build tests", "xmake run tests"]
 
 [tasks.test-release]
 description = "Build and run the test suite in release mode"
-run = ["mise x -- xmake f -m release -y", "xmake build tests", "xmake run tests"]
+run = ["xmake f -m release -y", "xmake build tests", "xmake run tests"]
 
 [tasks.test-asan]
 description = "Build and run the test suite under AddressSanitizer"
-run = ["mise x -- xmake f -m asan -y", "xmake build tests", "xmake run tests"]
+run = ["xmake f -m asan -y", "xmake build tests", "xmake run tests"]
 
 # ── Housekeeping ─────────────────────────────────────────────────────
 
 [tasks.clean]
 description = "Clean xmake build artifacts"
-run = "mise x -- xmake clean"
+run = "xmake clean"
 
 [tasks.rebuild]
 description = "Clean and rebuild (debug)"

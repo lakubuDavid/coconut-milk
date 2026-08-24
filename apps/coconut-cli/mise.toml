@@ -11,18 +11,18 @@
 [tasks.build]
 description = "Configure (llvm toolchain via mise clang) and build coconut-cli"
 run = [
-  "mise x -- xmake f -c --toolchain=llvm --sdk=\"$(mise where clang)\" -m debug -y",
-  "mise x -- xmake"
+  "xmake f -c --toolchain=llvm --sdk=\"$(mise where clang)\" -m debug -y",
+  "xmake"
 ]
 
 [tasks.generate]
 description = "Run the command-definition generator (args: -- [dir] [--out-dir D])"
-run = "mise x -- xmake run coconut-cli generate"
+run = "xmake run coconut-cli generate"
 
 [tasks.watch]
 description = "Run the generator in watch mode (re-runs on file changes)"
-run = "mise x -- xmake run coconut-cli generate --watch"
+run = "xmake run coconut-cli generate --watch"
 
 [tasks.new]
 description = "Scaffold a new Coconut Milk project (args: -- <name> [-t template] [-y])"
-run = "mise x -- xmake run coconut-cli new"
+run = "xmake run coconut-cli new"
