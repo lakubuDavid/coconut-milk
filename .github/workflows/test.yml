@@ -9,6 +9,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
+# NOTE: xmake steps run with working-directory: apps/coconut — the project
+# xmake.lua lives there, not at the repo root.
+
 jobs:
   test-macos:
     runs-on: macos-14  # Apple Silicon
@@ -16,49 +19,45 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { mode: debug, task: test }
-          - { mode: asan,  task: test-asan }
+        mode: [debug, asan]
 
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-
-      # Installs mise itself, all tools declared in mise.toml
-      # (incl. clang), and trusts the monorepo config.
-      - uses: jdx/mise-action@v2
-        with:
-          install: true
 
       - name: Install xmake
         uses: xmake-io/github-action-setup-xmake@v1
         with:
           xmake-version: latest
 
-      # Runs from apps/coconut (task config_root): configure + build +
-      # execute the suite with the mode-appropriate task.
-      - name: Test (${{ matrix.mode }})
-        run: mise run ${{ matrix.task }}
+      - name: Install luajit
+        run: brew install luajit
+
+      - name: Configure
+        working-directory: apps/coconut
+        run: xmake f -c -m ${{ matrix.mode }} -y
+
+      - name: Build
+        working-directory: apps/coconut
+        run: xmake build tests
+
+      - name: Run tests
+        working-directory: apps/coconut
+        run: ./build/macosx/$(uname -m)/${{ matrix.mode }}/tests
 
   test-linux:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04  # GCC 13: <expected> + C++23 support
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { mode: debug, task: test }
-          - { mode: asan,  task: test-asan }
+        mode: [debug, asan]
 
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-
-      - uses: jdx/mise-action@v2
-        with:
-          install: true
 
       - name: Install xmake
         uses: xmake-io/github-action-setup-xmake@v1
@@ -70,5 +69,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libluajit-5.1-dev libgtk-3-dev libwebkit2gtk-4.1-dev libnotify-dev
 
-      - name: Test (${{ matrix.mode }})
-        run: mise run ${{ matrix.task }}
+      - name: Configure
+        working-directory: apps/coconut
+        run: xmake f -c -m ${{ matrix.mode }} -y
+
+      - name: Build
+        working-directory: apps/coconut
+        run: xmake build tests
+
+      - name: Run tests
+        working-directory: apps/coconut
+        run: ./build/linux/$(uname -m)/${{ matrix.mode }}/tests
