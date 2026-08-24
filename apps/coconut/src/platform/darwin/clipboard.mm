@@ -11,7 +11,7 @@ std::string platformReadText() {
     NSString* str = [pb stringForType:NSPasteboardTypeString];
     return str ? std::string([str UTF8String]) : std::string();
   } @catch (NSException*) {
-    return {};
+    return std::string();
   }
 }
 
