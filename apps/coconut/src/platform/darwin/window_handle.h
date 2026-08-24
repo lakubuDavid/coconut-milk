@@ -1,50 +1,9 @@
 #ifndef COCONUT_PLATFORM_DARWIN_WINDOW_HANDLE_H
 #define COCONUT_PLATFORM_DARWIN_WINDOW_HANDLE_H
 
-#include "webview/api.h"  // webview_t
+// Declarations moved to the portable window_native.h — this header is
+// kept as a back-compat shim for existing includers.
 
-#include <string>
-
-namespace coconut {
-  namespace window {
-    /// Move window by (dx, dy) in screen coordinates (bottom-left origin).
-    /// Uses [NSWindow setFrameOrigin:] with proper ObjC calling convention.
-    void platformMoveWindow(webview_t wv, int dx, int dy);
-
-    /// Set absolute window position (top-left screen coordinates).
-    void platformSetWindowPosition(webview_t wv, int x, int y);
-
-    /// Get current window position {x, y} (bottom-left origin).
-    void platformGetWindowPosition(webview_t wv, int& x, int& y);
-
-    /// Minimize window.
-    void platformMinimizeWindow(webview_t wv);
-
-    /// Zoom / maximize window.
-    void platformMaximizeWindow(webview_t wv);
-
-    /// Toggle fullscreen.
-    void platformToggleFullscreen(webview_t wv);
-
-    /// Set fullscreen on/off.
-    void platformSetFullscreen(webview_t wv, bool on);
-
-    /// Set movable by background (window drag from any content area).
-    void platformSetMovableByBackground(webview_t wv, bool on);
-
-    /// Set window background color (0-1 range).
-    void platformSetWindowBackgroundColor(webview_t wv, float r, float g, float b, float a);
-
-    /// Set window title (live).
-    void platformSetWindowTitle(webview_t wv, const std::string& title);
-
-    /// Set minimum / maximum window size (live).
-    void platformSetMinimumWindowSize(webview_t wv, int w, int h);
-    void platformSetMaximumWindowSize(webview_t wv, int w, int h);
-
-    /// Toggle live resizability.
-    void platformSetResizable(webview_t wv, bool on);
-  }  // namespace window
-}  // namespace coconut
+#include "../window_native.h"
 
 #endif  // COCONUT_PLATFORM_DARWIN_WINDOW_HANDLE_H

@@ -19,17 +19,13 @@ static std::mutex                        g_tasks_mutex;
 static std::deque<std::function<void()>> g_main_tasks;
 
 // ── Platform-specific run-loop integration ─────────────────────────────
-// On macOS, a CFRunLoopSource is registered to drain the outbox on every
-// iteration of the main run loop.  Linux would use a GMainLoop idle
-// callback; Windows would use a timer or a custom Windows message.
-//
-// The source fires at the "common modes" priority so it also fires during
-// modal tracking (menus, scroll views) — important for timely dispatch of
-// command results and view lifecycle events.
+// Runloop wakeup mechanics live behind the platform port (runloop.h):
+//   darwin/runloop.cpp — CFRunLoopSource in common modes
+//   stub/runloop.cpp   — polling fallback for other platforms
+// dispatch.cpp only decides WHAT runs on the main thread; the port owns
+// HOW the main loop gets woken.
 
-#if defined(__APPLE__)
-#include <CoreFoundation/CFRunLoop.h>
-#endif
+#include "../platform/runloop.h"
 
 namespace {
 
@@ -37,11 +33,6 @@ namespace {
   /// Set by coconut::dispatch::init(), cleared by shutdown().
   /// Only one App at a time per process.
   coconut::App* g_dispatch_app = nullptr;
-
-#if defined(__APPLE__)
-  /// The CFRunLoopSource registered by init() and removed by shutdown().
-  CFRunLoopSourceRef g_runloop_source = nullptr;
-#endif
 
 }  // anonymous namespace
 
@@ -55,39 +46,14 @@ namespace coconut::dispatch {
     }
     g_dispatch_app = app;
 
-#if defined(__APPLE__)
-    // Create a CFRunLoopSource whose perform callback drains the outbox.
-    // The source fires on every iteration of the main run loop.
-    CFRunLoopSourceContext ctx{};
-    ctx.version = 0;
-    ctx.info    = nullptr;  // We use g_dispatch_app instead.
-    ctx.perform = [](void* /*info*/) { drain(g_dispatch_app); };
-
-    g_runloop_source = CFRunLoopSourceCreate(kCFAllocatorDefault, 0, &ctx);
-
-    if (g_runloop_source) {
-      CFRunLoopAddSource(CFRunLoopGetMain(), g_runloop_source, kCFRunLoopCommonModes);
-      debug::info("dispatch::init: CFRunLoopSource registered (common modes)");
-    } else {
-      debug::warn("dispatch::init: failed to create CFRunLoopSource");
-    }
-#else
-    debug::info("dispatch::init: no platform run-loop integration (polling not yet implemented)");
-#endif
+    platform::runloopInit([] { drain(g_dispatch_app); });
   }
 
   void shutdown(App* app) {
     // Drain any remaining messages before tearing down.
     drain(app);
 
-#if defined(__APPLE__)
-    if (g_runloop_source) {
-      CFRunLoopRemoveSource(CFRunLoopGetMain(), g_runloop_source, kCFRunLoopCommonModes);
-      CFRelease(g_runloop_source);
-      g_runloop_source = nullptr;
-      debug::info("dispatch::shutdown: CFRunLoopSource removed");
-    }
-#endif
+    platform::runloopShutdown();
 
     g_dispatch_app = nullptr;
     (void)app;
@@ -128,12 +94,7 @@ namespace coconut::dispatch {
   void notify(App* app) {
     if (app == nullptr)
       return;
-#if defined(__APPLE__)
-    if (g_runloop_source) {
-      CFRunLoopSourceSignal(g_runloop_source);
-      CFRunLoopWakeUp(CFRunLoopGetMain());
-    }
-#endif
+    platform::runloopNotify();
   }
 
   // ── Enqueue helpers ───────────────────────────────────────────────────

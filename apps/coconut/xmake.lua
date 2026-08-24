@@ -106,6 +106,13 @@ target("coconut")
         add_files("src/platform/linux/*.cpp")
     end
     add_files("src/permissions.cpp")
+    if is_plat("macosx") then
+        add_files("src/platform/darwin/runloop.cpp")
+    else
+        -- Non-mac platforms fall back to the polling stub until a native
+        -- GMainLoop / Win32-message integration lands.
+        add_files("src/platform/stub/runloop.cpp")
+    end
     add_files("src/modules/*.cpp")
     add_packages("sol2", "luajit", "nlohmann_json", "lunasvg")
     add_deps("webview")
