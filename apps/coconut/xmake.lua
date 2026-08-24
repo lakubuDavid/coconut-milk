@@ -150,10 +150,12 @@ target("tests")
     if is_plat("macosx") then
         add_files("src/platform/darwin/*.cpp")
         add_files("src/platform/darwin/*.mm")
+        add_files("src/platform/darwin/runloop.cpp")
     elseif is_plat("windows") then
         add_files("src/platform/win/*.cpp")
     elseif is_plat("linux") then
         add_files("src/platform/linux/*.cpp")
+        add_files("src/platform/stub/runloop.cpp")
     end
     remove_files("src/main.cpp")
     add_files("src/permissions.cpp")
