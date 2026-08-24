@@ -60,9 +60,17 @@ namespace coconut::lifecycle {
     if (!window)
       return;
 
-    // NSRect > 16 bytes → uses stret (hidden-pointer) ABI on both arm64 and x86_64.
+    // NSWindow.frame returns NSRect. On x86_64 large structs use
+    // objc_msgSend_stret; on arm64 stret is unavailable and objc_msgSend
+    // handles it — dispatch through a function pointer selected at runtime.
     NSRect frame{};
+#if defined(__x86_64__)
     frame = ((NSRect(*)(id, SEL))objc_msgSend_stret)(window, sel_registerName("frame"));
+#elif defined(__aarch64__)
+    frame = ((NSRect(*)(id, SEL))objc_msgSend)(window, sel_registerName("frame"));
+#else
+#error "unsupported architecture"
+#endif
 
     nlohmann::json payload = {{"w", static_cast<int>(frame.w)}, {"h", static_cast<int>(frame.h)}};
     dispatch("resize", payload);

@@ -99,11 +99,13 @@ target("coconut")
     if is_plat("macosx") then
         add_files("src/platform/darwin/*.cpp")
         add_files("src/platform/darwin/*.mm")
+        add_files("src/platform/darwin/runloop.cpp")
         add_ldflags("-Wl,-sectcreate,__TEXT,__info_plist,$(projectdir)/res/Info.plist", {force = true})
     elseif is_plat("windows") then
         add_files("src/platform/win/*.cpp")
     elseif is_plat("linux") then
         add_files("src/platform/linux/*.cpp")
+        add_files("src/platform/stub/runloop.cpp")
     end
     add_files("src/permissions.cpp")
     if is_plat("macosx") then
