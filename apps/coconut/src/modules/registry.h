@@ -13,7 +13,8 @@ namespace coconut {
     /// combined with bitwise OR for batch operations (e.g. "enable all
     /// thread-safe modules on the background thread").
     enum class ModulesFlag : uint16_t {
-      None = 0,
+      // NOTE: no "None" enumerator — X11.h (pulled in by GTK/WebKit on
+      // Linux) #defines None, which breaks the enum declaration.
 
       /// Core serialisation / logging — safe on any thread.
       kJson = 1 << 0,
