@@ -1,3 +1,8 @@
+---
+layout: default
+title: "Thread"
+---
+
 # thread
 
 ## What it is

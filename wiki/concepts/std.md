@@ -1,3 +1,8 @@
+---
+layout: default
+title: "Std"
+---
+
 # std
 
 ## What it is

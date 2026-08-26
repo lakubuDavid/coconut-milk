@@ -1,3 +1,8 @@
+---
+layout: default
+title: "Bridge Protocol"
+---
+
 # bridge-protocol
 
 ## What it is

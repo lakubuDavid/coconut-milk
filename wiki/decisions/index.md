@@ -1,3 +1,8 @@
+---
+layout: default
+title: "Design Decisions"
+---
+
 # Design Decisions
 
 Architecture, design decisions, ADRs, and troubleshooting for Coconut Milk.

@@ -1,3 +1,8 @@
+---
+layout: default
+title: "Sol2"
+---
+
 # sol2
 
 ## What it is

@@ -1,3 +1,8 @@
+---
+layout: default
+title: "Patches"
+---
+
 # patches
 
 ## What it is

@@ -1,3 +1,8 @@
+---
+layout: default
+title: "Lua"
+---
+
 # lua
 
 ## What it is

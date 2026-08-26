@@ -1,0 +1,35 @@
+# Jekyll configuration for the Coconut Milk documentation site (wiki/).
+#
+# Served via GitHub Pages using the official `actions/jekyll-build-pages`
+# action, which builds with the github-pages gem. That gem includes the
+# jekyll-remote-theme plugin, so Just the Docs is pulled at build time.
+
+title: Coconut Milk
+description: >-
+  Lua-first, cross-platform desktop UI framework — Electron/Tauri alternative
+  built on native webviews, sol2/LuaJIT, and a typed bridge protocol.
+url: https://lakubudavid.github.io/coconut-milk
+
+remote_theme: just-the-docs/just-the-docs
+plugins:
+  - jekyll-remote-theme
+
+# ── Just the Docs ──────────────────────────────────────────────────────
+search_enabled: true
+search:
+  heading_level: 3
+heading_anchors: true
+color_scheme: light
+
+# Back-to-top link
+back_to_top: true
+back_to_top_text: "Back to top"
+
+# Footer
+footer_content: >-
+  Documentation for <a href="https://github.com/lakubuDavid/coconut-milk">Coconut Milk</a>.
+  Licensed under MIT.
+
+# Do not publish sources of examples that are not docs
+exclude:
+  - "*.d2"

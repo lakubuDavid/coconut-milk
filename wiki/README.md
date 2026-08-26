@@ -1,3 +1,8 @@
+---
+layout: default
+title: "Project Wiki"
+---
+
 # Project Wiki
 
 Documentation for **Coconut Milk** — a Lua-first, cross-platform desktop UI framework.

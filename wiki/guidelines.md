@@ -1,3 +1,8 @@
+---
+layout: default
+title: "Coding Guidelines"
+---
+
 # Coding Guidelines
 
 Coding standards and conventions for Coconut Milk.
