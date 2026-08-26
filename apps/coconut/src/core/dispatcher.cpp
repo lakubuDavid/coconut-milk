@@ -2,9 +2,11 @@
 
 #include "debug.h"
 #include "main_runtime.h"  // lua::dispatchViewLifecycleEvent
-#include "worker.h"        // WorkerPool — full type for queueMessage/Output
+#include "platform/runloop.h"
+#include "worker.h"  // WorkerPool — full type for queueMessage/Output
 
 #include <memory>
+#include <mutex>
 #include <string>
 #include <type_traits>
 #include <variant>
@@ -32,19 +34,28 @@ namespace coconut::core {
 
   std::expected<std::unique_ptr<Dispatcher>, coconut::Error> DispatcherBuilder::build() {
     if (!RuntimePtr) {
-      return std::unexpected(coconut::Error{
-          .code = ErrorCode::InvalidConfig, .message = "DispatcherBuilder::build: runtime is null"}
+      return std::unexpected(
+          coconut::Error{
+              .code    = ErrorCode::InvalidConfig,
+              .message = "DispatcherBuilder::build: runtime is null"
+          }
       );
     }
     if (!WorkerPoolPtr) {
-      return std::unexpected(coconut::Error{
-          .code    = ErrorCode::InvalidConfig,
-          .message = "DispatcherBuilder::build: worker pool is null"});
+      return std::unexpected(
+          coconut::Error{
+              .code    = ErrorCode::InvalidConfig,
+              .message = "DispatcherBuilder::build: worker pool is null"
+          }
+      );
     }
     if (!TransportPtr) {
-      return std::unexpected(coconut::Error{
-          .code    = ErrorCode::InvalidConfig,
-          .message = "DispatcherBuilder::build: transport is null"});
+      return std::unexpected(
+          coconut::Error{
+              .code    = ErrorCode::InvalidConfig,
+              .message = "DispatcherBuilder::build: transport is null"
+          }
+      );
     }
 
     return std::unique_ptr<Dispatcher>(
@@ -66,6 +77,30 @@ namespace coconut::core {
 
   void Dispatcher::queue(DispatchMessage message) {
     this->_MessageQueue.push(std::move(message));
+  }
+
+  void Dispatcher::post(std::function<void()> fn) {
+    if (!fn) {
+      return;
+    }
+    {
+      std::lock_guard<std::mutex> lock(_TasksMtx);
+      _Tasks.push_back(std::move(fn));
+    }
+    notify();  // wake the main run loop (no-op before init())
+  }
+
+  void Dispatcher::notify() {
+    platform::runloopNotify();
+  }
+
+  void Dispatcher::init() {
+    platform::runloopInit([] { /* flush() is invoked by the runloop callback */ });
+  }
+
+  void Dispatcher::shutdown() {
+    flush();  // drain any remaining messages before tearing down
+    platform::runloopShutdown();
   }
 
   void Dispatcher::flush() {
@@ -117,11 +152,13 @@ namespace coconut::core {
 
               if constexpr (std::is_same_v<T, ResolveMessage>) {
                 if (_Transport) {
-                  debug::info(std::format(
-                      "dispatcher: resolve id='{}' (worker req {})",
-                      !o.RpcId.empty() ? o.RpcId : std::to_string(o.id),
-                      o.id
-                  ));
+                  debug::info(
+                      std::format(
+                          "dispatcher: resolve id='{}' (worker req {})",
+                          !o.RpcId.empty() ? o.RpcId : std::to_string(o.id),
+                          o.id
+                      )
+                  );
                   JsRPCMessage rpcMsg;
                   rpcMsg.id   = !o.RpcId.empty() ? o.RpcId : std::to_string(o.id);
                   rpcMsg.type = RpcType::kReturn;
@@ -131,23 +168,46 @@ namespace coconut::core {
                 }
               } else if constexpr (std::is_same_v<T, RejectMessage>) {
                 if (_Transport) {
-                  debug::info(std::format(
-                      "dispatcher: reject id='{}' : {}",
-                      !o.RpcId.empty() ? o.RpcId : std::to_string(o.id),
-                      o.error
-                  ));
+                  debug::info(
+                      std::format(
+                          "dispatcher: reject id='{}' : {}",
+                          !o.RpcId.empty() ? o.RpcId : std::to_string(o.id),
+                          o.error
+                      )
+                  );
                   JsRPCMessage rpcMsg;
                   rpcMsg.id   = !o.RpcId.empty() ? o.RpcId : std::to_string(o.id);
                   rpcMsg.type = RpcType::kError;
                   // Same envelope shape as the Bridge's sync replies.
                   rpcMsg.payload = {
-                      {"ok", false}, {"error", {{"code", "WorkerError"}, {"message", o.error}}}};
+                      {"ok", false}, {"error", {{"code", "WorkerError"}, {"message", o.error}}}
+                  };
                   _Transport->send(rpcMsg);
                 }
               }
             },
             out
         );
+      }
+    }
+
+    //  3. Drain posted main-thread closures (worker→native marshalling, etc.).
+    std::deque<std::function<void()>> local_tasks;
+    {
+      std::lock_guard<std::mutex> lock(_TasksMtx);
+      local_tasks.swap(_Tasks);
+    }
+    while (!local_tasks.empty()) {
+      auto fn = std::move(local_tasks.front());
+      local_tasks.pop_front();
+      try {
+        if (fn) {
+          fn();
+        }
+      } catch (const std::exception& e) {
+        debug::error(std::format("dispatcher: posted task threw: {}", e.what()));
+      } catch (...) {
+        debug::error("dispatcher: posted task threw (unknown)");
       }
     }
   }

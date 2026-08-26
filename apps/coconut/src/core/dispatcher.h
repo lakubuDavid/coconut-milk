@@ -55,6 +55,10 @@ namespace coconut::core {
     std::unique_ptr<WorkerPool>           _WorkerPool;  ///< owned
     std::shared_ptr<transport::Transport> _Transport;   ///< shared with Bridge
 
+    // Main-thread closure queue backing post() — drained in flush().
+    std::deque<std::function<void()>> _Tasks;
+    std::mutex                        _TasksMtx;
+
     Dispatcher(
         lua::Runtime*                         runtime,
         std::unique_ptr<WorkerPool>           pool,
@@ -67,6 +71,23 @@ namespace coconut::core {
 
     void queue(DispatchMessage message);
     void flush();
+
+    /// Post a closure to run on the MAIN thread during the next flush().
+    /// Thread-safe — callable from any thread (workers, timers, etc.). This is
+    /// the landing pad for cross-thread native access (window mutations from
+    /// worker Lua, dialogs, clipboard, …).
+    void post(std::function<void()> fn);
+
+    /// Nudge the main run loop to drain pending messages.
+    /// Thread-safe: callable from any thread.
+    void notify();
+
+    /// Start main-runloop integration (drains on every iteration).
+    /// Must be called from the main thread after the webview is created.
+    void init();
+
+    /// Tear down runloop integration. Drains remaining messages first.
+    void shutdown();
   };
 
 }  // namespace coconut::core
