@@ -4,34 +4,40 @@
 
 #ifdef NO_PLATFORM
 
-#include "dialog.h"
 #include <string>
 #include <vector>
+#include "dialog.h"
 
 namespace coconut::dialog {
 
-Result platformMessageBox(const std::string& title,
-                          const std::string& message,
-                          const std::string& kind) {
-  (void)title; (void)message; (void)kind;
-  return Result{};
-}
+  std::expected<Result, Error> platformMessageBox(
+      const std::string& title, const std::string& message, const std::string& kind
+  ) {
+    (void)title;
+    (void)message;
+    (void)kind;
+    return Result{};
+  }
 
-Result platformOpenFile(const std::string& title,
-                        const std::vector<Filter>& filters,
-                        bool multi,
-                        bool chooseDir) {
-  (void)title; (void)filters; (void)multi; (void)chooseDir;
-  return Result{};
-}
+  std::expected<Result, Error> platformOpenFile(
+      const std::string& title, const std::vector<Filter>& filters, bool multi, bool chooseDir
+  ) {
+    (void)title;
+    (void)filters;
+    (void)multi;
+    (void)chooseDir;
+    return Result{};
+  }
 
-Result platformSaveFile(const std::string& title,
-                        const std::string& defaultName,
-                        const std::vector<Filter>& filters) {
-  (void)title; (void)defaultName; (void)filters;
-  return Result{};
-}
+  std::expected<Result, Error> platformSaveFile(
+      const std::string& title, const std::string& defaultName, const std::vector<Filter>& filters
+  ) {
+    (void)title;
+    (void)defaultName;
+    (void)filters;
+    return Result{};
+  }
 
-} // namespace coconut::dialog
+}  // namespace coconut::dialog
 
-#endif // NO_PLATFORM
+#endif  // NO_PLATFORM

@@ -12,6 +12,8 @@
 #include <stdint.h>
 #import <Foundation/Foundation.h>
 
+#include <expected>
+
 // Minimal ObjC type defs for types not available from raw objc/runtime.h
 typedef long NSInteger;
 typedef unsigned long NSUInteger;
@@ -53,7 +55,7 @@ static void activateApp() {
 
 // ── Message box (NSAlert) ───────────────────────────────────────────────
 
-Result platformMessageBox(const std::string& title,
+std::expected<Result, Error> platformMessageBox(const std::string& title,
                           const std::string& message,
                           const std::string& kind) {
   Result result{};
@@ -100,16 +102,26 @@ Result platformMessageBox(const std::string& title,
 
     debug::log(std::format("dialog::messageBox('{}') → confirmed={}", title, result.confirmed));
   } @catch (NSException *e) {
-    debug::error(std::format("dialog::messageBox ObjC exception: {}", [[e reason] UTF8String] ?: "unknown"));
+    const char* reason = [[e reason] UTF8String] ?: "unknown";
+    debug::error(std::format("dialog::messageBox ObjC exception: {}", reason));
+    return std::unexpected(Error{
+        .code = ErrorCode::DialogError,
+        .message = "NSAlert failed",
+        .details = reason,
+    });
   } @catch (...) {
     debug::error("dialog::messageBox unknown exception");
+    return std::unexpected(Error{
+        .code = ErrorCode::DialogError,
+        .message = "NSAlert failed with unknown exception",
+    });
   }
   return result;
 }
 
 // ── Open file / directory (NSOpenPanel) ─────────────────────────────────
 
-Result platformOpenFile(const std::string& title,
+std::expected<Result, Error> platformOpenFile(const std::string& title,
                         const std::vector<Filter>& filters,
                         bool multi,
                         bool chooseDir) {
@@ -123,7 +135,10 @@ Result platformOpenFile(const std::string& title,
     id panel = ((id(*)(id, SEL))objc_msgSend)((id)panelClass, openPanelSel);
     if (!panel) {
       debug::error("dialog::openFile: openPanel returned nil");
-      return result;
+      return std::unexpected(Error{
+          .code = ErrorCode::DialogError,
+          .message = "NSOpenPanel: openPanel returned nil",
+      });
     }
 
     // Title
@@ -209,16 +224,26 @@ Result platformOpenFile(const std::string& title,
     debug::log(std::format("dialog::openFile('{}') → confirmed={}, paths={}, is_dir={}",
                              title, result.confirmed, result.paths.size(), result.is_dir));
   } @catch (NSException *e) {
-    debug::error(std::format("dialog::openFile ObjC exception: {}", [[e reason] UTF8String] ?: "unknown"));
+    const char* reason = [[e reason] UTF8String] ?: "unknown";
+    debug::error(std::format("dialog::openFile ObjC exception: {}", reason));
+    return std::unexpected(Error{
+        .code = ErrorCode::DialogError,
+        .message = "NSOpenPanel failed",
+        .details = reason,
+    });
   } @catch (...) {
     debug::error("dialog::openFile unknown exception");
+    return std::unexpected(Error{
+        .code = ErrorCode::DialogError,
+        .message = "NSOpenPanel failed with unknown exception",
+    });
   }
   return result;
 }
 
 // ── Save file (NSSavePanel) ─────────────────────────────────────────────
 
-Result platformSaveFile(const std::string& title,
+std::expected<Result, Error> platformSaveFile(const std::string& title,
                         const std::string& defaultName,
                         const std::vector<Filter>& filters) {
   Result result{};
@@ -231,7 +256,10 @@ Result platformSaveFile(const std::string& title,
     id panel = ((id(*)(id, SEL))objc_msgSend)((id)panelClass, savePanelSel);
     if (!panel) {
       debug::error("dialog::saveFile: savePanel returned nil");
-      return result;
+      return std::unexpected(Error{
+          .code = ErrorCode::DialogError,
+          .message = "NSSavePanel: savePanel returned nil",
+      });
     }
 
     // Title
@@ -288,9 +316,19 @@ Result platformSaveFile(const std::string& title,
     debug::log(std::format("dialog::saveFile('{}') → confirmed={}, path='{}'",
                              title, result.confirmed, result.path));
   } @catch (NSException *e) {
-    debug::error(std::format("dialog::saveFile ObjC exception: {}", [[e reason] UTF8String] ?: "unknown"));
+    const char* reason = [[e reason] UTF8String] ?: "unknown";
+    debug::error(std::format("dialog::saveFile ObjC exception: {}", reason));
+    return std::unexpected(Error{
+        .code = ErrorCode::DialogError,
+        .message = "NSSavePanel failed",
+        .details = reason,
+    });
   } @catch (...) {
     debug::error("dialog::saveFile unknown exception");
+    return std::unexpected(Error{
+        .code = ErrorCode::DialogError,
+        .message = "NSSavePanel failed with unknown exception",
+    });
   }
   return result;
 }

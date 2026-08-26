@@ -3,23 +3,27 @@
 
 #include "../../dialog.h"
 
+#include <expected>
+
 namespace coconut {
-namespace dialog {
+  namespace dialog {
 
-Result platformMessageBox(const std::string& title,
-                          const std::string& message,
-                          const std::string& kind);
+    std::expected<Result, Error> platformMessageBox(
+        const std::string& title, const std::string& message, const std::string& kind
+    );
 
-Result platformOpenFile(const std::string& title,
-                        const std::vector<Filter>& filters,
-                        bool multi,
-                        bool chooseDir = false);
+    std::expected<Result, Error> platformOpenFile(
+        const std::string&         title,
+        const std::vector<Filter>& filters,
+        bool                       multi,
+        bool                       chooseDir = false
+    );
 
-Result platformSaveFile(const std::string& title,
-                        const std::string& defaultName,
-                        const std::vector<Filter>& filters);
+    std::expected<Result, Error> platformSaveFile(
+        const std::string& title, const std::string& defaultName, const std::vector<Filter>& filters
+    );
 
-} // namespace dialog
-} // namespace coconut
+  }  // namespace dialog
+}  // namespace coconut
 
-#endif // COCONUT_PLATFORM_LINUX_DIALOG_H
+#endif  // COCONUT_PLATFORM_LINUX_DIALOG_H

@@ -27,9 +27,14 @@ namespace coconut::modules {
           title = va[1].as<std::string>();
         if (va.size() >= 3 && va[2].is<std::string>())
           kind_str = va[2].as<std::string>();
-        auto       r   = coconut::dialog::messageBox(title, message, kind_str);
+        auto       exp = coconut::dialog::messageBox(title, message, kind_str);
         sol::table t   = lv.create_table();
-        t["confirmed"] = r.confirmed;
+        if (!exp) {
+          t["confirmed"] = false;
+          t["error"]     = exp.error().message;
+          return t;
+        }
+        t["confirmed"] = exp->confirmed;
         return t;
       });
 
@@ -45,8 +50,14 @@ namespace coconut::modules {
           multi = va[1].as<bool>();
         if (va.size() >= 3 && va[2].is<bool>())
           chooseDir = va[2].as<bool>();
-        auto       r     = coconut::dialog::openFile(title, filters, multi, chooseDir);
-        sol::table t     = lv.create_table();
+        auto       exp = coconut::dialog::openFile(title, filters, multi, chooseDir);
+        sol::table t   = lv.create_table();
+        if (!exp) {
+          t["confirmed"] = false;
+          t["error"]     = exp.error().message;
+          return t;
+        }
+        const auto& r    = *exp;
         t["confirmed"]   = r.confirmed;
         t["path"]        = r.path;
         t["is_dir"]      = r.is_dir;
@@ -64,10 +75,15 @@ namespace coconut::modules {
           title = va[0].as<std::string>();
         if (va.size() >= 2 && va[1].is<std::string>())
           defaultName = va[1].as<std::string>();
-        auto       r   = coconut::dialog::saveFile(title, defaultName);
+        auto       exp = coconut::dialog::saveFile(title, defaultName);
         sol::table t   = lv.create_table();
-        t["confirmed"] = r.confirmed;
-        t["path"]      = r.path;
+        if (!exp) {
+          t["confirmed"] = false;
+          t["error"]     = exp.error().message;
+          return t;
+        }
+        t["confirmed"] = exp->confirmed;
+        t["path"]      = exp->path;
         return t;
       });
     } else {
@@ -85,10 +101,15 @@ namespace coconut::modules {
           title = va[1].as<std::string>();
         if (va.size() >= 3 && va[2].is<std::string>())
           kind_str = va[2].as<std::string>();
-        auto r =
+        auto exp =
             forwardToMain([&] { return coconut::dialog::messageBox(title, message, kind_str); });
-        sol::table t   = lv.create_table();
-        t["confirmed"] = r.confirmed;
+        sol::table t = lv.create_table();
+        if (!exp) {
+          t["confirmed"] = false;
+          t["error"]     = exp.error().message;
+          return t;
+        }
+        t["confirmed"] = exp->confirmed;
         return t;
       });
 
@@ -103,9 +124,15 @@ namespace coconut::modules {
           multi = va[1].as<bool>();
         if (va.size() >= 3 && va[2].is<bool>())
           chooseDir = va[2].as<bool>();
-        auto r =
+        auto exp =
             forwardToMain([&] { return coconut::dialog::openFile(title, {}, multi, chooseDir); });
-        sol::table t     = lv.create_table();
+        sol::table t = lv.create_table();
+        if (!exp) {
+          t["confirmed"] = false;
+          t["error"]     = exp.error().message;
+          return t;
+        }
+        const auto& r    = *exp;
         t["confirmed"]   = r.confirmed;
         t["path"]        = r.path;
         t["is_dir"]      = r.is_dir;
@@ -123,10 +150,15 @@ namespace coconut::modules {
           title = va[0].as<std::string>();
         if (va.size() >= 2 && va[1].is<std::string>())
           defaultName = va[1].as<std::string>();
-        auto       r = forwardToMain([&] { return coconut::dialog::saveFile(title, defaultName); });
+        auto exp     = forwardToMain([&] { return coconut::dialog::saveFile(title, defaultName); });
         sol::table t = lv.create_table();
-        t["confirmed"] = r.confirmed;
-        t["path"]      = r.path;
+        if (!exp) {
+          t["confirmed"] = false;
+          t["error"]     = exp.error().message;
+          return t;
+        }
+        t["confirmed"] = exp->confirmed;
+        t["path"]      = exp->path;
         return t;
       });
     }
