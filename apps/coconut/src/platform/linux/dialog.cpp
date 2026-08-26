@@ -273,11 +273,11 @@ namespace coconut::dialog {
         }
 
         // Set first filter as default
-        GList* filterList = gtk_file_chooser_list_filters(chooser);
+        GSList* filterList = gtk_file_chooser_list_filters(chooser);
         if (filterList && filterList->data) {
           gtk_file_chooser_set_filter(chooser, static_cast<GtkFileFilter*>(filterList->data));
         }
-        g_list_free(filterList);
+        g_slist_free(filterList);
       }
 
       // Enable confirm overwrite (native dialog handles this)
