@@ -20,7 +20,7 @@
   <a href="#quick-start">Quick Start</a> •
   <a href="#features">Features</a> •
   <a href="wiki/">Documentation</a> •
-  <a href="wiki/explanation/roadmap.md">Roadmap</a> •
+  <a href="wiki/decisions/roadmap.md">Roadmap</a> •
   <a href="wiki/reference/specs/specs.md">Specification</a>
 
   <br>
@@ -81,7 +81,7 @@ create-coconut-app my-app --template vite --framework vue
 
 <div class="features-grid">
   <div class="feature-card">
-    <h3>🟢 Lua Application Layer</h3>
+    <h3>Lua Application Layer</h3>
     <p>Sol2 bindings, full <code>ctx</code> API for window control, events, and commands. LuaJIT boots in milliseconds.</p>
   </div>
   <div class="feature-card">
@@ -89,7 +89,7 @@ create-coconut-app my-app --template vite --framework vue
     <p>Frameless, transparent windows powered by WKWebView with custom <code>coconut://</code> URL scheme support.</p>
   </div>
   <div class="feature-card">
-    <h3>🔗 Bridge Protocol</h3>
+    <h3>Bridge Protocol</h3>
     <p>Seamless RPC between JS and Lua: <code>coconut.call()</code>, <code>coconut.emit()</code>, <code>coconut.on()</code>.</p>
   </div>
   <div class="feature-card">
@@ -97,7 +97,7 @@ create-coconut-app my-app --template vite --framework vue
     <p>Annotate Lua functions with <code>---@command</code> and get typed <code>.g.js</code> wrappers auto-generated.</p>
   </div>
   <div class="feature-card">
-    <h3>📦 Single Binary</h3>
+    <h3>Single Binary</h3>
     <p>No Chromium, no Node.js. The entire runtime is a ~2–5 MB binary. Your app is just Lua + HTML.</p>
   </div>
   <div class="feature-card">
@@ -219,12 +219,12 @@ commands/notes.lua
 
 | Section | Description |
 |---|---|
-| [📖 Getting Started](wiki/getting-started.md) | Installation, first app, templates |
-| [🧠 Concepts](wiki/explanation/concepts.md) | Architecture, view system, bridge protocol |
-| [📘 Lua Backend Guide](wiki/reference/lua-guide.md) | Commands, events, views, best practices |
+| [Getting Started](wiki/guides/getting-started.md) | Installation, first app, templates |
+| [Concepts](wiki/concepts/) | Architecture, view system, bridge protocol |
+| [Lua Backend Guide](wiki/reference/lua-guide.md) | Commands, events, views, best practices |
 | [Bridge Reference](wiki/reference/bridge.md) | RPC protocol, message flow, transport |
-| [📋 API Reference](wiki/reference/api-reference.md) | All Lua and JS APIs with signatures |
-| [💻 CLI Reference](wiki/reference/cli.md) | coconut, generate, create-coconut-app |
+| [API Reference](wiki/reference/api-reference.md) | All Lua and JS APIs with signatures |
+| [CLI Reference](wiki/reference/cli.md) | coconut, generate, create-coconut-app |
 | [📐 Specs](wiki/reference/specs/specs.md) | Full specification documents |
 | [🧪 Test Suite](wiki/reference/test-suite.md) | Test plan and coverage |
 | [Roadmap](wiki/explanation/roadmap.md) | Implementation plan and phases |
@@ -235,16 +235,14 @@ commands/notes.lua
 
 | Feature | macOS | Windows | Linux |
 |---|---|---|---|
-| Window creation | ✅ | ✅ | ✅ |
-| WebView render | ✅ WKWebView | ✅ WebView2 | ✅ WebKitGTK |
-| `coconut://` scheme | ✅ | 🔲 Stub | 🔲 Stub |
-| Frameless window | ✅ | 🔲 | 🔲 |
-| Transparent BG | ✅ | 🔲 | 🔲 |
-| Lua runtime | ✅ | ✅ | ✅ |
-| Command generation | ✅ | ✅ | ✅ |
-| Native dialogs | ✅ | ✅ | ✅ |
-
-✅ = working &nbsp;&nbsp; 🔲 = planned
+| Window creation | Yes | Yes | Yes |
+| WebView render | WKWebView | WebView2 | WebKitGTK |
+| `coconut://` scheme | Yes | Planned | Planned |
+| Frameless window | Yes | Planned | Planned |
+| Transparent BG | Yes | Planned | Planned |
+| Lua runtime | Yes | Yes | Yes |
+| Command generation | Yes | Yes | Yes |
+| Native dialogs | Yes | Yes | Yes |
 
 ---
 
