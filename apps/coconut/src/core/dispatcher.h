@@ -1,6 +1,11 @@
 #ifndef CORE_DISPATCHER_H
 #define CORE_DISPATCHER_H
 
+// Forward declarations
+namespace coconut {
+  struct App;
+}
+
 #include <expected>
 #include <memory>
 
@@ -89,6 +94,14 @@ namespace coconut::core {
     /// Tear down runloop integration. Drains remaining messages first.
     void shutdown();
   };
+
+  // ── Free helpers ─────────────────────────────────────────────────────
+  // Module code (forwardToMain, store, window) marshals onto the main thread
+  // without an App* in scope. These reach the live dispatcher via the global
+  // app pointer set by setDispatchApp().
+  void setDispatchApp(App* app);
+  void dispatchPost(std::function<void()> fn);
+  void dispatchNotify();
 
 }  // namespace coconut::core
 #endif  // CORE_DISPATCHER_H

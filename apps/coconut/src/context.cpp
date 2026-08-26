@@ -3,9 +3,9 @@
 #include "app.h"
 #include "bridge.h"
 #include "commands.h"
+#include "core/dispatcher.h"
 #include "debug.h"
 #include "dialog.h"
-#include "dispatch.h"
 #include "main_runtime.h"
 #include "window.h"
 
@@ -26,7 +26,8 @@ namespace coconut {
           .commands      = nullptr,
           .lua_state     = nullptr,
           .window        = nullptr,
-          .window_handle = nullptr};
+          .window_handle = nullptr
+      };
       ctx->window_handle = new CoconutWindowHandle{.app = nullptr};
       return ctx;
     }
@@ -174,9 +175,12 @@ namespace coconut {
   void CoconutContext::bind_mt(const std::string& name, sol::protected_function fn) {
     if (commands != nullptr) {
       if (commands->mt_handlers.find(name) != commands->mt_handlers.end()) {
-        debug::warn(std::format(
-            "duplicate command '{}': a main-thread handler is already registered, skipping", name
-        ));
+        debug::warn(
+            std::format(
+                "duplicate command '{}': a main-thread handler is already registered, skipping",
+                name
+            )
+        );
         return;
       }
       commands->mt_handlers[name] = fn;
@@ -234,7 +238,12 @@ namespace coconut {
     if (app && app->window && app->window->current_view != name) {
       // Fire "unmount" lifecycle event through the dispatch queue.
       if (!app->window->current_view.empty()) {
-        dispatch::lifecycleEvent(app, app->window->current_view, "unmount");
+        app->dispatcher->queue(
+            core::LifecycleMessage{
+                .ViewName  = std::string(app->window->current_view),
+                .EventName = "unmount",
+            }
+        );
       }
       window::showView(app->window, name);
       // Update Lua's active view tracker for event dispatch Tier 1.
@@ -243,7 +252,12 @@ namespace coconut {
         lua["coconut"]["_active_view"] = name;
       }
       // Fire "mount" lifecycle event through the dispatch queue.
-      dispatch::lifecycleEvent(app, name, "mount");
+      app->dispatcher->queue(
+          core::LifecycleMessage{
+              .ViewName  = std::string(name),
+              .EventName = "mount",
+          }
+      );
     }
   }
 

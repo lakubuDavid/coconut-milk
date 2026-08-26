@@ -87,7 +87,7 @@ namespace coconut::modules {
         return t;
       });
     } else {
-      // Background — forward onto the main run loop (dispatch::post) and
+      // Background — forward onto the main run loop (dispatchPost) and
       // block until the native dialog completes. Result tables are built
       // on the calling state.
       dialog_mod.set_function("message", [](sol::variadic_args va) -> sol::table {

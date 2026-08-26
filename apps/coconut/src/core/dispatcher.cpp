@@ -1,5 +1,5 @@
 #include "dispatcher.h"
-
+#include "app.h"
 #include "debug.h"
 #include "main_runtime.h"  // lua::dispatchViewLifecycleEvent
 #include "platform/runloop.h"
@@ -209,6 +209,37 @@ namespace coconut::core {
       } catch (...) {
         debug::error("dispatcher: posted task threw (unknown)");
       }
+    }
+  }
+
+}  // namespace coconut::core
+
+// Free helpers (reach the live dispatcher via a global app pointer)
+// Module code that marshals onto the main thread without an App* in scope
+// (forwardToMain, store, window) uses these. The pointer is set once during
+// App setup via setDispatchApp().
+
+namespace coconut::core {
+
+  static App* g_app = nullptr;
+
+  void setDispatchApp(App* app) {
+    g_app = app;
+  }
+
+  void dispatchPost(std::function<void()> fn) {
+    if (g_app && g_app->dispatcher) {
+      g_app->dispatcher->post(std::move(fn));
+    } else {
+      debug::warn("dispatchPost: no dispatcher available");
+    }
+  }
+
+  void dispatchNotify() {
+    if (g_app && g_app->dispatcher) {
+      g_app->dispatcher->notify();
+    } else {
+      platform::runloopNotify();
     }
   }
 

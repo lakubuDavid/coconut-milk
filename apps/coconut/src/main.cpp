@@ -24,7 +24,6 @@
 #include "core/exec_command.h"
 #include "core/worker.h"
 #include "debug.h"
-#include "dispatch.h"
 #include "error.h"
 #include "generators/generate.h"
 #include "main_runtime.h"
@@ -124,7 +123,8 @@ namespace {
         }
         sol::object ret = loadResult;
         if (!ret.is<sol::function>()) {
-          debug::warn(std::format("[worker] {} did not return a function", path.filename().string())
+          debug::warn(
+              std::format("[worker] {} did not return a function", path.filename().string())
           );
           continue;
         }
@@ -153,11 +153,13 @@ namespace {
     }
 
     if (loaded > 0) {
-      debug::info(std::format(
-          "[worker] loaded {} background command module(s) ({} commands bound)",
-          loaded,
-          w->Commands.size()
-      ));
+      debug::info(
+          std::format(
+              "[worker] loaded {} background command module(s) ({} commands bound)",
+              loaded,
+              w->Commands.size()
+          )
+      );
     }
     return std::nullopt;
   }
@@ -295,9 +297,11 @@ int main(int argc, char* argv[]) {
       // Root is a file, not a directory — treat as positional app arg
       args.positional_args.insert(args.positional_args.begin(), args.root);
       args.root = ".";
-      debug::info(std::format(
-          "root '{}' is a file, treating as positional arg", args.positional_args.front()
-      ));
+      debug::info(
+          std::format(
+              "root '{}' is a file, treating as positional arg", args.positional_args.front()
+          )
+      );
     } else {
       debug::info(std::format("changing root to '{}'", args.root));
       try {
@@ -416,7 +420,8 @@ int main(int argc, char* argv[]) {
   {
     auto cmd_result = coconut::commands::create(&cfg);
     if (!cmd_result) {
-      debug::error(std::format("Failed to create commands registry: {}", cmd_result.error().message)
+      debug::error(
+          std::format("Failed to create commands registry: {}", cmd_result.error().message)
       );
       coconut::app::destroy(app);
       return 1;
@@ -478,7 +483,7 @@ int main(int argc, char* argv[]) {
     constexpr int kWorkerCount = 2;
 
     // Window module target — workers marshal window mutations onto the
-    // main run loop via dispatch::post, landing on this webview handle.
+    // main run loop via core::dispatchPost, landing on this webview handle.
     coconut::modules::setWindowTarget(app->webview);
 
     // Store module forwarding target — same mechanism for worker store ops.
@@ -506,7 +511,7 @@ int main(int argc, char* argv[]) {
                 coconut::modules::ModulesFlag::kClipboard | coconut::modules::ModulesFlag::kNotify |
                 coconut::modules::ModulesFlag::kOpenUrl | coconut::modules::ModulesFlag::kDialog
             )
-            .withOutputNotifier([&app] { coconut::dispatch::notify(app); })
+            .withOutputNotifier([&app] { app->dispatcher->notify(); })
             .withInitializer([&](coconut::core::Worker* w) -> std::optional<coconut::Error> {
               size_t i = nextWorkerCtx++;
               if (i >= app->worker_contexts.size()) {
@@ -556,12 +561,16 @@ int main(int argc, char* argv[]) {
                         return std::nullopt;  // not ours — workers
                       }
                       sol::state_view lua(*app->lua_state->lua_state);
-                      return isMt ? std::optional(coconut::core::execCommand(
-                                        lua, mt, name, args, app->lua_state->context
-                                    ))
-                                  : std::optional(coconut::core::execCommand(
-                                        lua, main, name, args, app->lua_state->context
-                                    ));
+                      return isMt ? std::optional(
+                                        coconut::core::execCommand(
+                                            lua, mt, name, args, app->lua_state->context
+                                        )
+                                    )
+                                  : std::optional(
+                                        coconut::core::execCommand(
+                                            lua, main, name, args, app->lua_state->context
+                                        )
+                                    );
                     }
                 )
                 .withTargetResolver([app]() -> std::string {
@@ -577,7 +586,7 @@ int main(int argc, char* argv[]) {
             dispatcherPtr->queue(coconut::core::DispatchMessage{std::move(msg)});
             // Wake the main run loop so the queued call flushes promptly
             // (worker results wake it separately via withOutputNotifier).
-            coconut::dispatch::notify(app);
+            app->dispatcher->notify();
           });
           app->core_bridge = std::move(bridgeResult.value());
 
@@ -592,11 +601,13 @@ int main(int argc, char* argv[]) {
           app->bridge_state->transport->setMessageCallback(
               [bridgePtr](const coconut::core::JsRPCMessage& msg) { bridgePtr->onInbound(msg); }
           );
-          debug::info(std::format(
-              "core wiring: trio constructed + inbound routed ({} workers, "
-              "async reply protocol)",
-              kWorkerCount
-          ));
+          debug::info(
+              std::format(
+                  "core wiring: trio constructed + inbound routed ({} workers, "
+                  "async reply protocol)",
+                  kWorkerCount
+              )
+          );
         }
       }
     }
@@ -638,12 +649,14 @@ int main(int argc, char* argv[]) {
       args_tbl["flags"] = flags;
     }
     lua["coconut"]["args"] = args_tbl;
-    debug::info(std::format(
-        "coconut.args set: {} positional, {} named, {} flags",
-        args.positional_args.size(),
-        args.key_value_args.size(),
-        args.flag_args.size()
-    ));
+    debug::info(
+        std::format(
+            "coconut.args set: {} positional, {} named, {} flags",
+            args.positional_args.size(),
+            args.key_value_args.size(),
+            args.flag_args.size()
+        )
+    );
 
     // Also inject into JS for frontend access.
     {
@@ -700,9 +713,11 @@ int main(int argc, char* argv[]) {
   auto entry_result = coconut::lua::loadEntryPoint(lua_runtime, &cfg);
   if (!entry_result && entry_result.error().code != ErrorCode::Ok) {
     // Log the error but continue — non-fatal; app runs with current config.
-    debug::warn(std::format(
-        "entry-point: {} ({})", entry_result.error().message, entry_result.error().details
-    ));
+    debug::warn(
+        std::format(
+            "entry-point: {} ({})", entry_result.error().message, entry_result.error().details
+        )
+    );
   }
 
   // Step 7: load view descriptors into the window.
@@ -739,12 +754,17 @@ int main(int argc, char* argv[]) {
     window::addView(window, name, v);
     debug::info(std::format("view '{}' registered", name));
     // Fire "load" lifecycle event through the dispatch queue.
-    dispatch::lifecycleEvent(app, name, "load");
+    app->dispatcher->queue(
+        core::LifecycleMessage{
+            .ViewName  = std::string(name),
+            .EventName = "load",
+        }
+    );
   }
 
   // Route queued lifecycle events through the dispatch system,
   // ensuring Lua state is fully initialized before direct access.
-  dispatch::drain(app);
+  app->dispatcher->flush();
 
   // Pass view names to the route resolver so coconut://view_name links
   // trigger navigation instead of file serving.
@@ -785,7 +805,8 @@ int main(int argc, char* argv[]) {
   if (cfg.initial_view.empty()) {
     debug::warn("no initial_view set — app starts with default blank view");
   } else if (window->views.find(cfg.initial_view) == window->views.end()) {
-    debug::warn(std::format("initial_view '{}' not found among registered views", cfg.initial_view)
+    debug::warn(
+        std::format("initial_view '{}' not found among registered views", cfg.initial_view)
     );
     debug::info("registered views:");
     for (const auto& [name, _] : window->views) {
@@ -802,8 +823,13 @@ int main(int argc, char* argv[]) {
       lv["coconut"]["_active_view"] = cfg.initial_view;
     }
     // Fire "mount" lifecycle event through the dispatch queue.
-    dispatch::lifecycleEvent(app, cfg.initial_view, "mount");
-    dispatch::drain(app);
+    app->dispatcher->queue(
+        core::LifecycleMessage{
+            .ViewName  = std::string(cfg.initial_view),
+            .EventName = "mount",
+        }
+    );
+    app->dispatcher->flush();
 
     // Fire the "ready" lifecycle event — flows through coconut._dispatch.
     // Subscribers can use coconut.on("ready", fn, { once = true }).
@@ -819,7 +845,8 @@ int main(int argc, char* argv[]) {
   // Start the dispatch run-loop source so queued events are drained
   // automatically on every iteration of the main loop.
   debug::info("main: starting dispatch system...");
-  coconut::dispatch::init(app);
+  core::setDispatchApp(app);
+  app->dispatcher->init();
 
   // Manual HMR (coconut.hotreload()) is always available via Lua.
   // Background-thread auto-watch is deferred to v0.2.0.
@@ -828,7 +855,7 @@ int main(int argc, char* argv[]) {
   coconut::app::run(app);
 
   // Tear down the dispatch system (drains remaining messages).
-  coconut::dispatch::shutdown(app);
+  app->dispatcher->shutdown();
 
   coconut::app::destroy(app);
   return 0;

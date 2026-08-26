@@ -11,7 +11,7 @@ namespace coconut::modules {
   ///
   ///   Main kind      : calls run inline on the calling (main) thread.
   ///   Background kind: calls marshal onto the main run loop via
-  ///                    dispatch::post(); getPosition() blocks until the
+  ///                    core::dispatchPost(); getPosition() blocks until the
   ///                    next drain completes the round-trip.
   ///
   /// The native target must be set before Background registration via

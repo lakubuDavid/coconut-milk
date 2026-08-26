@@ -56,7 +56,7 @@ namespace coconut {
       /// Background-thread stubs (warnings for mt-only APIs on bg).
       kBgStubs = 1 << 13,
 
-      /// Live window mutations (main: direct; bg: marshalled via dispatch::post).
+      /// Live window mutations (main: direct; bg: marshalled via core::dispatchPost).
       kWindow = 1 << 14,
 
       /// Convenience: all thread-safe modules (bg-thread safe subset).

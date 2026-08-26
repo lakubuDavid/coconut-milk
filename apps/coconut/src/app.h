@@ -7,7 +7,6 @@
 #include "context.h"
 #include "core/bridge.h"
 #include "core/dispatcher.h"
-#include "dispatch.h"
 #include "error.h"
 #include "fs.h"
 #include "main_runtime.h"

@@ -1,6 +1,5 @@
 #include "context.h"
 #include "app.h"
-#include "dispatch.h"
 #include "test.h"
 
 #include <sol/sol.hpp>
@@ -224,7 +223,7 @@ COCONUT_TEST(unit, context_emit_sync_enqueues_event) {
     ctx->emit_sync(event);
 
     // Drain the outbox
-    coconut::dispatch::drain(app);
+    app->dispatcher->flush();
   }
 
   coconut::context::destroy(ctx);

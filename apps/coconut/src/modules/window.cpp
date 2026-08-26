@@ -1,6 +1,6 @@
 #include "window.h"
 
-#include "../dispatch.h"
+#include "../core/dispatcher.h"
 // #include "../platform/darwin/window_handle.h"
 #include "../platform/window_native.h"
 #include "modules/thread_kind.h"
@@ -51,7 +51,7 @@ namespace coconut::modules {
       if (thisKind == ThreadKind::Main) {
         op(wv);
       } else {
-        dispatch::post([op, wv] { op(wv); });
+        coconut::core::dispatchPost([op, wv] { op(wv); });
       }
       t["ok"] = true;
       return t;
@@ -119,7 +119,7 @@ namespace coconut::modules {
         // never blocks on workers.
         std::packaged_task<void()> task([&] { readPos(x, y); });
         auto                       fut = task.get_future();
-        dispatch::post([&task] { task(); });
+        coconut::core::dispatchPost([&task] { task(); });
         fut.wait();
       }
       t["x"]  = x;

@@ -118,7 +118,7 @@ namespace coconut::modules {
     -- ── Window settings (Settings view) ──
     -- Thin wrappers over the coconut.window module: on the main thread
     -- they run inline; from a worker the same calls marshal onto the main
-    -- run loop via dispatch::post. Single API, correct dispatch either way.
+    -- run loop via core::dispatchPost. Single API, correct dispatch either way.
     ctx:bind_mt("set_window_title", function(params)
       return coconut.window.setTitle(tostring(params.title or ""))
     end)

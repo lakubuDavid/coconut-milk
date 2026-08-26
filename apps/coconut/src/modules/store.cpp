@@ -43,8 +43,7 @@ namespace coconut::modules {
 
     if (kind == ThreadKind::Main) {
       store_mod.set_function(
-          "set",
-          [](const std::string& key, const std::string& value, sol::this_state s) {
+          "set", [](const std::string& key, const std::string& value, sol::this_state s) {
             App* app = getApp(s);
             if (!app || !app->bridge_state || !app->bridge_state->store) {
               debug::warn("store.set: _app not wired or store is null");
@@ -128,7 +127,7 @@ namespace coconut::modules {
         return result;
       });
     } else {
-      // Background — forward onto the main run loop via dispatch::post and
+      // Background — forward onto the main run loop via dispatchPost and
       // block until the operation completes. The closure re-resolves the
       // store from the injected App* (main-thread resources only).
       auto resolveApp = []() -> App* {
@@ -153,8 +152,7 @@ namespace coconut::modules {
       });
 
       store_mod.set_function(
-          "get",
-          [resolveApp](const std::string& key, sol::this_state s) -> sol::object {
+          "get", [resolveApp](const std::string& key, sol::this_state s) -> sol::object {
             auto result = forwardToMain([&]() -> std::optional<std::string> {
               App* app = resolveApp();
               if (!app)

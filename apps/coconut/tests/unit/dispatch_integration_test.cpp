@@ -1,63 +1,120 @@
-/// Tests: dispatch module — thin main-loop pump semantics (Phase 2).
+/// Tests: core::Dispatcher integration — runloop ownership + free helpers.
 ///
-/// evalJS() routes through the transport's eval(); lifecycleEvent() queues
-/// into the core Dispatcher; drain() flushes the Dispatcher. Legacy Outbox
-/// behavior is gone; these tests cover the current contract and null-safety.
+/// The legacy coconut::dispatch shim was deleted in the v0.2.0 dispatcher
+/// port; init()/shutdown()/flush()/post() now live on core::Dispatcher, and
+/// module code reaches the live dispatcher via the free helpers
+/// setDispatchApp()/dispatchPost()/dispatchNotify(). These tests cover the
+/// current contract and null-safety.
 
 #include "app.h"
-#include "dispatch.h"
+#include "core/dispatcher.h"
+#include "core/worker.h"
+#include "main_runtime.h"
+#include "modules/registry.h"
 #include "test.h"
 
+#include <atomic>
+#include <memory>
 #include <string>
 
-static coconut::App makeTestApp() {
-  return coconut::App{};
+namespace {
+
+  /// Captures eval()/send() calls. Never owns a webview.
+  struct FakeTransport : public coconut::transport::Transport {
+    std::vector<coconut::core::JsRPCMessage> sent;
+    void                                     send(const coconut::core::JsRPCMessage& msg) override {
+      sent.push_back(msg);
+    }
+    void eval(const std::string& js) override {
+      (void)js;
+    }
+    void setMessageCallback(coconut::transport::MessageCallback cb) override {
+      (void)cb;
+    }
+  };
+
+  std::unique_ptr<coconut::core::Dispatcher> makeDispatcher(
+      std::shared_ptr<FakeTransport> transport
+  ) {
+    auto runtimeResult = coconut::lua::create(nullptr, nullptr);
+    if (!runtimeResult)
+      return nullptr;
+    auto poolResult = coconut::core::WorkerPool::builder(1)
+                          .withModules(coconut::modules::ModulesFlag::ThreadSafe)
+                          .build();
+    if (!poolResult)
+      return nullptr;
+    auto dispatcherResult = coconut::core::DispatcherBuilder{}
+                                .withRuntime(runtimeResult.value())
+                                .withWorkerPool(std::move(poolResult.value()))
+                                .withTransport(transport)
+                                .build();
+    COCONUT_REQUIRE(dispatcherResult.has_value());
+    return std::move(dispatcherResult.value());
+  }
+
+}  // namespace
+
+// ── init / shutdown ──────────────────────────────────────────────────
+
+COCONUT_TEST(dispatch, init_then_shutdown_is_safe) {
+  auto transport  = std::make_shared<FakeTransport>();
+  auto dispatcher = makeDispatcher(transport);
+  if (!dispatcher) {
+    return;  // headless CI — skip
+  }
+  dispatcher->init();
+  dispatcher->flush();
+  dispatcher->shutdown();  // shutdown drains before tearing down
 }
 
-// ── dispatch::evalJS ─────────────────────────────────────────────────
-
-COCONUT_TEST(dispatch, eval_js_null_app) {
-  // Must not crash.
-  coconut::dispatch::evalJS(nullptr, "should not crash");
+COCONUT_TEST(dispatch, shutdown_drains_queued_messages) {
+  // shutdown() drains remaining messages before tearing down — must not
+  // crash and must flush anything queued ahead of it.
+  auto transport  = std::make_shared<FakeTransport>();
+  auto dispatcher = makeDispatcher(transport);
+  if (!dispatcher) {
+    return;  // headless CI — skip
+  }
+  dispatcher->queue(
+      coconut::core::DispatchMessage{coconut::core::JsCallMessage{
+          .Message = coconut::core::JsRPCMessage{
+              .type = coconut::core::RpcType::kEvent, .name = "bye", .payload = {}
+          }
+      }}
+  );
+  dispatcher->shutdown();
+  COCONUT_REQUIRE_EQ(transport->sent.size(), size_t{1});
 }
 
-// ── dispatch::lifecycleEvent ─────────────────────────────────────────
+// ── free helpers (module-side marshalling) ───────────────────────────
 
-COCONUT_TEST(dispatch, lifecycle_event_null_app) {
-  coconut::dispatch::lifecycleEvent(nullptr, "v", "load");
+COCONUT_TEST(dispatch, dispatch_post_reaches_live_dispatcher) {
+  auto transport  = std::make_shared<FakeTransport>();
+  auto dispatcher = makeDispatcher(transport);
+  if (!dispatcher) {
+    return;  // headless CI — skip
+  }
+
+  coconut::core::setDispatchApp(nullptr);  // ensure no stale global
+  std::atomic<bool> ran{false};
+  coconut::core::dispatchPost([&ran] { ran.store(true); });
+  COCONUT_REQUIRE(!ran.load());  // no dispatcher => helper must be a safe no-op
+
+  coconut::App app{};
+  app.dispatcher = std::move(dispatcher);
+  coconut::core::setDispatchApp(&app);
+
+  coconut::core::dispatchPost([&ran] { ran.store(true); });
+  COCONUT_REQUIRE(!ran.load());  // queued, not yet flushed
+
+  app.dispatcher->flush();
+  COCONUT_REQUIRE(ran.load());
+
+  coconut::core::setDispatchApp(nullptr);
 }
 
-// ── dispatch::drain ──────────────────────────────────────────────────
-
-COCONUT_TEST(dispatch, drain_null_app) {
-  coconut::dispatch::drain(nullptr);
-}
-
-COCONUT_TEST(dispatch, drain_multiple_calls) {
-  coconut::App app = makeTestApp();
-
-  coconut::dispatch::drain(&app);
-  coconut::dispatch::drain(&app);
-}
-
-// ── dispatch::init / dispatch::shutdown ──────────────────────────────
-
-COCONUT_TEST(dispatch, init_then_shutdown) {
-  coconut::App app = makeTestApp();
-
-  coconut::dispatch::init(&app);
-  coconut::dispatch::drain(&app);
-  coconut::dispatch::shutdown(&app);
-}
-
-COCONUT_TEST(dispatch, shutdown_drains) {
-  coconut::App app = makeTestApp();
-
-  // shutdown() drains before tearing down — must not crash with no dispatcher.
-  coconut::dispatch::shutdown(&app);
-}
-
-COCONUT_TEST(dispatch, init_shutdown_null_app) {
-  coconut::dispatch::init(nullptr);
-  coconut::dispatch::shutdown(nullptr);
+COCONUT_TEST(dispatch, dispatch_notify_safe_without_app) {
+  coconut::core::setDispatchApp(nullptr);
+  coconut::core::dispatchNotify();  // must not crash before init
 }
