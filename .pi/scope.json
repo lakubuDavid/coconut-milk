@@ -3,27 +3,40 @@
   "blockMode": "soft",
   "scopes": [
     {
-      "name": "base",
-      "goal": "creeate a set of extensions for pi",
-      "features": [],
-      "allowedPaths": [],
-      "allowedTopics": []
-    },
-    {
       "name": "v0.2.0",
-      "goal": "Add authentication and cloud sync",
+      "goal": "Architecture consolidation: retire the Outbox dispatch path in favour of core::Dispatcher, refactor the event model, mechanically restructure src/, and begin the memory-safety plan",
       "features": [
-        "User registration/login",
-        "Cloud sync",
-        "Multi-device support"
+        "Dispatcher port: replace dispatch::Outbox with core::Dispatcher owned by App; delete Outbox class and dispatch::Outbox fields",
+        "Event model refactor: unified DOM-like Lua event object (name/type/target/payload, preventDefault, stopPropagation)",
+        "Cleaner project structure (v0.2.0 mechanical phase): group flat src/*.cpp into modules, resolve src/packages/ vs root packages/ name collision",
+        "Memory safety plan part 1: sol3 table/function lifetime guards, App* lifetime guards in bridge/dispatch callbacks",
+        "Carryover from v0.1.1: platform dialog error recovery (try/catch around GTK/Win32 native calls)",
+        "Carryover from v0.1.1: finish smart-pointer migration of remaining raw-new sites in window/context/commands/bridge/main_runtime/store/app",
+        "CI: add TSAN sanitizer job alongside existing ASAN matrix",
+        "Configurable queue capacity on MessageQueue (supersedes outbox-capacity carryover if Outbox is retired first)"
       ],
       "allowedPaths": [
-        "src/auth/",
-        "src/sync/"
+        "apps/coconut/src/",
+        "apps/coconut/tests/",
+        "apps/coconut-cli/",
+        "packages/",
+        "patches/",
+        "scripts/",
+        "docs/",
+        "examples/",
+        "samples/",
+        "schemas/",
+        "wiki/",
+        "plans/",
+        "todos/"
       ],
       "allowedTopics": [
-        "authentication",
-        "cloud sync"
+        "dispatcher",
+        "outbox",
+        "event-model",
+        "project-structure",
+        "memory-safety",
+        "sanitizers"
       ]
     },
     {
@@ -42,13 +55,17 @@
         "Configurable outbox queue capacity"
       ],
       "allowedPaths": [
-        "src/",
-        "tests/",
+        "apps/coconut/src/",
+        "apps/coconut/tests/",
+        "apps/coconut-cli/",
         "scripts/",
         "docs/",
         "examples/",
+        "samples/",
         "schemas/",
-        "plans/"
+        "wiki/",
+        "plans/",
+        "todos/"
       ],
       "allowedTopics": []
     }
