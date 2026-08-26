@@ -12,8 +12,7 @@
         "Memory safety plan part 1: sol3 table/function lifetime guards, App* lifetime guards in bridge/dispatch callbacks",
         "Carryover from v0.1.1: platform dialog error recovery (try/catch around GTK/Win32 native calls)",
         "Carryover from v0.1.1: finish smart-pointer migration of remaining raw-new sites in window/context/commands/bridge/main_runtime/store/app",
-        "CI: add TSAN sanitizer job alongside existing ASAN matrix",
-        "Configurable queue capacity on MessageQueue (supersedes outbox-capacity carryover if Outbox is retired first)"
+        "CI: add TSAN sanitizer job alongside existing ASAN matrix"
       ],
       "allowedPaths": [
         "apps/coconut/src/",
@@ -70,6 +69,12 @@
       "allowedTopics": []
     }
   ],
-  "parkingLot": [],
+  "parkingLot": [
+    {
+      "idea": "Add bounded capacity to core::MessageQueue (NOT the legacy dispatch::Outbox, which v0.2's dispatcher port deletes): non-blocking tryPush() returning std::expected<void, Error>, generous default (~1024), drop-newest policy to preserve FIFO/lifecycle ordering, config-overridable capacity, and synthesize RejectMessage{code=QueueOverflow} on worker-input overflow so frontend promises reject instead of hanging. Do after or alongside the v0.2 dispatcher port.",
+      "suggestedScope": "v0.2.0-maybe",
+      "timestamp": 1787750737479
+    }
+  ],
   "enabled": true
 }
