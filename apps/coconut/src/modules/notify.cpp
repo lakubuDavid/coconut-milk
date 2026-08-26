@@ -2,9 +2,10 @@
 #include <sol/state.hpp>
 #include <sol/table.hpp>
 #include <string>
-#include "../packages/notify.h"  // C++ notify namespace
+
 #include "forward.h"
 #include "modules/thread_kind.h"
+#include "platform/darwin/notify.h"
 
 namespace coconut::modules {
 
@@ -13,12 +14,12 @@ namespace coconut::modules {
 
     if (kind == ThreadKind::Main) {
       coconut.set_function("notify", [](const std::string& title, const std::string& body) -> bool {
-        return coconut::notify::notify(title, body);
+        return notify::platformNotify(title, body);
       });
     } else {
       coconut.set_function("notify", [](const std::string& title, const std::string& body) -> bool {
         // Forward onto the main run loop and block until delivered.
-        return forwardToMain([&]() -> bool { return coconut::notify::notify(title, body); });
+        return forwardToMain([&]() -> bool { return notify::platformNotify(title, body); });
       });
     }
   }

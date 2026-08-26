@@ -4,7 +4,15 @@
 #include <string>
 #include "forward.h"
 #include "modules/thread_kind.h"
+#if defined(__APPLE__)
 #include "platform/darwin/open_url.h"
+#elif defined(_WIN32)
+#include "platform/win/open_url.h"
+#elif defined(__linux__)
+#include "platform/linux/open_url.h"
+#else
+#error "Unsupported platform — no open_url implementation available"
+#endif
 
 namespace coconut::modules {
 

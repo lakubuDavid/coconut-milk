@@ -1,4 +1,12 @@
-#include "packages/open_url.h"
+#if defined(__APPLE__)
+#include "platform/darwin/open_url.h"
+#elif defined(_WIN32)
+#include "platform/win/open_url.h"
+#elif defined(__linux__)
+#include "platform/linux/open_url.h"
+#else
+#error "Unsupported platform - no open_url implementation available"
+#endif
 #include "test.h"
 
 #include <string>
@@ -18,46 +26,40 @@ COCONUT_TEST(unit, open_url_empty_returns_false) {
 // Running them would open browser tabs, phone dialers, and mail
 // compose windows on every test run — unwanted in automation.
 
-COCONUT_TEST_SKIP(unit, open_url_https,
-    "skipped: opens https://example.com in real browser") {
+COCONUT_TEST_SKIP(unit, open_url_https, "skipped: opens https://example.com in real browser") {
   bool result = coconut::open_url::open("https://example.com");
   (void)result;
 }
 
-COCONUT_TEST_SKIP(unit, open_url_http,
-    "skipped: opens http://example.com in real browser") {
+COCONUT_TEST_SKIP(unit, open_url_http, "skipped: opens http://example.com in real browser") {
   bool result = coconut::open_url::open("http://example.com");
   (void)result;
 }
 
-COCONUT_TEST_SKIP(unit, open_url_mailto,
-    "skipped: opens Mail.app / default mail client") {
+COCONUT_TEST_SKIP(unit, open_url_mailto, "skipped: opens Mail.app / default mail client") {
   bool result = coconut::open_url::open("mailto:test@example.com");
   (void)result;
 }
 
-COCONUT_TEST_SKIP(unit, open_url_long_url,
-    "skipped: opens long URL in real browser") {
+COCONUT_TEST_SKIP(unit, open_url_long_url, "skipped: opens long URL in real browser") {
   std::string longUrl = "https://example.com/" + std::string(2000, 'a');
-  bool result = coconut::open_url::open(longUrl);
+  bool        result  = coconut::open_url::open(longUrl);
   (void)result;
 }
 
-COCONUT_TEST_SKIP(unit, macos_open_url_tel,
-    "skipped: opens Phone.app / FaceTime (macOS only)") {
+COCONUT_TEST_SKIP(unit, macos_open_url_tel, "skipped: opens Phone.app / FaceTime (macOS only)") {
   bool result = coconut::open_url::open("tel:+1234567890");
   (void)result;
 }
 
-COCONUT_TEST_SKIP(unit, macos_open_url_system_preferences,
-    "skipped: opens System Settings pane (macOS only)") {
-  bool result = coconut::open_url::open(
-      "x-apple.systempreferences:com.apple.preference.security");
+COCONUT_TEST_SKIP(
+    unit, macos_open_url_system_preferences, "skipped: opens System Settings pane (macOS only)"
+) {
+  bool result = coconut::open_url::open("x-apple.systempreferences:com.apple.preference.security");
   (void)result;
 }
 
-COCONUT_TEST_SKIP(unit, linux_open_url_https,
-    "skipped: opens browser via xdg-open (Linux only)") {
+COCONUT_TEST_SKIP(unit, linux_open_url_https, "skipped: opens browser via xdg-open (Linux only)") {
   bool result = coconut::open_url::open("https://example.com");
   (void)result;
 }
