@@ -132,6 +132,16 @@ depends = ["//apps/coconut:install"]
 description = "Build (release) and symlink the binary into ~/tools"
 depends = ["//apps/coconut:install-release"]
 
+# ── Install (coconut-cli) ──────────────────────────────────────────
+
+[tasks.install-cli]
+description = "Build (debug) coconut-cli and symlink into ~/.local/bin"
+depends = ["//apps/coconut-cli:install"]
+
+[tasks.install-cli-release]
+description = "Build (release) coconut-cli and symlink into ~/.local/bin"
+depends = ["//apps/coconut-cli:install-release"]
+
 # ── Release ──────────────────────────────────────────────────────────
 
 [tasks.release]

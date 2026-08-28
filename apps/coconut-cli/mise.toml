@@ -26,3 +26,22 @@ run = "xmake run coconut-cli generate --watch"
 [tasks.new]
 description = "Scaffold a new Coconut Milk project (args: -- <name> [-t template] [-y])"
 run = "xmake run coconut-cli new"
+
+# ── Install (local build) ──────────────────────────────────────────
+
+[tasks.build-release]
+description = "Configure (llvm toolchain via mise clang) and build coconut-cli (release)"
+run = [
+  "xmake f -c --toolchain=llvm --sdk=\"$(mise where clang)\" -m release -y",
+  "xmake"
+]
+
+[tasks.install]
+description = "Build (debug) coconut-cli and symlink into ~/.local/bin"
+depends = ["build"]
+run = "bash ../../scripts/mise-install-cli.sh"
+
+[tasks.install-release]
+description = "Build (release) coconut-cli and symlink into ~/.local/bin"
+depends = ["build-release"]
+run = "bash ../../scripts/mise-install-cli.sh"
