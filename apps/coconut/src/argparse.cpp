@@ -20,16 +20,20 @@ namespace coconut {
     /// that `coconut <subcommand> --debug` etc. behaves like the old global parser.
     void addCommonOptions(argparse::ArgumentParser& p) {
       p.add_argument("-h", "--help").help("Show this help and exit").flag();
-      p.add_argument("-v", "--version").help("Show version and exit");
+      p.add_argument("-v", "--version").help("Show version and exit").flag();
       p.add_argument("-d", "--debug").help("Enable developer tools / debug mode").flag();
-      p.add_argument("-r", "--root").help("Set project root directory");
+      p.add_argument("-r", "--root")
+          .help("Set project root directory")
+          .default_value(std::string("."));
       p.add_argument("-o", "--out-dir")
           .help("Output directory for subcommands")
           .default_value(std::string("generated"));
       p.add_argument("-t", "--template")
           .help("Template for 'new' subcommand")
           .default_value(std::string("default"));
-      p.add_argument("--title").help("Override window title for 'run'");
+      p.add_argument("--title")
+          .help("Override window title for 'run'")
+          .default_value(std::string(""));
       p.add_argument("--window-width")
           .help("Override window width")
           .scan<'i', int>()
@@ -51,19 +55,25 @@ namespace coconut {
     Args args;
 
     // Root parser (run / default mode).
-    argparse::ArgumentParser program("coconut", std::string{COCONUT_VERSION});
+    // default_arguments::none: p-ranav auto-adds -h/--help and -v/--version
+    // (which std::exit(0)); we add them manually as flags in addCommonOptions so
+    // --help/--version set Args fields instead of exiting (keeps in-process
+    // tests + main flow intact).
+    argparse::ArgumentParser program(
+        "coconut", std::string{COCONUT_VERSION}, argparse::default_arguments::none, false
+    );
     addCommonOptions(program);
 
     // Subparsers.
-    argparse::ArgumentParser generate("generate", "");
+    argparse::ArgumentParser generate("generate", "", argparse::default_arguments::none, false);
     generate.add_description("Generate command wrappers from @command annotations");
     addCommonOptions(generate);
 
-    argparse::ArgumentParser bundle("bundle", "");
+    argparse::ArgumentParser bundle("bundle", "", argparse::default_arguments::none, false);
     bundle.add_description("Package app into a standalone distributable bundle");
     addCommonOptions(bundle);
 
-    argparse::ArgumentParser new_cmd("new", "");
+    argparse::ArgumentParser new_cmd("new", "", argparse::default_arguments::none, false);
     new_cmd.add_description("Scaffold a new Coconut Milk project");
     addCommonOptions(new_cmd);
     new_cmd.add_argument("name")
@@ -71,7 +81,7 @@ namespace coconut {
         .nargs(0, 1)
         .default_value(std::string(""));
 
-    argparse::ArgumentParser run("run", "");
+    argparse::ArgumentParser run("run", "", argparse::default_arguments::none, false);
     run.add_description("Run a Coconut Milk application");
     addCommonOptions(run);
 
@@ -97,9 +107,22 @@ namespace coconut {
     args.new_cmd  = program.is_subcommand_used("new");
     args.run_cmd  = program.is_subcommand_used("run");
 
+    // The active parser is the subparser when a subcommand was used, else the
+    // root parser. Shared options are registered on every parser, so read them
+    // from whichever one actually consumed the command line.
+    argparse::ArgumentParser* active = &program;
+    if (args.generate)
+      active = &generate;
+    else if (args.bundle)
+      active = &bundle;
+    else if (args.new_cmd)
+      active = &new_cmd;
+    else if (args.run_cmd)
+      active = &run;
+
     // Help (manual flag so we don't auto-exit — keeps in-process tests + main
     // flow intact). Print the relevant parser's help; main.cpp returns 0.
-    args.help = program.get<bool>("--help");
+    args.help = active->get<bool>("--help");
     if (args.help) {
       if (args.generate)
         std::cout << generate << "\n";
@@ -114,28 +137,28 @@ namespace coconut {
     }
 
     // Version / debug.
-    args.version = program.get<bool>("--version");
-    args.debug   = program.get<bool>("--debug");
+    args.version = active->get<bool>("--version");
+    args.debug   = active->get<bool>("--debug");
 
-    // Shared value options (readable from the root parser even when supplied
+    // Shared value options (readable from the active parser even when supplied
     // under a subcommand).
-    args.out_dir                = program.get<std::string>("--out-dir");
-    args.template_name          = program.get<std::string>("--template");
-    args.yes                    = program.get<bool>("--yes");
-    args.watch                  = program.get<bool>("--watch");
-    args.bytecode_config        = program.get<bool>("--bytecode");
-    args.override_frameless     = program.get<bool>("--frameless");
-    args.override_transparent   = program.get<bool>("--transparent");
-    args.override_window_width  = program.get<int>("--window-width");
-    args.override_window_height = program.get<int>("--window-height");
+    args.out_dir                = active->get<std::string>("--out-dir");
+    args.template_name          = active->get<std::string>("--template");
+    args.yes                    = active->get<bool>("--yes");
+    args.watch                  = active->get<bool>("--watch");
+    args.bytecode_config        = active->get<bool>("--bytecode");
+    args.override_frameless     = active->get<bool>("--frameless");
+    args.override_transparent   = active->get<bool>("--transparent");
+    args.override_window_width  = active->get<int>("--window-width");
+    args.override_window_height = active->get<int>("--window-height");
 
-    const std::string title = program.get<std::string>("--title");
+    const std::string title = active->get<std::string>("--title");
     if (!title.empty()) {
       args.override_title_given = true;
       args.override_title       = title;
     }
 
-    const std::string opt_root = program.get<std::string>("--root");
+    const std::string opt_root = active->get<std::string>("--root");
 
     if (args.new_cmd) {
       // `new` consumes its own positional name.
