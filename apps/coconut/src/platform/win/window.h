@@ -1,25 +1,28 @@
 #ifndef COCONUT_PLATFORM_WIN_WINDOW_H
 #define COCONUT_PLATFORM_WIN_WINDOW_H
 
-#include "webview/api.h" // webview_t
 #include "../../debug.h"
+#include "webview/api.h"  // webview_t
 
 namespace coconut {
   struct Config;
 
   namespace window {
     /// Apply Windows-native window style (frameless, etc.) — stub.
-    inline void platformApplyWindowStyle(webview_t /*wv*/, Config* /*cfg*/) {}
+    inline void platformApplyWindowStyle(webview_t /*wv*/, Config* /*cfg*/) {
+    }
 
     /// Install WebView2 navigation delegate for external URL interception — stub.
-    inline void platformInstallNavDelegate(webview_t /*wv*/) {}
+    inline void platformInstallNavDelegate(webview_t /*wv*/) {
+    }
 
     /// Open devtools (Edge DevTools).
     /// Edge DevTools are enabled via put_AreDevToolsEnabled(TRUE) when
     /// debug=1.  User can press F12 or right-click → Inspect.
     /// Injects a visible hint.
     inline void platformOpenDevTools(webview_t wv) {
-      if (!wv) return;
+      if (!wv)
+        return;
       debug::info("🐚 Debug mode — press F12 or right-click → Inspect to open Edge DevTools.");
       webview_init(wv, R"JS(
         if (!window.__coconutDevtoolsHint) {
@@ -37,9 +40,10 @@ namespace coconut {
       )JS");
     }
 
-    /// Set window background color (0-1 range) — stub.
-    inline void platformSetWindowBackgroundColor(webview_t /*wv*/, float, float, float, float) {}
-  }
-}
+    /// Set window background color (0-1 range).
+    /// Defined in window_handle.cpp (stub that warns).
+    void platformSetWindowBackgroundColor(webview_t wv, float r, float g, float b, float a);
+  }  // namespace window
+}  // namespace coconut
 
-#endif // COCONUT_PLATFORM_WIN_WINDOW_H
+#endif  // COCONUT_PLATFORM_WIN_WINDOW_H
