@@ -428,36 +428,44 @@ namespace coconut::lua {
       Runtime* runtime, const std::string& name, sol::table params
   ) {
     if (runtime == nullptr || runtime->lua_state == nullptr) {
-      return std::unexpected(Error{
-          .code    = ErrorCode::InvalidConfig,
-          .message = "call: null runtime or lua_state",
-      });
+      return std::unexpected(
+          Error{
+              .code    = ErrorCode::InvalidConfig,
+              .message = "call: null runtime or lua_state",
+          }
+      );
     }
     if (runtime->app == nullptr || runtime->app->commands == nullptr) {
-      return std::unexpected(Error{
-          .code    = ErrorCode::InvalidConfig,
-          .message = "call: app or commands registry not wired",
-      });
+      return std::unexpected(
+          Error{
+              .code    = ErrorCode::InvalidConfig,
+              .message = "call: app or commands registry not wired",
+          }
+      );
     }
 
     auto& handlers = runtime->app->commands->handlers;
     auto  it       = handlers.find(name);
     if (it == handlers.end()) {
-      return std::unexpected(Error{
-          .code    = ErrorCode::CommandNotFound,
-          .message = "command not registered: " + name,
-      });
+      return std::unexpected(
+          Error{
+              .code    = ErrorCode::CommandNotFound,
+              .message = "command not registered: " + name,
+          }
+      );
     }
 
     // Handler signature: fn(params, ctx)
     auto result = it->second(params, runtime->context);
     if (!result.valid()) {
       sol::error err = result;
-      return std::unexpected(Error{
-          .code    = ErrorCode::LuaError,
-          .message = "command '" + name + "' failed",
-          .details = err.what(),
-      });
+      return std::unexpected(
+          Error{
+              .code    = ErrorCode::LuaError,
+              .message = "command '" + name + "' failed",
+              .details = err.what(),
+          }
+      );
     }
 
     return result;
@@ -479,7 +487,8 @@ namespace coconut::lua {
 
     // Look up the view descriptor registry.
     sol::object registry = lua["coconut"]["_view_descriptors"];
-    if (!registry.is<sol::table>()) {
+    // .valid() guards the operator[] result before we treat it as a table.
+    if (!registry.valid() || !registry.is<sol::table>()) {
       return;
     }
 
@@ -539,10 +548,12 @@ namespace coconut::lua {
 
   std::expected<bool, Error> loadEntryPoint(Runtime* runtime, Config* cfg) {
     if (runtime == nullptr || runtime->lua_state == nullptr) {
-      return std::unexpected(Error{
-          .code    = ErrorCode::InvalidConfig,
-          .message = "loadEntryPoint: null runtime or lua_state",
-      });
+      return std::unexpected(
+          Error{
+              .code    = ErrorCode::InvalidConfig,
+              .message = "loadEntryPoint: null runtime or lua_state",
+          }
+      );
     }
 
     // Probe for main.lua first — missing file is not an error,
@@ -561,11 +572,13 @@ namespace coconut::lua {
     auto entry = lua.safe_script_file("main.lua", sol::script_pass_on_error);
     if (!entry.valid()) {
       sol::error err = entry;
-      return std::unexpected(Error{
-          .code    = ErrorCode::LuaError,
-          .message = "failed to load main.lua",
-          .details = err.what(),
-      });
+      return std::unexpected(
+          Error{
+              .code    = ErrorCode::LuaError,
+              .message = "failed to load main.lua",
+              .details = err.what(),
+          }
+      );
     }
 
     debug::info("loaded main.lua");
@@ -580,11 +593,13 @@ namespace coconut::lua {
       auto result = config_fn.as<sol::function>()(ctx_obj);
       if (!result.valid()) {
         sol::error err = result;
-        return std::unexpected(Error{
-            .code    = ErrorCode::LuaError,
-            .message = "coconut.config(ctx) failed",
-            .details = err.what(),
-        });
+        return std::unexpected(
+            Error{
+                .code    = ErrorCode::LuaError,
+                .message = "coconut.config(ctx) failed",
+                .details = err.what(),
+            }
+        );
       }
 
       // If the callback returned a table, merge additional fields.
@@ -736,7 +751,8 @@ namespace coconut::lua {
               auto loadResult = lua.script_file(path.string(), sol::script_pass_on_error);
               if (!loadResult.valid()) {
                 sol::error e = loadResult;
-                debug::warn(std::format("failed to load {}: {}", path.filename().string(), e.what())
+                debug::warn(
+                    std::format("failed to load {}: {}", path.filename().string(), e.what())
                 );
                 continue;
               }
@@ -744,11 +760,13 @@ namespace coconut::lua {
               // The returned value should be the register function.
               sol::object ret = loadResult;
               if (!ret.is<sol::function>()) {
-                debug::warn(std::format(
-                    "{} did not return a function (returned type {})",
-                    path.filename().string(),
-                    static_cast<int>(ret.get_type())
-                ));
+                debug::warn(
+                    std::format(
+                        "{} did not return a function (returned type {})",
+                        path.filename().string(),
+                        static_cast<int>(ret.get_type())
+                    )
+                );
                 continue;
               }
 

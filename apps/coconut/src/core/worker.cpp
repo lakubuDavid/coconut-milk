@@ -153,19 +153,27 @@ namespace coconut::core {
   ) {
     try {
       callback(worker->LuaState.get());
-    } catch (std::exception ex) {
+    } catch (const std::exception &ex) {
+      // Surface module-init failures instead of silently swallowing them — a
+      // swallowed exception leaves the worker Lua state half-initialised.
+      return coconut::Error{
+          .code    = ErrorCode::LuaError,
+          .message = std::format("bindLuaContext: module init failed: {}", ex.what()),
+      };
     }
   }
 
   void Worker::exec(RequestId id, std::string command, nlohmann::json args, std::string rpcId) {
     if (!Input)
       return;
-    Input->push(PromiseMessage{
-        .id      = id,
-        .command = std::move(command),
-        .args    = std::move(args),
-        .RpcId   = std::move(rpcId),
-    });
+    Input->push(
+        PromiseMessage{
+            .id      = id,
+            .command = std::move(command),
+            .args    = std::move(args),
+            .RpcId   = std::move(rpcId),
+        }
+    );
   }
 
   void Worker::drain(std::function<void(const WorkerOutput &)> callback) {
@@ -197,8 +205,9 @@ namespace coconut::core {
             CommandResult result = execCommand(lua, worker->Commands, req.command, req.args, ctx);
 
             if (result.ok) {
-              worker->Output->push(ResolveMessage{
-                  .id = req.id, .result = std::move(result.data), .RpcId = req.RpcId});
+              worker->Output->push(
+                  ResolveMessage{.id = req.id, .result = std::move(result.data), .RpcId = req.RpcId}
+              );
               if (worker->NotifyMain) {
                 worker->NotifyMain();
               }
@@ -209,8 +218,9 @@ namespace coconut::core {
                 errMsg = result.data["message"].get<std::string>();
               }
               debug::error(std::format("[woker_loop] : command execution failed : {}", errMsg));
-              worker->Output->push(RejectMessage{
-                  .id = req.id, .error = std::move(errMsg), .RpcId = req.RpcId});
+              worker->Output->push(
+                  RejectMessage{.id = req.id, .error = std::move(errMsg), .RpcId = req.RpcId}
+              );
               if (worker->NotifyMain) {
                 worker->NotifyMain();
               }
@@ -264,10 +274,12 @@ namespace coconut::core {
         std::this_thread::yield();
       }
       if (worker->isRunning()) {
-        debug::warn(std::format(
-            "shutdownWorker(SoftAbort): timeout after {}ms, detaching thread",
-            softAbortTimeout.count()
-        ));
+        debug::warn(
+            std::format(
+                "shutdownWorker(SoftAbort): timeout after {}ms, detaching thread",
+                softAbortTimeout.count()
+            )
+        );
         if (worker->Thread.joinable()) {
           worker->Thread.detach();
         }

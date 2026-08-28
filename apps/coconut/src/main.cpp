@@ -545,7 +545,9 @@ int main(int argc, char* argv[]) {
                     [app](
                         const std::string& name, const nlohmann::json& args
                     ) -> std::optional<coconut::core::CommandResult> {
-                      if (app->commands == nullptr || app->lua_state == nullptr ||
+                      // App* lifetime guard: bail if the captured App was
+                      // cleared (defensive — App always outlives the bridge).
+                      if (app == nullptr || app->commands == nullptr || app->lua_state == nullptr ||
                           app->lua_state->lua_state == nullptr ||
                           app->lua_state->context == nullptr) {
                         return std::nullopt;
@@ -560,6 +562,8 @@ int main(int argc, char* argv[]) {
                       if (!isMt && main.find(name) == main.end()) {
                         return std::nullopt;  // not ours — workers
                       }
+                      // Lifetime guard: construct the view once before use. The
+                      // lua_State* is borrowed from the (still-live) App.
                       sol::state_view lua(*app->lua_state->lua_state);
                       return isMt ? std::optional(
                                         coconut::core::execCommand(
@@ -583,6 +587,11 @@ int main(int argc, char* argv[]) {
           auto* dispatcherPtr = app->dispatcher.get();
           bridgeResult.value()->setCommandCallHandler([dispatcherPtr,
                                                        app](coconut::core::CommandCallMessage msg) {
+            // Lifetime guard: the dispatcher is owned by App and may have been
+            // released during teardown; never dereference a null dispatcher.
+            if (dispatcherPtr == nullptr) {
+              return;
+            }
             dispatcherPtr->queue(coconut::core::DispatchMessage{std::move(msg)});
             // Wake the main run loop so the queued call flushes promptly
             // (worker results wake it separately via withOutputNotifier).
