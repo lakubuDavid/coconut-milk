@@ -568,6 +568,36 @@ function GENERATORS.tsconfig()
 ]]
 end
 
+--- Generate tsconfig.json for Vite templates. Coconut-aware: it points the
+--- TypeScript server at the generated/ types and the scripts/ bridge API
+--- definitions (scripts/coconut.d.ts, which references ../generated/*.d.ts) so
+--- coconut.call()/coconut.on() resolve in the frontend.
+function GENERATORS.tsconfig_vite(framework)
+  local opts = {
+    '    "target": "ES2022"',
+    '    "module": "ESNext"',
+    '    "moduleResolution": "Bundler"',
+    '    "strict": true',
+    '    "esModuleInterop": true',
+    '    "allowJs": true',
+    '    "checkJs": false',
+    '    "skipLibCheck": true',
+    '    "noEmit": true',
+  }
+  if framework == "react" then
+    table.insert(opts, '    "jsx": "react-jsx"')
+  elseif framework == "vue" or framework == "solid" then
+    table.insert(opts, '    "jsx": "preserve"')
+  end
+  return "{\n" ..
+    '  "compilerOptions": {\n' ..
+    table.concat(opts, ",\n") .. "\n" ..
+    "  },\n" ..
+    '  "include": ["src/**/*", "generated/**/*.d.ts", "scripts/coconut.d.ts"],\n' ..
+    '  "exclude": ["node_modules", "dist"]\n' ..
+    "}\n"
+end
+
 --- Generate coconut.d.ts (type definitions for the bridge API)
 -- (coconut.d.ts and coconut.d.lua are copied from schemas/ at scaffold time)
 
@@ -865,6 +895,15 @@ local function scaffold_vite(project_dir, project_name, framework, pkg_manager)
   -- Copy schema type definitions
   copy_schema(project_dir, "coconut.d.lua")
   copy_schema(project_dir, "coconut.d.ts", "scripts")
+
+  -- TypeScript config: point the language server at the Coconut bridge types
+  -- (scripts/coconut.d.ts, which references ../generated/*.d.ts) and any
+  -- generated types. create-vite's JS templates ship no tsconfig, so generate
+  -- one (idempotent: keep any existing tsconfig).
+  local tsc_path = path_join(project_dir, "tsconfig.json")
+  if not io.open(tsc_path, "r") then
+    write_file(tsc_path, GENERATORS.tsconfig_vite(framework))
+  end
 
   -- Copy default icon
   write_file(path_join(project_dir, "public/icon.svg"),
