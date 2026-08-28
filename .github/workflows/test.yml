@@ -2,8 +2,18 @@ name: Test
 on:
   push:
     branches: [main, master]
+    # Skip the heavy C++/xmake matrix when only docs change (any code/config
+    # change still falls outside these patterns and triggers the run).
+    paths-ignore:
+      - 'wiki/**'
+      - '**.md'
+      - '.github/workflows/pages.yml'
   pull_request:
     branches: ['**']
+    paths-ignore:
+      - 'wiki/**'
+      - '**.md'
+      - '.github/workflows/pages.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
