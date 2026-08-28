@@ -152,6 +152,7 @@ target("tests")
         add_files("src/platform/darwin/runloop.cpp")
     elseif is_plat("windows") then
         add_files("src/platform/win/*.cpp")
+        add_files("src/platform/stub/runloop.cpp")
     elseif is_plat("linux") then
         add_files("src/platform/linux/*.cpp")
         add_files("src/platform/stub/runloop.cpp")
