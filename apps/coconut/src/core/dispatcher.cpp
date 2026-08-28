@@ -75,7 +75,7 @@ namespace coconut::core {
 
   Dispatcher::~Dispatcher() = default;
 
-  void Dispatcher::queue(DispatchMessage message) {
+  void Dispatcher::queue(DispatchMessageT message) {
     this->_MessageQueue.push(std::move(message));
   }
 
@@ -106,7 +106,7 @@ namespace coconut::core {
   void Dispatcher::flush() {
     //  1. Drain inbound dispatch messages
     while (auto maybe = _MessageQueue.tryPop()) {
-      DispatchMessage msg = std::move(*maybe);
+      DispatchMessageT msg = std::move(*maybe);
       std::visit(
           [this](auto&& m) {
             using T = std::decay_t<decltype(m)>;

@@ -130,7 +130,7 @@ namespace coconut::core {
     JsRPCMessage Message;
   };
 
-  using DispatchMessage = std::variant<LifecycleMessage, CommandCallMessage, JsCallMessage>;
+  using DispatchMessageT = std::variant<LifecycleMessage, CommandCallMessage, JsCallMessage>;
 
   // ── Worker messages ─────────────────────────────────────────────────
 

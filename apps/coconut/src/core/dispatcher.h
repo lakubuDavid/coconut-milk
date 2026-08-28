@@ -55,7 +55,7 @@ namespace coconut::core {
     friend struct DispatcherBuilder;
 
    private:
-    MessageQueue<DispatchMessage>         _MessageQueue;
+    MessageQueue<DispatchMessageT>        _MessageQueue;
     lua::Runtime*                         _Runtime;     ///< borrowed (App-owned)
     std::unique_ptr<WorkerPool>           _WorkerPool;  ///< owned
     std::shared_ptr<transport::Transport> _Transport;   ///< shared with Bridge
@@ -74,7 +74,7 @@ namespace coconut::core {
     /// Out-of-line so unique_ptr<WorkerPool> can hold a forward-declared type.
     ~Dispatcher();
 
-    void queue(DispatchMessage message);
+    void queue(DispatchMessageT message);
     void flush();
 
     /// Post a closure to run on the MAIN thread during the next flush().

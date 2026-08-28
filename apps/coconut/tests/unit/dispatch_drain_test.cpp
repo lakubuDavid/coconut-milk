@@ -69,7 +69,7 @@ COCONUT_TEST(dispatch, flush_routes_queued_js_call_through_transport) {
 
   // Queue an outbound JsCall; flush() must route it through the transport.
   dispatcher->queue(
-      coconut::core::DispatchMessage{coconut::core::JsCallMessage{
+      coconut::core::DispatchMessageT{coconut::core::JsCallMessage{
           .Message = coconut::core::JsRPCMessage{
               .type = coconut::core::RpcType::kEvent, .name = "boot", .payload = {}
           }
@@ -110,7 +110,7 @@ COCONUT_TEST(dispatch, flush_handles_queued_lifecycle_without_crash) {
   }
 
   dispatcher->queue(
-      coconut::core::DispatchMessage{
+      coconut::core::DispatchMessageT{
           coconut::core::LifecycleMessage{.ViewName = "w", .EventName = "load"}
       }
   );

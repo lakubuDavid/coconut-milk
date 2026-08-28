@@ -128,7 +128,7 @@ COCONUT_TEST(core_dispatcher, flush_routes_js_call_to_transport) {
   envelope.id   = "call-1";
   envelope.type = coconut::core::RpcType::kEvent;
   envelope.name = "hello";
-  wiring.dispatcher->queue(core::DispatchMessage{core::JsCallMessage{.Message = envelope}});
+  wiring.dispatcher->queue(core::DispatchMessageT{core::JsCallMessage{.Message = envelope}});
   wiring.dispatcher->flush();
 
   COCONUT_REQUIRE_EQ(wiring.transport.sent.size(), size_t{1});
@@ -140,10 +140,12 @@ COCONUT_TEST(core_dispatcher, flush_routes_js_call_to_transport) {
 COCONUT_TEST(core_dispatcher, flush_queues_command_call_to_pool) {
   auto wiring = Wiring::make();
 
-  wiring.dispatcher->queue(core::DispatchMessage{core::CommandCallMessage{
-      .CommandName = "resize-image",
-      .Args        = nlohmann::json{{"w", 100}},
-  }});
+  wiring.dispatcher->queue(
+      core::DispatchMessageT{core::CommandCallMessage{
+          .CommandName = "resize-image",
+          .Args        = nlohmann::json{{"w", 100}},
+      }}
+  );
   // No crash without attached workers; message lands in the worker's input.
   wiring.dispatcher->flush();
 
@@ -154,11 +156,13 @@ COCONUT_TEST(core_dispatcher, flush_queues_command_call_to_pool) {
 COCONUT_TEST(core_dispatcher, command_call_rpcid_reaches_worker_input) {
   auto wiring = Wiring::make();
 
-  wiring.dispatcher->queue(core::DispatchMessage{core::CommandCallMessage{
-      .CommandName = "resize-image",
-      .Args        = nlohmann::json{{"w", 100}},
-      .RpcId       = "call-abc-123",
-  }});
+  wiring.dispatcher->queue(
+      core::DispatchMessageT{core::CommandCallMessage{
+          .CommandName = "resize-image",
+          .Args        = nlohmann::json{{"w", 100}},
+          .RpcId       = "call-abc-123",
+      }}
+  );
   wiring.dispatcher->flush();
 
   // The pool's RequestId is opaque; the webview call id must ride along so
@@ -198,8 +202,9 @@ COCONUT_TEST(core_dispatcher, worker_exec_echoes_rpcid_to_output) {
 COCONUT_TEST(core_dispatcher, flush_routes_lifecycle_to_null_runtime_safely) {
   auto wiring = Wiring::make();
 
-  wiring.dispatcher->queue(core::DispatchMessage{
-      core::LifecycleMessage{.ViewName = "home", .EventName = "load"}});
+  wiring.dispatcher->queue(
+      core::DispatchMessageT{core::LifecycleMessage{.ViewName = "home", .EventName = "load"}}
+  );
   // Zeroed runtime — dispatchViewLifecycleEvent must no-op without crashing.
   wiring.dispatcher->flush();
 

@@ -77,7 +77,7 @@ COCONUT_TEST(dispatch, shutdown_drains_queued_messages) {
     return;  // headless CI — skip
   }
   dispatcher->queue(
-      coconut::core::DispatchMessage{coconut::core::JsCallMessage{
+      coconut::core::DispatchMessageT{coconut::core::JsCallMessage{
           .Message = coconut::core::JsRPCMessage{
               .type = coconut::core::RpcType::kEvent, .name = "bye", .payload = {}
           }

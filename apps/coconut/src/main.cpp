@@ -589,7 +589,7 @@ int main(int argc, char* argv[]) {
             if (dispatcherPtr == nullptr) {
               return;
             }
-            dispatcherPtr->queue(coconut::core::DispatchMessage{std::move(msg)});
+            dispatcherPtr->queue(coconut::core::DispatchMessageT{std::move(msg)});
             // Wake the main run loop so the queued call flushes promptly
             // (worker results wake it separately via withOutputNotifier).
             app->dispatcher->notify();
