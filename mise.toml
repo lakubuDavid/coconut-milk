@@ -125,12 +125,12 @@ description = "Spell-check sources with typos"
 depends = ["//apps/coconut:typos:fix"]
 
 [tasks.install]
-description = "Build (debug) and symlink the binary into ~/tools"
-depends = ["//apps/coconut:install"]
+description = "Build (debug) and symlink coconut + coconut-cli + create-coconut-app into ~/.local/bin"
+depends = ["//apps/coconut:install", "//apps/coconut-cli:install"]
 
 [tasks.install-release]
-description = "Build (release) and symlink the binary into ~/tools"
-depends = ["//apps/coconut:install-release"]
+description = "Build (release) and symlink coconut + coconut-cli + create-coconut-app into ~/.local/bin"
+depends = ["//apps/coconut:install-release", "//apps/coconut-cli:install-release"]
 
 # ── Install (coconut-cli) ──────────────────────────────────────────
 
