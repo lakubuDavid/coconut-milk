@@ -14,6 +14,8 @@ Architecture, design decisions, ADRs, and troubleshooting for Coconut Milk.
 | [ADR-0001](ADR-0001-quit-via-synchronous-webview-terminate.md) | Quit via synchronous webview terminate |
 | [ADR-0003](ADR-0003-linux-platform.md) | Linux platform support |
 | [ADR-0004](ADR-0004-single-bg-outbox-for-now.md) | Single bg→main outbox for now |
+| [ADR-0005](ADR-0005-coconut-cli-self-contained-argparse.md) | Self-contained coconut-cli with p-ranav/argparse |
+| [ADR-0006](ADR-0006-coconut-app-p-ranav-argparse.md) | Migrate coconut app to p-ranav/argparse |
 
 ## Internal Concepts
 

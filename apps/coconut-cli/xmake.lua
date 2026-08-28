@@ -3,19 +3,23 @@
 --
 --   cd apps/coconut-cli && xmake build && ./build/*/release/coconut-cli
 --
--- Reuses the generator and scaffold sources from the coconut app via
--- include paths (single source of truth); this target adds only a thin
--- argv front-end.  No external packages required.
+-- Fully self-contained: the generator and scaffolder sources are copied
+-- into ./src (originally from apps/coconut/src) so this target builds
+-- without referencing the coconut app tree.  The only dependency is
+-- p-ranav/argparse (header-only) pulled via the xmake package manager.
 -- =====================================================================
+
+add_rules("plugin.compile_commands.autoupdate", {outputdir = ".", lsp = "clangd"})
 
 add_rules("mode.debug", "mode.release")
 set_languages("c++26")
+add_requires("argparse v3.2")
 
 target("coconut-cli")
     set_kind("binary")
     set_basename("coconut-cli")
-    add_includedirs("../coconut/src")
+    add_includedirs("src")
+    add_packages("argparse")
     add_files("src/main.cpp")
-    -- Generator + scaffolder live in the coconut app tree (shared source).
-    add_files("../coconut/src/generators/main.cpp")
-    add_files("../coconut/src/new_project.cpp")
+    add_files("src/generators/main.cpp")
+    add_files("src/new_project.cpp")

@@ -14,6 +14,7 @@ lefthook = "latest"
 opengrep = "latest"
 typos = "latest"
 clang-format = "latest"
+conan = "latest"
 
 # ─────────────────────────────────────────────────────────────────────
 # Workspace-level tasks — delegates to app-level mise.toml configs.
@@ -130,3 +131,9 @@ depends = ["//apps/coconut:install"]
 [tasks.install-release]
 description = "Build (release) and symlink the binary into ~/tools"
 depends = ["//apps/coconut:install-release"]
+
+# ── Release ──────────────────────────────────────────────────────────
+
+[tasks.release]
+description = "Cut a release: build, tag vX.Y.Z, push to origin (CI publishes the GitHub release)"
+depends = ["//apps/coconut:release"]

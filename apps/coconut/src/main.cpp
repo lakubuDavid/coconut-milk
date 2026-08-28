@@ -168,24 +168,15 @@ namespace {
 
 int main(int argc, char* argv[]) {
   // Step 0: parse command-line args (before anything else).
-  auto args = argparse::parse(argc, argv);
+  // p-ranav handles `--help` (prints usage for the relevant subcommand).
+  auto args = parseArguments(argc, argv);
 
   if (args.help) {
-    if (args.generate)
-      argparse::printGenerateHelp(argv[0]);
-    else if (args.bundle)
-      argparse::printBundleHelp(argv[0]);
-    else if (args.new_cmd)
-      argparse::printNewHelp(argv[0]);
-    else if (args.run_cmd)
-      argparse::printRunHelp(argv[0]);
-    else
-      argparse::printHelp(argv[0]);
     return 0;
   }
 
   if (args.version) {
-    argparse::printVersion(argv[0]);
+    printVersion(argv[0]);
     return 0;
   }
 
@@ -649,36 +640,13 @@ int main(int argc, char* argv[]) {
       }
       args_tbl["positional"] = pos;
     }
-    {
-      sol::table named = lua.create_table();
-      for (const auto& [k, v] : args.key_value_args) {
-        named[k] = v;
-      }
-      args_tbl["named"] = named;
-    }
-    {
-      sol::table flags = lua.create_table();
-      for (size_t i = 0; i < args.flag_args.size(); ++i) {
-        flags[args.flag_args[i]] = true;
-      }
-      args_tbl["flags"] = flags;
-    }
     lua["coconut"]["args"] = args_tbl;
-    debug::info(
-        std::format(
-            "coconut.args set: {} positional, {} named, {} flags",
-            args.positional_args.size(),
-            args.key_value_args.size(),
-            args.flag_args.size()
-        )
-    );
+    debug::info(std::format("coconut.args set: {} positional", args.positional_args.size()));
 
     // Also inject into JS for frontend access.
     {
       nlohmann::json j;
       j["positional"] = args.positional_args;
-      j["named"]      = args.key_value_args;
-      j["flags"]      = args.flag_args;
       std::string js  = std::format(
           "window.__coconut_args = {};"
            "if (window.coconut) coconut.args = window.__coconut_args;",

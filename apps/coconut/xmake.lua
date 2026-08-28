@@ -14,6 +14,7 @@ else
 end
 add_requires("nlohmann_json 3.12.0")
 add_requires("lunasvg")
+add_requires("argparse v3.2")
 if is_plat("macosx") then
     set_languages("c23", "c++26")
 else
@@ -115,7 +116,7 @@ target("coconut")
         add_files("src/platform/stub/runloop.cpp")
     end
     add_files("src/modules/*.cpp")
-    add_packages("sol2", "luajit", "nlohmann_json", "lunasvg")
+    add_packages("sol2", "luajit", "nlohmann_json", "lunasvg", "argparse")
     add_deps("webview")
 
 -- =================================================================
@@ -162,7 +163,7 @@ target("tests")
     -- Module-test mains have their own binaries (test_modules_*); keep them
     -- out of the aggregate test binary to avoid duplicate main()/symbols.
     remove_files("tests/modules/**/*.cpp")
-    add_packages("sol2", "luajit", "nlohmann_json", "lunasvg")
+    add_packages("sol2", "luajit", "nlohmann_json", "lunasvg", "argparse")
     add_deps("webview")
 
 -- =================================================================
