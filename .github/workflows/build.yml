@@ -267,6 +267,7 @@ jobs:
           TAG="${GITHUB_REF_NAME#refs/tags/}"
           mkdir -p dist/tools/schemas dist/tools/skill
           cp scripts/create-coconut-app dist/tools/
+          cp scripts/argparse.lua dist/tools/
           cp schemas/coconut.d.lua schemas/coconut.d.ts dist/tools/schemas/
           cp SKILL.md dist/tools/skill/SKILL.md
           chmod +x dist/tools/create-coconut-app
