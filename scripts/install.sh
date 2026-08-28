@@ -4,10 +4,10 @@
 #   curl -fsSL https://lakubudavid.me/portfolio/coconut-milk/install.sh | sh
 #   curl -fsSL https://raw.githubusercontent.com/lakubuDavid/coconut-milk/main/scripts/install.sh | sh
 #
-# Installs the latest Coconut Milk release binary (`coconut`) and the
-# `create-coconut-app` scaffolding script into a configurable bin directory
-# (default ~/.local/bin). Other assets (schemas, agent skill, version metadata)
-# live in ~/.coconut.
+# Installs the latest Coconut Milk release binaries (`coconut`, `coconut-cli`)
+# and the `create-coconut-app` scaffolding script into a configurable bin
+# directory (default ~/.local/bin). Other assets (schemas, agent skill, version
+# metadata) live in ~/.coconut.
 #
 # Options:
 #   -y, --yes          Confirm without prompting (non-interactive)
@@ -197,26 +197,49 @@ do_install() {
   rm -rf "$tmp_x"
   echo "done"
 
-  printf "  Installing create-coconut-app ... "
-  download "https://raw.githubusercontent.com/$REPO/main/scripts/create-coconut-app" "$BIN_DIR/create-coconut-app" \
-    || err "download failed: create-coconut-app"
-  chmod +x "$BIN_DIR/create-coconut-app"
+  printf "  Installing coconut-cli ... "
+  local cli_archive="coconut-cli-$PLATFORM-$ARCH.zip"
+  local cli_inner="coconut-cli"
+  [ "$PLATFORM" = "windows" ] && cli_inner="coconut-cli.exe"
+  local cli_url="https://github.com/$REPO/releases/download/$VERSION/$cli_archive"
+  local tmp_cli="$TMPDIR/_coconut_cli_$$.zip"
+  download "$cli_url" "$tmp_cli" || err "download failed: $cli_archive"
+  local tmp_cx="$TMPDIR/_coconut_cli_extract_$$"
+  mkdir -p "$tmp_cx"
+  if has_cmd unzip; then unzip -qo "$tmp_cli" -d "$tmp_cx"
+  else busybox unzip -qo "$tmp_cli" -d "$tmp_cx" 2>/dev/null || err "Need unzip."; fi
+  rm -f "$tmp_cli"
+  local cli_bin
+  cli_bin=$(find "$tmp_cx" -type f -name "$cli_inner" 2>/dev/null | head -1)
+  [ -n "$cli_bin" ] || err "coconut-cli not found in archive."
+  cp "$cli_bin" "$BIN_DIR/$cli_inner"
+  chmod +x "$BIN_DIR/$cli_inner"
+  rm -rf "$tmp_cx"
   echo "done"
 
-  printf "  Installing schema + skill assets into %s ... " "$COCONUT_HOME"
+  printf "  Installing create-coconut-app + schemas + skill ... "
+  local tools_archive="coconut-tools-$VERSION.zip"
+  local tools_url="https://github.com/$REPO/releases/download/$VERSION/$tools_archive"
+  local tmp_tools="$TMPDIR/_coconut_tools_$$.zip"
+  download "$tools_url" "$tmp_tools" || err "download failed: $tools_archive"
+  local tmp_tx="$TMPDIR/_coconut_tools_extract_$$"
+  mkdir -p "$tmp_tx"
+  if has_cmd unzip; then unzip -qo "$tmp_tools" -d "$tmp_tx"
+  else busybox unzip -qo "$tmp_tools" -d "$tmp_tx" 2>/dev/null || err "Need unzip."; fi
+  rm -f "$tmp_tools"
+  cp "$tmp_tx/tools/create-coconut-app" "$BIN_DIR/create-coconut-app"
+  chmod +x "$BIN_DIR/create-coconut-app"
   mkdir -p "$COCONUT_HOME/schemas" "$COCONUT_HOME/skill"
-  download "https://raw.githubusercontent.com/$REPO/main/schemas/coconut.d.lua" "$COCONUT_HOME/schemas/coconut.d.lua" \
-    || warn "could not fetch schemas/coconut.d.lua (will be fetched on first online scaffold)"
-  download "https://raw.githubusercontent.com/$REPO/main/schemas/coconut.d.ts" "$COCONUT_HOME/schemas/coconut.d.ts" \
-    || warn "could not fetch schemas/coconut.d.ts (will be fetched on first online scaffold)"
-  download "https://raw.githubusercontent.com/$REPO/main/SKILL.md" "$COCONUT_HOME/skill/SKILL.md" \
-    || warn "could not fetch SKILL.md (agent skill will be skipped)"
+  cp "$tmp_tx"/tools/schemas/* "$COCONUT_HOME/schemas/" 2>/dev/null || true
+  cp "$tmp_tx"/tools/skill/SKILL.md "$COCONUT_HOME/skill/SKILL.md" 2>/dev/null || true
+  rm -rf "$tmp_tx"
   echo "done"
 
   printf '%s\n' "$VERSION" > "$COCONUT_HOME/VERSION"
 
   printf '\n'
   info "Installed coconut $VERSION -> $BIN_DIR/$final"
+  info "Installed coconut-cli -> $BIN_DIR/$cli_inner"
   info "Installed create-coconut-app -> $BIN_DIR/create-coconut-app"
   if ! has_cmd luajit && ! has_cmd lua; then
     warn "create-coconut-app needs LuaJIT (or lua) on PATH."
@@ -238,7 +261,8 @@ printf '%s\n' ""
 printf '%s\n' "  This installer will:"
 printf '%b\n' "    1. Download the latest Coconut Milk release binary for your platform${RESET}"
 printf '%b\n' "    2. Install it as ${BOLD}coconut${RESET} into $BIN_DIR${RESET}"
-printf '%b\n' "    3. Install the ${BOLD}create-coconut-app${RESET} scaffolding script into $BIN_DIR${RESET}"
+printf '%b\n' "    3. Install the ${BOLD}coconut-cli${RESET} generator CLI into $BIN_DIR${RESET}"
+printf '%b\n' "    4. Install the ${BOLD}create-coconut-app${RESET} scaffolding script into $BIN_DIR${RESET}"
 printf '%b\n' "    Other assets (schemas, agent skill, version metadata) go to $COCONUT_HOME${RESET}"
 printf '%s\n' ""
 
@@ -251,7 +275,8 @@ if [ "$DRY_RUN" = "1" ]; then
   echo "    Assets   : $COCONUT_HOME"
   echo "    Would download:"
   echo "      https://github.com/$REPO/releases/download/<version>/coconut-$PLATFORM-$ARCH.zip"
-  echo "      https://raw.githubusercontent.com/$REPO/main/scripts/create-coconut-app"
+  echo "      https://github.com/$REPO/releases/download/<version>/coconut-cli-$PLATFORM-$ARCH.zip"
+  echo "      https://github.com/$REPO/releases/download/<version>/coconut-tools-<version>.zip"
   exit 0
 fi
 

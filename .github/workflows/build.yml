@@ -65,6 +65,16 @@ jobs:
           name: coconut-macos-${{ matrix.arch }}
           path: apps/coconut/build/macosx/${{ matrix.arch }}/release/coconut
 
+      - name: Build coconut-cli
+        working-directory: apps/coconut-cli
+        run: xmake f -m release -p macosx -a ${{ matrix.arch }} -y && xmake build -v coconut-cli
+
+      - name: Upload cli
+        uses: actions/upload-artifact@v4
+        with:
+          name: coconut-cli-macos-${{ matrix.arch }}
+          path: apps/coconut-cli/build/macosx/${{ matrix.arch }}/release/coconut-cli
+
   build-linux:
     runs-on: ubuntu-latest
 
@@ -118,6 +128,16 @@ jobs:
           name: coconut-linux-x86_64
           path: apps/coconut/build/linux/x86_64/release/coconut
 
+      - name: Build coconut-cli
+        working-directory: apps/coconut-cli
+        run: xmake f -m release -p linux -a x86_64 -y && xmake build -v coconut-cli
+
+      - name: Upload cli
+        uses: actions/upload-artifact@v4
+        with:
+          name: coconut-cli-linux-x86_64
+          path: apps/coconut-cli/build/linux/x86_64/release/coconut-cli
+
   build-windows:
     runs-on: windows-latest
 
@@ -162,6 +182,16 @@ jobs:
         with:
           name: coconut-windows-x86_64
           path: apps/coconut/build/windows/x64/release/coconut.exe
+
+      - name: Build coconut-cli
+        working-directory: apps/coconut-cli
+        run: xmake f -m release -p windows -a x64 -y && xmake build -v coconut-cli
+
+      - name: Upload cli
+        uses: actions/upload-artifact@v4
+        with:
+          name: coconut-cli-windows-x86_64
+          path: apps/coconut-cli/build/windows/x64/release/coconut-cli.exe
 
   build-vite-package:
     runs-on: ubuntu-latest
@@ -225,9 +255,33 @@ jobs:
           name: coconut-source-archive
           path: dist/*
 
+  tools-bundle:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bundle create-coconut-app + schemas + skill
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME#refs/tags/}"
+          mkdir -p dist/tools/schemas dist/tools/skill
+          cp scripts/create-coconut-app dist/tools/
+          cp schemas/coconut.d.lua schemas/coconut.d.ts dist/tools/schemas/
+          cp SKILL.md dist/tools/skill/SKILL.md
+          chmod +x dist/tools/create-coconut-app
+          (cd dist && zip -9 -q -r "coconut-tools-${TAG}.zip" tools)
+          ls -lh dist/
+
+      - name: Upload tools bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: coconut-tools
+          path: dist/coconut-tools-*.zip
+
   package:
     runs-on: ubuntu-latest
-    needs: [build-macos, build-linux, build-windows, build-vite-package, source-archive]
+    needs: [build-macos, build-linux, build-windows, build-vite-package, source-archive, tools-bundle]
 
     steps:
       - uses: actions/checkout@v4
@@ -263,6 +317,21 @@ jobs:
                   cp "$dir/coconut.exe" "dist/$name.exe"
                   (cd dist && zip "$name.zip" "$name.exe" && rm "$name.exe")
                 fi
+                ;;
+              coconut-cli-macos-*|coconut-cli-linux-*)
+                if [ -f "$dir/coconut-cli" ]; then
+                  cp "$dir/coconut-cli" "dist/$name"
+                  (cd dist && zip "$name.zip" "$name" && rm "$name")
+                fi
+                ;;
+              coconut-cli-windows-*)
+                if [ -f "$dir/coconut-cli.exe" ]; then
+                  cp "$dir/coconut-cli.exe" "dist/$name.exe"
+                  (cd dist && zip "$name.zip" "$name.exe" && rm "$name.exe")
+                fi
+                ;;
+              coconut-tools*)
+                cp "$dir"/coconut-tools-*.zip dist/ 2>/dev/null || true
                 ;;
               coconut-vite*)
                 cp "$dir"/coconut-vite-*.tgz dist/ 2>/dev/null || true
@@ -310,6 +379,10 @@ jobs:
             | macOS | Apple Silicon | `coconut-macos-arm64.zip` |
             | Linux | x86_64 | `coconut-linux-x86_64.zip` |
             | Windows | x86_64 | `coconut-windows-x86_64.zip` |
+            | CLI (macOS) | Intel / ARM | `coconut-cli-macos-*.zip` |
+            | CLI (Linux) | x86_64 | `coconut-cli-linux-x86_64.zip` |
+            | CLI (Windows) | x86_64 | `coconut-cli-windows-x86_64.zip` |
+            | Tools | — | `coconut-tools-*.zip` (create-coconut-app + schemas + skill) |
             | Source | — | `coconut-milk-*-source.zip` / `.tar.gz` |
             | Vite plugin | — | `coconut-vite-*.tgz` |
 

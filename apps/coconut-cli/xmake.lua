@@ -12,7 +12,7 @@
 add_rules("plugin.compile_commands.autoupdate", {outputdir = ".", lsp = "clangd"})
 
 add_rules("mode.debug", "mode.release")
-set_languages("c++26")
+set_languages("c++23")
 add_requires("argparse v3.2")
 
 target("coconut-cli")
