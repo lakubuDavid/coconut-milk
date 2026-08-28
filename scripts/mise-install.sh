@@ -11,10 +11,12 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 mkdir -p "${INSTALL_DIR}"
 
-# Resolve the actual binary path the way Justfile's _targetfile does
-# (strip ANSI codes from `xmake show` output).
-BIN="$(cd "${PROJECT_ROOT}" && xmake show -t coconut 2>/dev/null \
-  | awk -F': ' '{gsub(/\033\[[0-9;]*m/,"",$0); if ($1 ~ /targetfile$/) { printf "%s/%s", "'"${PROJECT_ROOT}"'", $2; print "" }}')"
+# Resolve the actual binary path (strip ANSI codes from `xmake show` output).
+# The coconut target lives in apps/coconut, so xmake must run from there —
+# there is no root xmake.lua.
+APP_DIR="${PROJECT_ROOT}/apps/coconut"
+BIN="$(cd "${APP_DIR}" && xmake show -t coconut 2>/dev/null \
+  | awk -F': ' '{gsub(/\033\[[0-9;]*m/,"",$0); if ($1 ~ /targetfile$/) { printf "%s/%s", "'"${APP_DIR}"'", $2; print "" }}')"
 
 if [ -z "${BIN}" ] || [ ! -f "${BIN}" ]; then
   echo "error: could not resolve the coconut binary — run 'mise run build' first" >&2
