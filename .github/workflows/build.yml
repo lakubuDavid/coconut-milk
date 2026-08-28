@@ -265,9 +265,10 @@ jobs:
         shell: bash
         run: |
           TAG="${GITHUB_REF_NAME#refs/tags/}"
-          mkdir -p dist/tools/schemas dist/tools/skill
+          mkdir -p dist/tools/schemas dist/tools/skill dist/tools/vite-plugin
           cp scripts/create-coconut-app dist/tools/
           cp scripts/argparse.lua dist/tools/
+          cp packages/coconut-vite/index.js dist/tools/vite-plugin/index.js
           cp schemas/coconut.d.lua schemas/coconut.d.ts dist/tools/schemas/
           cp SKILL.md dist/tools/skill/SKILL.md
           chmod +x dist/tools/create-coconut-app
