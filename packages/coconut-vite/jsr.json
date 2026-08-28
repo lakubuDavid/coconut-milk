@@ -1,8 +1,17 @@
 {
-  "name": "@lakbudavid/coconut-vite",
+  "name": "@lakubudavid/coconut-vite",
   "version": "0.1.0",
   "license": "MIT",
   "exports": "./index.js",
-  "include": ["index.js", "README.md", "package.json", "jsr.json"],
-  "exclude": ["node_modules", "test", "fixtures"]
+  "include": [
+    "index.js",
+    "README.md",
+    "package.json",
+    "jsr.json"
+  ],
+  "exclude": [
+    "node_modules",
+    "test",
+    "fixtures"
+  ]
 }
