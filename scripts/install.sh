@@ -1,13 +1,14 @@
 #!/bin/sh
 # ── Coconut Milk Installer ──────────────────────────────────────────────────
 # Usage:
-#   curl -fsSL https://lakubudavid.me/portfolio/coconut-milk/install.sh | sh
+#   curl -fsSL https://lakubudavid.me/coconut-milk/install.sh | sh
 #   curl -fsSL https://raw.githubusercontent.com/lakubuDavid/coconut-milk/main/scripts/install.sh | sh
 #
 # Installs the latest Coconut Milk release binaries (`coconut`, `coconut-cli`)
-# and the `create-coconut-app` scaffolding script into a configurable bin
-# directory (default ~/.local/bin). Other assets (schemas, agent skill, version
-# metadata) live in ~/.coconut.
+# into a configurable bin directory (default ~/.local/bin), and the full
+# create-coconut-app tools bundle (script, vendored argparse.lua, schemas, agent
+# skill) into ~/.coconut. The script is symlinked into the bin dir so it is on
+# PATH; everything it needs resolves from ~/.coconut at runtime.
 #
 # Options:
 #   -y, --yes          Confirm without prompting (non-interactive)
@@ -211,13 +212,14 @@ do_install() {
   rm -f "$tmp_cli"
   local cli_bin
   cli_bin=$(find "$tmp_cx" -type f -name "$cli_inner" 2>/dev/null | head -1)
+  [ -n "$cli_bin" ] || cli_bin=$(find "$tmp_cx" -type f 2>/dev/null | head -1)
   [ -n "$cli_bin" ] || err "coconut-cli not found in archive."
   cp "$cli_bin" "$BIN_DIR/$cli_inner"
   chmod +x "$BIN_DIR/$cli_inner"
   rm -rf "$tmp_cx"
   echo "done"
 
-  printf "  Installing create-coconut-app + schemas + skill ... "
+  printf "  Installing create-coconut-app + schemas + skill into %s ... " "$COCONUT_HOME"
   local tools_archive="coconut-tools-$VERSION.zip"
   local tools_url="https://github.com/$REPO/releases/download/$VERSION/$tools_archive"
   local tmp_tools="$TMPDIR/_coconut_tools_$$.zip"
@@ -227,12 +229,16 @@ do_install() {
   if has_cmd unzip; then unzip -qo "$tmp_tools" -d "$tmp_tx"
   else busybox unzip -qo "$tmp_tools" -d "$tmp_tx" 2>/dev/null || err "Need unzip."; fi
   rm -f "$tmp_tools"
-  cp "$tmp_tx/tools/create-coconut-app" "$BIN_DIR/create-coconut-app"
-  chmod +x "$BIN_DIR/create-coconut-app"
-  mkdir -p "$COCONUT_HOME/schemas" "$COCONUT_HOME/skill"
-  cp "$tmp_tx"/tools/schemas/* "$COCONUT_HOME/schemas/" 2>/dev/null || true
-  cp "$tmp_tx"/tools/skill/SKILL.md "$COCONUT_HOME/skill/SKILL.md" 2>/dev/null || true
+  # Install the whole tools bundle into COCONUT_HOME (the create script's
+  # home). The create script resolves argparse.lua next to its real path and
+  # schemas/skill from $COCONUT_HOME/{schemas,skill}, so this layout makes
+  # everything work offline with no extra copies.
+  mkdir -p "$COCONUT_HOME"
+  cp -r "$tmp_tx/tools/." "$COCONUT_HOME/"
   rm -rf "$tmp_tx"
+  # Symlink the script into the bin dir so it's on PATH (single source of
+  # truth in $COCONUT_HOME; readlink -f resolves the real path).
+  ln -sf "$COCONUT_HOME/create-coconut-app" "$BIN_DIR/create-coconut-app"
   echo "done"
 
   printf '%s\n' "$VERSION" > "$COCONUT_HOME/VERSION"
@@ -240,7 +246,7 @@ do_install() {
   printf '\n'
   info "Installed coconut $VERSION -> $BIN_DIR/$final"
   info "Installed coconut-cli -> $BIN_DIR/$cli_inner"
-  info "Installed create-coconut-app -> $BIN_DIR/create-coconut-app"
+  info "Installed create-coconut-app -> $BIN_DIR/create-coconut-app (tools in $COCONUT_HOME)"
   if ! has_cmd luajit && ! has_cmd lua; then
     warn "create-coconut-app needs LuaJIT (or lua) on PATH."
   fi
@@ -263,7 +269,7 @@ printf '%b\n' "    1. Download the latest Coconut Milk release binary for your p
 printf '%b\n' "    2. Install it as ${BOLD}coconut${RESET} into $BIN_DIR${RESET}"
 printf '%b\n' "    3. Install the ${BOLD}coconut-cli${RESET} generator CLI into $BIN_DIR${RESET}"
 printf '%b\n' "    4. Install the ${BOLD}create-coconut-app${RESET} scaffolding script into $BIN_DIR${RESET}"
-printf '%b\n' "    Other assets (schemas, agent skill, version metadata) go to $COCONUT_HOME${RESET}"
+printf '%b\n' "    (and the full tools bundle — script, vendored argparse, schemas, agent skill — into $COCONUT_HOME)${RESET}"
 printf '%s\n' ""
 
 if [ "$DRY_RUN" = "1" ]; then
