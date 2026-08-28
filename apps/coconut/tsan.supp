@@ -1,0 +1,13 @@
+# ThreadSanitizer suppressions for the coconut test suite.
+#
+# The notify tests call libnotify's notify_notification_show(), which spawns a
+# persistent GDBus worker thread. GLib's allocator is thread-safe, but TSan
+# cannot see GLib's internal synchronization, so it reports data races on
+# g_malloc/g_free between the main thread and the 'gdbus' thread. These are
+# false positives — the same pattern is suppressed in GLib's own test suite.
+#
+# Suppress by GLib module name (frames are unsymbolized in CI, so the module
+# name is what TSan matches) and by the notify test file (which appears in the
+# previous-memory-access stack of every report).
+race:libglib-2.0.so.0
+race:tests/unit/notify_test.cpp

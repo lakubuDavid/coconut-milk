@@ -92,10 +92,10 @@ jobs:
     # pipeline. Linux only: TSAN produces heavy false positives against the
     # macOS Objective-C runtime, and the project is Cocoa-bound on macOS.
     #
-    # Expected to surface races in the legacy dispatch::Outbox / dispatch::post
-    # path — those are tracked for the v0.2.0 dispatcher port (core::Dispatcher
-    # owned by App). Kept non-blocking so the pipeline stays green while the
-    # port lands, but failures here are real signal, not noise.
+    # GLib/GDBus false positives (the notify tests spawn a GDBus worker thread
+    # whose cross-thread allocator use TSan can't see) are suppressed via
+    # tsan.supp. Kept non-blocking so the pipeline stays green, but failures
+    # here are real signal, not noise.
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     continue-on-error: true
@@ -124,5 +124,5 @@ jobs:
 
       - name: Run tests
         working-directory: apps/coconut
-        run: TSAN_OPTIONS=halt_on_error=0 ./build/linux/$(uname -m)/tsan/tests
+        run: TSAN_OPTIONS=halt_on_error=0:suppressions=tsan.supp ./build/linux/$(uname -m)/tsan/tests
 
