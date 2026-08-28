@@ -33,11 +33,10 @@ namespace coconut::modules {
 
     // ── Platform keybinds ───────────────────────────────────────────
     coconut.set_function(
-        "__registerPlatformKeybind",
-        [](sol::this_state s, sol::table params) -> bool {
+        "__registerPlatformKeybind", [](sol::this_state s, sol::table params) -> bool {
           sol::state_view lv(s);
           sol::object     appObj = lv["coconut"]["_app"];
-          if (!appObj.is<App*>())
+          if (!appObj.valid() || !appObj.is<App*>())
             return false;
           App* app = appObj.as<App*>();
 
@@ -71,7 +70,7 @@ namespace coconut::modules {
           // If platform-level, register with App's platform_keybinds set.
           if (platform) {
             sol::object appObj = coconut["_app"];
-            if (appObj.is<App*>()) {
+            if (appObj.valid() && appObj.is<App*>()) {
               App* app = appObj.as<App*>();
               app->platform_keybinds.insert(combo);
               debug::info(std::format("[keybind] registered platform keybind: {}", combo));

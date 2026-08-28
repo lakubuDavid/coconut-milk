@@ -511,8 +511,14 @@ int main(int argc, char* argv[]) {
                 coconut::modules::ModulesFlag::kClipboard | coconut::modules::ModulesFlag::kNotify |
                 coconut::modules::ModulesFlag::kOpenUrl | coconut::modules::ModulesFlag::kDialog
             )
-            .withOutputNotifier([&app] { app->dispatcher->notify(); })
+            .withOutputNotifier([&app] {
+              if (app && app->dispatcher)
+                app->dispatcher->notify();
+            })
             .withInitializer([&](coconut::core::Worker* w) -> std::optional<coconut::Error> {
+              if (app == nullptr) {
+                return coconut::Error{.message = "no App for worker initializer"};
+              }
               size_t i = nextWorkerCtx++;
               if (i >= app->worker_contexts.size()) {
                 return coconut::Error{.message = "no CoconutContext for worker"};
