@@ -104,3 +104,45 @@ run = "bash ../../scripts/mise-install.sh"
 description = "Build (release) and symlink the binary into ~/tools"
 depends = ["build-release"]
 run = "bash ../../scripts/mise-install.sh"
+
+# ── Release ──────────────────────────────────────────────────────────
+
+[tasks.release]
+description = "Cut a release: build release binary, tag vX.Y.Z, push to origin (CI publishes the GitHub release)"
+run = """
+set -eu
+
+VERSION="${1:-${COCONUT_VERSION:-}}"
+if [ -z "$VERSION" ]; then
+  echo "error: no version. Pass one:" >&2
+  echo "  mise run release 0.2.0        # or" >&2
+  echo "  COCONUT_VERSION=0.2.0 mise run release" >&2
+  exit 1
+fi
+case "$VERSION" in
+  v*) TAG="$VERSION" ;;
+  *)  TAG="v$VERSION" ;;
+esac
+
+command -v xmake >/dev/null 2>&1 || { echo "error: xmake not found" >&2; exit 1; }
+command -v git   >/dev/null 2>&1 || { echo "error: git not found" >&2;   exit 1; }
+
+if git rev-parse "$TAG" >/dev/null 2>&1; then
+  echo "error: tag $TAG already exists" >&2
+  exit 1
+fi
+
+echo "==> Building release binary (host platform)"
+xmake f -m release -y
+xmake build coconut
+
+echo "==> Tagging $TAG"
+git tag -a "$TAG" -m "Release $TAG"
+
+echo "==> Pushing $TAG to origin (triggers CI release build)"
+git push origin "$TAG"
+
+echo ""
+echo "GitHub release will be published by CI at:"
+echo "  https://github.com/lakubuDavid/coconut-milk/releases/tag/$TAG"
+"""
