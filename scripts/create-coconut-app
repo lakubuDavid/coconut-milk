@@ -309,6 +309,66 @@ end
 
 -- ── File generators ──────────────────────────────────────────────────────
 
+--- Sanitize a project name into a valid npm package name.
+local function sanitize_npm_name(name)
+  name = (name or ""):lower():gsub("%s+", "-"):gsub("[^a-z0-9@._/-]", "")
+  if name == "" then name = "coconut-app" end
+  return name
+end
+
+--- Locate the bundled Coconut Vite plugin.
+--- Priority: the copy the installer dropped into ~/.coconut (sourced from the
+--- GitHub release, so it never touches the JSR/npm registry), then the repo
+--- checkout (dev / mise install). Returns the absolute path to index.js, or nil.
+local function find_vite_plugin()
+  local installed = path_join(coconut_home(), "vite-plugin", "index.js")
+  local it = io.open(installed, "r")
+  if it then it:close(); return installed end
+
+  -- Fallback: resolve the script's real directory and walk up to packages/coconut-vite.
+  local self_path = (arg and arg[0]) or "."
+  local resolved = self_path
+  if not self_path:match("[/\\]") then
+    local cv = io.popen("command -v " .. self_path .. " 2>/dev/null")
+    if cv then
+      local out = cv:read("*a"); cv:close()
+      if out and out ~= "" then resolved = out:gsub("\n*$", "") end
+    end
+  end
+  local real = resolved
+  local rf = io.popen("readlink -f " .. resolved .. " 2>/dev/null")
+  if rf then
+    local out = rf:read("*a"); rf:close()
+    if out and out ~= "" then real = out:gsub("\n*$", "") end
+  end
+  local script_dir = real:match("^(.*[/\\])") or "."
+  script_dir = script_dir:gsub("[/\\]$", "")
+  local dir = script_dir
+  for _ = 1, 4 do
+    local cand = path_join(dir, "packages", "coconut-vite", "index.js")
+    local f = io.open(cand, "r")
+    if f then f:close(); return cand end
+    local parent = dir:match("^(.*[/\\])")
+    if not parent or parent == dir then break end
+    dir = parent
+  end
+  return nil
+end
+
+--- Vendor the Coconut Vite plugin into the project (release-sourced, offline).
+local function copy_vite_plugin(project_dir)
+  local src = find_vite_plugin()
+  if not src then
+    log("Warning: Coconut Vite plugin not found; vite.config.js left without it.")
+    return false
+  end
+  local f = io.open(src, "r")
+  if not f then return false end
+  local data = f:read("*a"); f:close()
+  write_file(path_join(project_dir, "coconut-vite.js"), data)
+  return true
+end
+
 local GENERATORS = {}
 
 --- Generate coconut.config.lua
@@ -730,6 +790,20 @@ local function scaffold_vite(project_dir, project_name, framework, pkg_manager)
   ok = os.execute("cp -r '" .. tmp_dir .. "'/. '" .. project_dir .. "' 2>/dev/null")
   os.execute("rm -rf '" .. tmp_dir .. "'")
 
+  -- Fix package.json name: create-vite ran inside the temp dir, so it wrote
+  -- the temp dir's basename as the package name. Rewrite it to the real
+  -- project name.
+  local pkg_path = path_join(project_dir, "package.json")
+  local pkg_f = io.open(pkg_path, "r")
+  if pkg_f then
+    local content = pkg_f:read("*a")
+    pkg_f:close()
+    local npm_name = sanitize_npm_name(project_name)
+    content = content:gsub('("name"%s*:%s*)"[^"]*"',
+      '%1"' .. npm_name:gsub('\\', '\\\\'):gsub('"', '\\"'):gsub('%%', '%%%%') .. '"')
+    write_file(pkg_path, content)
+  end
+
   -- Upgrade to latest Vite + framework plugin
   log("Upgrading to latest Vite...")
   if pm == "bun" then
@@ -738,17 +812,42 @@ local function scaffold_vite(project_dir, project_name, framework, pkg_manager)
     os.execute("cd " .. project_dir .. " && npm install vite@latest 2>&1 </dev/null")
   end
 
-  -- Update vite.config for relative base
+  -- Vendor the Coconut Vite plugin from the GitHub release (the installer drops
+  -- it into ~/.coconut). This avoids pulling from JSR for supply-chain safety
+  -- and works fully offline.
+  copy_vite_plugin(project_dir)
+
+  -- vite.config.js: register the plugin + relative base. The vanilla template
+  -- ships no config, so we generate one; the other templates already expose a
+  -- plugins array we extend.
   local vc_path = path_join(project_dir, "vite.config.js")
   local vc = io.open(vc_path, "r")
   if vc then
     local content = vc:read("*a")
     vc:close()
-    -- Add base: './' after plugins line
+    if not content:find("coconut%-vite") then
+      content = "import coconut from './coconut-vite.js'\n" .. content
+    end
+    if not content:find("coconut%(%)") then
+      content = content:gsub("(plugins:%s*%[)(.-)(%])", function(open, inner, close)
+        if inner:match("%S") then
+          return open .. inner:gsub(",[%s]*$", "") .. ", coconut()" .. close
+        end
+        return open .. "coconut()" .. close
+      end)
+    end
     if not content:find("base:") then
       content = content:gsub("(plugins:%s*%[.-%])", "%1,\n  base: './'")
-      write_file(vc_path, content)
     end
+    write_file(vc_path, content)
+  else
+    write_file(vc_path,
+      "import coconut from './coconut-vite.js'\n" ..
+      "import { defineConfig } from 'vite'\n\n" ..
+      "export default defineConfig({\n" ..
+      "  plugins: [coconut()],\n" ..
+      "  base: './',\n" ..
+      "})\n")
   end
 
   -- Create coconut structure
