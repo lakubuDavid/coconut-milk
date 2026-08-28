@@ -820,46 +820,62 @@ end
 
 -- ── Main ──────────────────────────────────────────────────────────────────
 
-local function parse_args()
-  local args = { name = nil, template = "bare", framework = "vanilla", pm = "npm", yes = false, offline = false }
-  local i = 1
-  while i <= #arg do
-    local a = arg[i]
-    if a == "-h" or a == "--help" then
-      -- Show help by re-reading this file's header
-      local f = io.open(arg[0] or "scripts/create-coconut-app")
-      if f then
-        local content = f:read("*a")
-        f:close()
-        -- Print lines starting with ---
-        for line in content:gmatch("(%-%-%-[^\n]*)\n") do
-          io.write(line:gsub("^%-%-%- ?", "") .. "\n")
-        end
-      end
-      os.exit(0)
-    elseif a == "-t" or a == "--template" then
-      i = i + 1
-      args.template = arg[i] or "bare"
-    elseif a == "-f" or a == "--framework" then
-      i = i + 1
-      args.framework = arg[i] or "vanilla"
-    elseif a == "-p" or a == "--pm" then
-      i = i + 1
-      args.pm = arg[i] or "npm"
-    elseif a == "-y" or a == "--yes" then
-      args.yes = true
-    elseif a == "--offline" then
-      args.offline = true
-      g_offline = true
-    elseif a:sub(1, 1) ~= "-" and not args.name then
-      args.name = a
-    end
-    i = i + 1
+-- Vendored single-file command-line parser: mpeterv/argparse (MIT), scripts/argparse.lua.
+-- Resolve this script's real directory (following symlinks, e.g. when installed to
+-- ~/.local/bin) so require("argparse") works regardless of cwd or how it's invoked.
+local function add_self_to_path()
+  local self = arg[0] or ""
+  local real = self
+  local f = io.popen("readlink -f " .. self .. " 2>/dev/null")
+  if f then
+    local out = f:read("*a")
+    f:close()
+    if out and out ~= "" then real = out:gsub("\n*$", "") end
   end
-  if not TEMPLATES[args.template] then args.template = "bare" end
-  if not FRAMEWORKS[args.framework] then args.framework = "vanilla" end
-  if not PACKAGE_MANAGERS[args.pm] then args.pm = "npm" end
-  return args
+  local dir = real:match("(.*)/")
+  package.path = dir .. "/?.lua;" .. package.path
+end
+add_self_to_path()
+local argparse = require("argparse")
+
+local function build_parser()
+  local parser = argparse("create-coconut-app")
+  parser:description("Scaffold a new Coconut Milk project with a chosen template, framework and package manager.")
+  parser:epilog([[Templates:
+  bare      Coconut + raw HTML + CSS/JS
+  bare-ts   bare + TypeScript + tsconfig
+  vite      Coconut + Vite + framework (vanilla/react/vue/solid)
+
+Examples:
+  create-coconut-app my-app
+  create-coconut-app my-app -t vite -f react -p bun -y
+  create-coconut-app -t bare-ts -y]])
+  parser:argument("name", "Project name"):args("?"):default("")
+  parser:option("-t --template", "Template type")
+        :args(1):default("bare")
+        :convert(function(v) return TEMPLATES[v] and v or "bare" end)
+  parser:option("-f --framework", "Framework for the vite template")
+        :args(1):default("vanilla")
+        :convert(function(v) return FRAMEWORKS[v] and v or "vanilla" end)
+  parser:option("-p --pm", "Package manager for the vite template")
+        :args(1):default("npm")
+        :convert(function(v) return PACKAGE_MANAGERS[v] and v or "npm" end)
+  parser:flag("-y --yes", "Skip prompts, use defaults")
+  parser:flag("--offline", "Skip remote fetch; use cached/bundled schemas only")
+  return parser
+end
+
+local function parse_args()
+  local a = build_parser():parse()
+  g_offline = g_offline or a.offline
+  return {
+    name = (a.name ~= "" and a.name or nil),
+    template = a.template,
+    framework = a.framework,
+    pm = a.pm,
+    yes = a.yes,
+    offline = a.offline,
+  }
 end
 
 -- ── CLI entry point ───────────────────────────────────────────────────────
