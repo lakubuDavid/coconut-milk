@@ -154,8 +154,28 @@ end
 ---   2. Check local cache (~/.cache/coconut/schemas/<filename>).
 ---   3. Download from GitHub raw (main branch), write to cache.
 ---   4. Fall back to `schemas/<filename>` relative to the script location.
+--- Canonical install-home for bundled assets (schemas, agent skill, …).
+--- Mirrors the installer's COCONUT_HOME (default ~/.coconut).
+local function coconut_home()
+  local home = os.getenv("COCONUT_HOME")
+  if not home or home == "" then
+    home = (os.getenv("HOME") or "~") .. "/.coconut"
+  end
+  return home:gsub("[/\\]$", "")  -- normalize (no trailing slash)
+end
+
 local function resolve_schema(filename, offline)
   if offline == nil then offline = g_offline end
+
+  -- 0. Installed assets (populated by install.sh / mise-install) take
+  --    precedence: this makes `create-coconut-app` fully offline-capable and
+  --    independent of CWD or the script's location.
+  local installed = path_join(coconut_home(), "schemas", filename)
+  local inf = io.open(installed, "r")
+  if inf then
+    inf:close()
+    return installed
+  end
 
   -- Cache hit
   if not offline then
@@ -209,36 +229,57 @@ local function resolve_schema(filename, offline)
     end
   end
 
-  -- Bundled fallback
-  -- Try relative to the script first (when running from repo or extracted archive),
-  -- then relative to CWD (when invoked via PATH).
+  -- Bundled fallback: resolve the script's real directory (following symlinks,
+  -- and working even when invoked by bare name via PATH), then look for the file
+  -- directly and inside a `schemas/` subdir at each ancestor. CWD-relative
+  -- locations are also tried. This makes --offline resolve the schema files that
+  -- ship in the repo's schemas/ directory without any network access.
   local search_dirs = {}
-  if arg and arg[0] then
-    local script_dir = arg[0]:match("^(.*[/\\])") or "."
-    -- Walk up from script dir through parent dirs
-    local dir = script_dir
-    for _ = 1, 4 do
-      table.insert(search_dirs, dir)
-      local parent = dir:match("^(.*[/\\])")
-      if not parent or parent == dir then break end
-      dir = parent
+  local self_path = (arg and arg[0]) or "."
+  local resolved = self_path
+  -- When invoked by bare name (normal CLI usage), resolve via PATH first:
+  -- readlink -f does not search PATH, so it would otherwise fail to locate the
+  -- script and we'd never reach the bundled schemas/ directory.
+  if not self_path:match("[/\\]") then
+    local cv = io.popen("command -v " .. self_path .. " 2>/dev/null")
+    if cv then
+      local out = cv:read("*a")
+      cv:close()
+      if out and out ~= "" then resolved = out:gsub("\n*$", "") end
     end
   end
-  -- Also check CWD and common relative locations
+  local real = resolved
+  local rf = io.popen("readlink -f " .. resolved .. " 2>/dev/null")
+  if rf then
+    local out = rf:read("*a")
+    rf:close()
+    if out and out ~= "" then real = out:gsub("\n*$", "") end
+  end
+  local script_dir = real:match("^(.*[/\\])") or "."
+  script_dir = script_dir:gsub("[/\\]$", "")  -- strip trailing slash so the parent walk-up terminates correctly
+  local dir = script_dir
+  for _ = 1, 4 do
+    table.insert(search_dirs, dir)
+    local parent = dir:match("^(.*[/\\])")
+    if not parent or parent == dir then break end
+    dir = parent
+  end
   table.insert(search_dirs, ".")
   table.insert(search_dirs, "schemas")
   table.insert(search_dirs, "../schemas")
 
   for _, dir in ipairs(search_dirs) do
-    local candidate = dir .. "/" .. filename
-    local f = io.open(candidate, "r")
-    if f then
-      f:close()
-      return candidate
+    local base = dir:gsub("[/\\]$", "")  -- normalize (avoid double slashes)
+    for _, cand in ipairs({ base .. "/" .. filename, base .. "/schemas/" .. filename }) do
+      local f = io.open(cand, "r")
+      if f then
+        f:close()
+        return cand
+      end
     end
   end
 
-  return nil, "could not resolve " .. filename .. " (tried " .. #search_dirs .. " locations)"
+  return nil, "could not resolve " .. filename .. " (tried " .. (#search_dirs * 2) .. " locations)"
 end
 
 --- Copy a schema file into the project directory.
@@ -746,6 +787,14 @@ end
 
 --- Detect the framework SKILL.md path by looking relative to the create-coconut-app script.
 local function find_skill_md()
+  -- Installed skill (populated by the installer) takes precedence.
+  local installed = path_join(coconut_home(), "skill", "SKILL.md")
+  local it = io.open(installed, "r")
+  if it then
+    it:close()
+    return installed
+  end
+
   local script = arg and arg[0] or "scripts/create-coconut-app"
   local f = io.popen("readlink -f \"" .. script .. "\" 2>/dev/null || echo \"" .. script .. "\"")
   if not f then return nil end

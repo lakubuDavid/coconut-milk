@@ -15,6 +15,14 @@ CLI_DIR="${PROJECT_ROOT}/apps/coconut-cli"
 
 mkdir -p "${INSTALL_DIR}"
 
+# Populate ~/.coconut with bundled assets (schemas + agent skill) so that
+# create-coconut-app works fully offline, independent of CWD or the repo.
+COCONUT_HOME="${COCONUT_HOME:-${HOME}/.coconut}"
+mkdir -p "${COCONUT_HOME}/schemas" "${COCONUT_HOME}/skill"
+cp -f "${PROJECT_ROOT}/schemas/coconut.d.lua" "${COCONUT_HOME}/schemas/" 2>/dev/null || true
+cp -f "${PROJECT_ROOT}/schemas/coconut.d.ts" "${COCONUT_HOME}/schemas/" 2>/dev/null || true
+cp -f "${PROJECT_ROOT}/SKILL.md" "${COCONUT_HOME}/skill/SKILL.md" 2>/dev/null || true
+
 # Resolve the actual coconut-cli binary path (strip ANSI codes from xmake output).
 BIN="$(cd "${CLI_DIR}" && xmake show -t coconut-cli 2>/dev/null \
   | awk -F': ' '{gsub(/\033\[[0-9;]*m/,"",$0); if ($1 ~ /targetfile$/) { printf "%s/%s", "'"${CLI_DIR}"'", $2; print "" }}')"

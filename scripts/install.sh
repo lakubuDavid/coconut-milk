@@ -6,7 +6,8 @@
 #
 # Installs the latest Coconut Milk release binary (`coconut`) and the
 # `create-coconut-app` scaffolding script into a configurable bin directory
-# (default ~/.local/bin). Other assets (version metadata) live in ~/.coconut.
+# (default ~/.local/bin). Other assets (schemas, agent skill, version metadata)
+# live in ~/.coconut.
 #
 # Options:
 #   -y, --yes          Confirm without prompting (non-interactive)
@@ -202,6 +203,16 @@ do_install() {
   chmod +x "$BIN_DIR/create-coconut-app"
   echo "done"
 
+  printf "  Installing schema + skill assets into %s ... " "$COCONUT_HOME"
+  mkdir -p "$COCONUT_HOME/schemas" "$COCONUT_HOME/skill"
+  download "https://raw.githubusercontent.com/$REPO/main/schemas/coconut.d.lua" "$COCONUT_HOME/schemas/coconut.d.lua" \
+    || warn "could not fetch schemas/coconut.d.lua (will be fetched on first online scaffold)"
+  download "https://raw.githubusercontent.com/$REPO/main/schemas/coconut.d.ts" "$COCONUT_HOME/schemas/coconut.d.ts" \
+    || warn "could not fetch schemas/coconut.d.ts (will be fetched on first online scaffold)"
+  download "https://raw.githubusercontent.com/$REPO/main/SKILL.md" "$COCONUT_HOME/skill/SKILL.md" \
+    || warn "could not fetch SKILL.md (agent skill will be skipped)"
+  echo "done"
+
   printf '%s\n' "$VERSION" > "$COCONUT_HOME/VERSION"
 
   printf '\n'
@@ -228,7 +239,7 @@ printf '%s\n' "  This installer will:"
 printf '%b\n' "    1. Download the latest Coconut Milk release binary for your platform${RESET}"
 printf '%b\n' "    2. Install it as ${BOLD}coconut${RESET} into $BIN_DIR${RESET}"
 printf '%b\n' "    3. Install the ${BOLD}create-coconut-app${RESET} scaffolding script into $BIN_DIR${RESET}"
-printf '%b\n' "    Other assets (version metadata) go to $COCONUT_HOME${RESET}"
+printf '%b\n' "    Other assets (schemas, agent skill, version metadata) go to $COCONUT_HOME${RESET}"
 printf '%s\n' ""
 
 if [ "$DRY_RUN" = "1" ]; then

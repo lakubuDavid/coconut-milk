@@ -11,6 +11,14 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 mkdir -p "${INSTALL_DIR}"
 
+# Populate ~/.coconut with bundled assets (schemas + agent skill) so that
+# create-coconut-app works fully offline, independent of CWD or the repo.
+COCONUT_HOME="${COCONUT_HOME:-${HOME}/.coconut}"
+mkdir -p "${COCONUT_HOME}/schemas" "${COCONUT_HOME}/skill"
+cp -f "${PROJECT_ROOT}/schemas/coconut.d.lua" "${COCONUT_HOME}/schemas/" 2>/dev/null || true
+cp -f "${PROJECT_ROOT}/schemas/coconut.d.ts" "${COCONUT_HOME}/schemas/" 2>/dev/null || true
+cp -f "${PROJECT_ROOT}/SKILL.md" "${COCONUT_HOME}/skill/SKILL.md" 2>/dev/null || true
+
 # Resolve the actual binary path (strip ANSI codes from `xmake show` output).
 # The coconut target lives in apps/coconut, so xmake must run from there —
 # there is no root xmake.lua.
