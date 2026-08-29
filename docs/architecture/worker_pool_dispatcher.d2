@@ -1,0 +1,151 @@
+title: Coconut Milk - Worker Pool / Dispatcher / Main Runtime {
+  shape: text
+  near: top-center
+  style: {
+    font-size: 32
+    bold: true
+    underline: true
+  }
+}
+
+direction: right
+
+# ----------------------------------------------------------------------
+# Main runtime + dispatcher + worker pool relationship
+# ----------------------------------------------------------------------
+
+main: "Main Thread\n(main.cpp)\nCFRunLoopSource\nplatform::runloop" {
+  icon: https://icons.terrastruct.com/essentials/051-cpu.svg
+  style.fill: "#fef3c7"
+  style.stroke: "#f59e0b"
+  style.stroke-width: 2
+}
+
+pump: "Dispatch Pump\n(main-thread)\nCFRunLoopSource +\ntask queue\nplatform::runloop" {
+  icon: https://icons.terrastruct.com/essentials/159-refresh-cw.svg
+  style.fill: "#fef3c7"
+  style.stroke: "#f59e0b"
+  style.stroke-width: 2
+}
+
+dispatcher: "core::Dispatcher\nqueue + flush()\npost(fn) → queue\nflush() → runs on main" {
+  icon: https://icons.terrastruct.com/essentials/095-share-2.svg
+  style.fill: "#ede9fe"
+  style.stroke: "#7c3aed"
+  style.stroke-width: 2
+}
+
+pool: "core::WorkerPool\nN workers (config)\nround-robin assign" {
+  icon: https://icons.terrastruct.com/essentials/148-layers.svg
+  style.fill: "#ede9fe"
+  style.stroke: "#7c3aed"
+  style.stroke-width: 2
+}
+
+worker1: "Worker #1\nLua VM + ctx\ncommand map\npost → dispatcher" {
+  icon: https://icons.terrastruct.com/essentials/051-cpu.svg
+  style.fill: "#f5f3ff"
+}
+
+worker2: "Worker #2\nLua VM + ctx\ncommand map\npost → dispatcher" {
+  icon: https://icons.terrastruct.com/essentials/051-cpu.svg
+  style.fill: "#f5f3ff"
+}
+
+workerN: "Worker #N\nLua VM + ctx\ncommand map\npost → dispatcher" {
+  icon: https://icons.terrastruct.com/essentials/051-cpu.svg
+  style.fill: "#f5f3ff"
+}
+
+# ----------------------------------------------------------------------
+# Command path
+# ----------------------------------------------------------------------
+js: "JS Front-end\ncoconut.call()\n→ __coconut_rpc" {
+  icon: https://icons.terrastruct.com/essentials/088-browser.svg
+  style.fill: "#dbeafe"
+}
+
+transport: "WebviewTransport\n__coconut_rpc binding\nsend envelope" {
+  icon: https://icons.terrastruct.com/essentials/083-message-2.svg
+  style.fill: "#dbeafe"
+}
+
+bridge: "core::Bridge\nonInbound()\n→ known mt/main: sync exec\n→ unknown: dispatcher" {
+  icon: https://icons.terrastruct.com/essentials/175-link.svg
+  style.fill: "#dbeafe"
+}
+
+# ----------------------------------------------------------------------
+# Result path (async reply)
+# ----------------------------------------------------------------------
+rpc_reply: "JS Promise\n__coconut_rpc_receive(id)\nresolves promise" {
+  icon: https://icons.terrastruct.com/essentials/264-plug.svg
+  style.fill: "#dbeafe"
+}
+
+# ----------------------------------------------------------------------
+# Connections
+# ----------------------------------------------------------------------
+js -> transport: "envelope {type, id, name, payload}"
+transport -> bridge: "onInbound(envelope)"
+bridge -> dispatcher: "queue (unknown cmd)"
+bridge -> main: "sync exec (known mt/main)"
+
+dispatcher -> pool: "round-robin assign"
+pool -> worker1: "executes"
+pool -> worker2: "executes"
+pool -> workerN: "executes"
+
+worker1 -> dispatcher: "post(fn) → queue"
+worker2 -> dispatcher: "post(fn) → queue"
+workerN -> dispatcher: "post(fn) → queue"
+
+dispatcher -> pump: "flush() runs on main"
+pump -> main: "CFRunLoopSource fires"
+
+main -> dispatcher: "flush() drains queue"
+dispatcher -> bridge: "kReturn/kError"
+bridge -> transport: "reply envelope"
+transport -> rpc_reply: "__coconut_rpc_receive"
+
+# ----------------------------------------------------------------------
+# Sequence: async command (worker path)
+# ----------------------------------------------------------------------
+sequence: "Async Worker Command Flow" {
+  js -> transport: "call(name, args) → promise"
+  transport -> bridge: "onInbound {id, name, args}"
+  bridge -> dispatcher: "queue(CommandCallMsg)"
+  dispatcher -> pool: "assign worker"
+  pool -> worker1: "exec CommandCallMsg"
+  worker1 -> dispatcher: "post(ResolveMsg)"
+  dispatcher -> pump: "flush"
+  pump -> main: "CFRunLoopSource"
+  main -> dispatcher: "drain queue"
+  dispatcher -> bridge: "kReturn {id, data}"
+  bridge -> transport: "send reply"
+  transport -> rpc_reply: "__coconut_rpc_receive(id)"
+  rpc_reply -> js: "promise resolves"
+}
+
+# ----------------------------------------------------------------------
+# Sequence: sync command (main-thread)
+# ----------------------------------------------------------------------
+sequence: "Sync Main-Thread Command Flow" {
+  js -> transport: "call(name, args) → promise"
+  transport -> bridge: "onInbound {id, name, args}"
+  bridge -> main: "sync exec (mt/main)"
+  main -> bridge: "result / error"
+  bridge -> transport: "send reply"
+  transport -> rpc_reply: "__coconut_rpc_receive(id)"
+  rpc_reply -> js: "promise resolves"
+}
+
+# Legend
+legend: {
+  near: bottom-right
+  shape: text
+  label: "Icons: SVGL bundled + Lucide"
+  style.font-size: 14
+  style.italic: true
+  style.fill: "#ffffff"
+}

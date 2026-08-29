@@ -1,0 +1,183 @@
+title: Coconut Milk - Tech Stack {
+  shape: text
+  near: top-center
+  style: {
+    font-size: 32
+    bold: true
+    underline: true
+  }
+}
+
+# Tech stack diagram for Coconut Milk — a Lua-first, single-binary desktop UI framework.
+# Each layer renders an icon from the bundled SVGL/Lucide set via the `icon` keyword.
+
+direction: down
+
+# ----------------------------------------------------------------------
+# 1. Application / user-facing layer
+# ----------------------------------------------------------------------
+users: "End Users" {
+  shape: person
+  style.fill: "#fde68a"
+}
+
+html: "HTML / CSS / JS" {
+  icon: https://icons.terrastruct.com/essentials/384-file-html.svg
+  style.fill: "#fef3c7"
+}
+
+ts: "TypeScript (coconut.d.ts)" {
+  icon: https://icons.terrastruct.com/essentials/384-file-typescript.svg
+  style.fill: "#dbeafe"
+}
+
+# ----------------------------------------------------------------------
+# 2. Coconut framework layer
+# ----------------------------------------------------------------------
+fwk: {
+  label: "Coconut Milk Framework"
+  style.fill: "#ede9fe"
+  style.stroke: "#7c3aed"
+  style.stroke-width: 2
+
+  lua_user: "coconut.lua\n(commands, store,\nkeybind, fs, log, json,\nnotify, openurl,\nclipboard, env,\nhotreload, dialog)" {
+    icon: https://icons.terrastruct.com/dev%2F/lua.svg
+    style.fill: "#f5f3ff"
+  }
+
+  bridge: "core::Bridge\nonInbound routing\nsync executor (mt/main)" {
+    icon: https://icons.terrastruct.com/essentials/175-link.svg
+    style.fill: "#f5f3ff"
+  }
+
+  transport: "WebviewTransport\n__coconut_rpc binding\nenvelope send/eval" {
+    icon: https://icons.terrastruct.com/essentials/083-message-2.svg
+    style.fill: "#f5f3ff"
+  }
+
+  dispatcher: "core::Dispatcher\nqueue + flush\nowns WorkerPool" {
+    icon: https://icons.terrastruct.com/essentials/095-share-2.svg
+    style.fill: "#f5f3ff"
+  }
+
+  pool: "core::WorkerPool\nN Lua VM workers\nround-robin" {
+    icon: https://icons.terrastruct.com/essentials/148-layers.svg
+    style.fill: "#f5f3ff"
+  }
+
+  window_mod: "coconut::window\n(view events module)" {
+    icon: https://icons.terrastruct.com/essentials/110-window.svg
+    style.fill: "#f5f3ff"
+  }
+}
+
+# ----------------------------------------------------------------------
+# 3. Native runtime layer
+# ----------------------------------------------------------------------
+runtime: {
+  label: "Native Runtime (C++20)"
+  style.fill: "#dcfce7"
+  style.stroke: "#16a34a"
+  style.stroke-width: 2
+
+  cpp_core: "C++20 core\napp, main_runtime, config, bundle" {
+    icon: https://icons.terrastruct.com/essentials/093-document-1.svg
+    style.fill: "#f0fdf4"
+  }
+
+  sol2: "sol2\nLua <-> C++ bindings" {
+    icon: https://icons.terrastruct.com/essentials/264-plug.svg
+    style.fill: "#f0fdf4"
+  }
+
+  platform: "platform/* adapters\ndarwin / linux / win" {
+    icon: https://icons.terrastruct.com/essentials/063-monitor.svg
+    style.fill: "#f0fdf4"
+  }
+
+  webview: "WKWebView / WebView2 / WebKitGTK" {
+    icon: https://icons.terrastruct.com/essentials/088-browser.svg
+    style.fill: "#f0fdf4"
+  }
+
+  stb: "stb_image / stb_image_write" {
+    icon: https://icons.terrastruct.com/essentials/172-image.svg
+    style.fill: "#f0fdf4"
+  }
+}
+
+# ----------------------------------------------------------------------
+# 4. Build & tooling layer
+# ----------------------------------------------------------------------
+build: {
+  label: "Build & Tooling"
+  style.fill: "#fee2e2"
+  style.stroke: "#dc2626"
+  style.stroke-width: 2
+
+  xmake: "xmake (build)" {
+    icon: https://icons.terrastruct.com/dev%2F/hammer-and-wrench.svg
+    style.fill: "#fef2f2"
+  }
+
+  mise: "mise (tool versions)" {
+    icon: https://icons.terrastruct.com/essentials/266-box.svg
+    style.fill: "#fef2f2"
+  }
+
+  bun: "bun (JS deps + scripts)" {
+    icon: https://icons.terrastruct.com/dev%2F/javascript.svg
+    style.fill: "#fef2f2"
+  }
+
+  python: "python (js2c_to_header)" {
+    icon: https://icons.terrastruct.com/dev%2F/python.svg
+    style.fill: "#fef2f2"
+  }
+
+  llvm: "clang/LLVM 16+, GCC 13+, MSVC" {
+    icon: https://icons.terrastruct.com/essentials/092-document.svg
+    style.fill: "#fef2f2"
+  }
+
+  ci: "GitHub Actions\n(build / pages / test / tsan)" {
+    icon: https://icons.terrastruct.com/essentials/163-check.svg
+    style.fill: "#fef2f2"
+  }
+}
+
+# ----------------------------------------------------------------------
+# Flow: top -> down
+# ----------------------------------------------------------------------
+users -> html: "render UI"
+html -> ts: "type-check via"
+ts -> fwk.lua_user: "calls into"
+fwk.lua_user -> fwk.bridge: "invokes commands"
+fwk.bridge -> fwk.transport: "send envelope"
+fwk.transport -> fwk.dispatcher: "queue (async)"
+fwk.dispatcher -> fwk.pool: "round-robin"
+fwk.pool -> fwk.lua_user: "exec in VM"
+fwk.window_mod -> runtime.platform: "native ops"
+runtime.platform -> runtime.webview: "lifecycle"
+runtime.cpp_core -> runtime.sol2: "binds Lua"
+runtime.sol2 -> fwk.lua_user: "exposes API"
+runtime.webview -> html: "renders"
+runtime.stb -> runtime.cpp_core: "icon_gen"
+fwk.bridge -> runtime.platform: "post() to main"
+
+build.xmake -> runtime.cpp_core: "compiles"
+build.llvm -> runtime.cpp_core: "compiles"
+build.mise -> build.xmake: "pins versions"
+build.bun -> fwk.transport: "builds TS/JS"
+build.python -> runtime.webview: "embeds assets"
+build.ci -> build.xmake: "runs"
+
+# Legend
+legend: {
+  near: bottom-right
+  shape: text
+  label: "Icons: SVGL bundled + Lucide"
+  style.font-size: 14
+  style.italic: true
+  style.fill: "#ffffff"
+}
